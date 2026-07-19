@@ -2,8 +2,12 @@
 #
 # download-model.sh — fetch the Gemma 4 12B Core ML 128K Context Ladder bundle.
 #
-# Downloads the model bundle (~11 GB, includes the pre-compiled .mlmodelc chunks, the int8
-# lm_head, the fp16 embedding sidecar, both MTP drafters, and the tokenizer) into ./models/.
+# Downloads the model bundle (~11 GB) into ./models/. Contents:
+#   - int4 transformer chunks + int8 lm_head as .mlpackage (compiled to .mlmodelc once on the
+#     first load and cached inside the bundle directory; not shipped pre-compiled)
+#   - the two MTP drafters (drafter_ring.mlmodelc / drafter_ring32k.mlmodelc)
+#   - the fp16 embedding sidecar (embed_fp16.bin)
+#   - the tokenizer (tokenizer.json / tokenizer_config.json)
 #
 # Usage:
 #   ./scripts/download-model.sh                 # → ./models/gemma-4-12b-it-coreml-128k

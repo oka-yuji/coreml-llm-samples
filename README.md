@@ -55,9 +55,19 @@ swift run -c release corellm-chat \
 
 ### First run is slow — this is expected
 
-The **first inference in a process spends ~40 seconds** specializing GPU kernels (mostly the int8
-`lm_head`'s 262K-way argmax GEMM). This is per-process and not cached across runs. The CLI prints a
-`[warming up…]` notice so you know what it's doing. Subsequent turns in the same session are fast.
+Two one-time costs stack up on the very first run:
+
+1. **Compile.** The bundle ships the chunks and `lm_head` as `.mlpackage`, not pre-compiled
+   `.mlmodelc`. The first load compiles them to `.mlmodelc` **once** and caches the result inside
+   the bundle directory (next to the `.mlpackage`), so every later load skips it. This step is
+   fast: measured at **~1.2 s total** for the whole bundle on an M4 Max (about 0.3 s per chunk).
+2. **GPU specialization.** The **first inference in a process then spends ~40 seconds**
+   specializing GPU kernels (mostly the int8 `lm_head`'s 262K-way argmax GEMM). This one is
+   per-process and is *not* cached across runs.
+
+The CLI prints a `[warming up…]` notice so you know what it's doing. Subsequent turns in the same
+session are fast, and subsequent process launches skip the compile (only the GPU specialization
+recurs).
 
 ### CLI flags
 
@@ -90,8 +100,8 @@ and Ctrl-D exits.
 - **KV persistence** *(library feature — not wired into this CLI)*. `CoreMLChainV2` can export the
   KV `MLState` to disk and restore it in a fresh process to continue **without re-prefilling** —
   greedy-exact across processes. This is the mechanism behind "cold-prefill a long document once".
-  It is exercised by the library's tests, not exposed as a `corellm-chat` flag; treat it as an API
-  building block.
+  It was validated in the upstream research project (bit-exact cross-process restore); here it is a
+  `CoreMLChainV2` API rather than a `corellm-chat` flag — treat it as a building block.
 
 ---
 
