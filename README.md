@@ -219,14 +219,13 @@ Only dependency: [huggingface/swift-transformers](https://github.com/huggingface
 ## License
 
 - **Code:** MIT — see [LICENSE](LICENSE).
-- **Model weights** (distributed separately on Hugging Face): governed by the
-  [Gemma Terms of Use](https://ai.google.dev/gemma/terms), **not** MIT.
-  The bundle is a **Model Derivative** of
+- **Model weights** (distributed separately on Hugging Face): derived from
   [`google/gemma-4-12B-it`](https://huggingface.co/google/gemma-4-12B-it) — converted to a Core ML
-  graph and quantized (int4 matmul / int8 lm_head). **Built with Gemma.**
+  graph and quantized (int4 AWQ matmul / int8 lm_head) — and distributed under the **Apache License
+  2.0**. **Built with Gemma.**
 
 The following applies to the model weights only — the code in this repository stays MIT.
-Gemma is provided under and subject to the Gemma Terms of Use found at https://ai.google.dev/gemma/terms. By downloading or using the weights you agree to those terms, including the [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy).
+Gemma 4 is released by Google under the [Apache License 2.0](https://ai.google.dev/gemma/docs/gemma_4_license), and the derived weights in this bundle carry the same license. The full license text ships with the model bundle on Hugging Face.
 
 "Gemma" is a trademark of Google LLC; "Core ML" and "Apple Silicon" are trademarks of Apple Inc.
 Not affiliated with, endorsed by, or sponsored by Google or Apple.
