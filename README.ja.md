@@ -211,8 +211,13 @@ docs/                      アーキテクチャ・検証ノート
 ## ライセンス
 
 - **コード:** MIT — [LICENSE](LICENSE) を参照。
-- **モデル重み**(Hugging Face で別途配布): MIT ではなく
-  [Gemma Terms of Use](https://ai.google.dev/gemma/terms) に従います。**Built with Gemma.**
+- **モデル重み**(Hugging Face で別途配布): MIT では**なく**
+  [Gemma Terms of Use](https://ai.google.dev/gemma/terms) に従います。本バンドルは
+  [`google/gemma-4-12B-it`](https://huggingface.co/google/gemma-4-12B-it) の **Model Derivative**
+  (Core ML グラフへの変換 + int4 matmul / int8 lm_head 量子化)です。**Built with Gemma.**
 
-本プロジェクトは独立した非公式のものです。Google・Apple とは提携・承認・後援の関係に**ありません**。
+以下はモデル重みにのみ適用されます(本リポジトリのコードは MIT のままです):
+Gemma is provided under and subject to the Gemma Terms of Use found at https://ai.google.dev/gemma/terms. By downloading or using the weights you agree to those terms, including the [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy).
+
 "Gemma" は Google LLC、"Core ML" と "Apple Silicon" は Apple Inc. の商標です。
+Google・Apple とは提携・承認・後援の関係にありません。
