@@ -117,8 +117,10 @@ Measured on **M4 Max, 128 GB, macOS 26**, single process per condition, greedy d
 | `ctx32k` (≤ 32,768 tokens) | **90.51** | **11.0** | every conversation under 32K |
 | `ctx128k` (> 32,768 tokens) | **300.96** | ~3.3 | only once a conversation grows past 32K |
 
-The wide-context "fixed-width tax" is **3.24×** at int4. The whole point of the ladder is to *not*
-pay it until you have to.
+The wide-context "fixed-width tax" is **3.24×** at int4 — that figure is the 128K/32K ratio measured
+on the **standalone** single-mode bundles (357.04 / 110.17 ms/tok). The ladder is 15–18% faster than
+standalone in *both* modes, so dividing the table above gives a slightly steeper 3.33×; same tax,
+different pair of measurements. The whole point of the ladder is to *not* pay it until you have to.
 *(Source: internal results 2026-07-15 build gate; 2026-07-13 promotion spike.)*
 
 ### Speculative decoding (ctx32k regime, drafter-only, draft_len = 4)
@@ -165,8 +167,8 @@ is **always lossless** (output identical to `--no-mtp`).
 ## Limitations (read these)
 
 - **128K mode is slow by design.** The wide graph runs at ~300 ms/tok (~3.3 tok/s) versus ~90 ms/tok
-  in 32K mode — a fixed 3.24× tax at int4. The ladder avoids it for sub-32K conversations, but a
-  genuinely 128K-deep context is not fast.
+  in 32K mode — a fixed ~3.2–3.3× tax at int4 (3.24× measured on the standalone bundles). The ladder
+  avoids it for sub-32K conversations, but a genuinely 128K-deep context is not fast.
 - **Greedy argmax only.** The `lm_head` emits an argmax token id, not logits. There is **no
   temperature / top-k / top-p sampling** — outputs are deterministic. Sampling would require
   re-converting the model with a logits head.
