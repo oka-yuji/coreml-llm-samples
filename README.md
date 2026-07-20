@@ -36,7 +36,7 @@ ships the research pieces that make a 12B / 128K model usable on a Mac:
 git clone https://github.com/oka-yuji/CoreML-Gemma4-128K.git
 cd CoreML-Gemma4-128K
 
-# 2. Download the model bundle (~11 GB) — requires `hf auth login` first (private, Gemma terms)
+# 2. Download the model bundle (~11 GB)
 ./scripts/download-model.sh
 # → ./models/gemma-4-12b-it-coreml-128k
 

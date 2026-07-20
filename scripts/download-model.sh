@@ -13,7 +13,7 @@
 #   ./scripts/download-model.sh                 # → ./models/gemma-4-12b-it-coreml-128k
 #   ./scripts/download-model.sh /path/to/dest   # custom destination
 #
-# The Hugging Face repo is private (Gemma Terms of Use). Authenticate first:
+# If the repo is private or gated (e.g. under the Gemma Terms of Use), authenticate first:
 #   hf auth login
 #
 set -euo pipefail

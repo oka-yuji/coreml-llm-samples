@@ -35,7 +35,7 @@
 git clone https://github.com/oka-yuji/CoreML-Gemma4-128K.git
 cd CoreML-Gemma4-128K
 
-# 2. モデルバンドルをダウンロード(~11 GB)— 事前に `hf auth login`(private・Gemma 規約)
+# 2. モデルバンドルをダウンロード(~11 GB)
 ./scripts/download-model.sh
 # → ./models/gemma-4-12b-it-coreml-128k
 
