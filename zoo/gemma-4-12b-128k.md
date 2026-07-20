@@ -1,4 +1,4 @@
-# CoreML-Gemma4-128K
+# Gemma 4 12B IT — 128K Context Ladder (Core ML)
 
 Run **Gemma 4 12B** on Apple Silicon with **Core ML**, at a full **131,072-token** context —
 using a *Context Ladder* that keeps short conversations fast and only pays the wide-context cost
@@ -6,7 +6,7 @@ once a conversation actually grows past 32K. Clone, download the bundle, and cha
 
 > **12B** · **131,072** ctx · **~11 tok/s** (32K mode, M4 Max) · **6.7 GB** single bundle · **zero-copy** 32K→128K promotion · **lossless** speculative decoding
 
-[日本語版 README →](README.ja.md) · Article: *coming soon*
+[← Back to the model zoo](../README.md) · [日本語版 →](gemma-4-12b-128k.ja.md) · Article: *coming soon*
 
 ---
 
@@ -22,7 +22,7 @@ ships the research pieces that make a 12B / 128K model usable on a Mac:
   in one batched pass and keeps only greedy-correct ones. The text is *identical* to non-speculative
   decoding; only the speed changes.
 - **Bit-exact verification everywhere** — int4 conversion, the ring KV buffer, promotion, and
-  speculation are each gated against a greedy exact-match oracle. See [docs/verification.md](docs/verification.md).
+  speculation are each gated against a greedy exact-match oracle. See [docs/verification.md](../docs/verification.md).
 
 ---
 
@@ -33,8 +33,8 @@ ships the research pieces that make a 12B / 128K model usable on a Mac:
 
 ```bash
 # 1. Clone
-git clone https://github.com/oka-yuji/CoreML-Gemma4-128K.git
-cd CoreML-Gemma4-128K
+git clone https://github.com/oka-yuji/coreml-model-zoo.git
+cd coreml-model-zoo
 
 # 2. Download the model bundle (~11 GB)
 ./scripts/download-model.sh
@@ -140,7 +140,7 @@ is **always lossless** (output identical to `--no-mtp`).
 
 > Reproduced here as a smoke test (same Mac): base decode **10.2 tok/s**; with MTP on the same Q&A
 > prompt **16.0 tok/s** at **0.75** acceptance — and byte-identical text. This is the two-run
-> equality described in [docs/verification.md](docs/verification.md).
+> equality described in [docs/verification.md](../docs/verification.md).
 
 ### Promotion, memory, size
 
@@ -198,9 +198,9 @@ is **always lossless** (output identical to `--no-mtp`).
 
 ## How it works
 
-- [docs/architecture.md](docs/architecture.md) — the pipeline, the Context Ladder, ring KV, and the
+- [docs/architecture.md](../docs/architecture.md) — the pipeline, the Context Ladder, ring KV, and the
   drafter path.
-- [docs/verification.md](docs/verification.md) — the bit-exact / lossless gates and the margin rule.
+- [docs/verification.md](../docs/verification.md) — the bit-exact / lossless gates and the margin rule.
 
 ## Repository layout
 
@@ -218,7 +218,7 @@ Only dependency: [huggingface/swift-transformers](https://github.com/huggingface
 
 ## License
 
-- **Code:** MIT — see [LICENSE](LICENSE).
+- **Code:** MIT — see [LICENSE](../LICENSE).
 - **Model weights** (distributed separately on Hugging Face): derived from
   [`google/gemma-4-12B-it`](https://huggingface.co/google/gemma-4-12B-it) — converted to a Core ML
   graph and quantized (int4 AWQ matmul / int8 lm_head) — and distributed under the **Apache License

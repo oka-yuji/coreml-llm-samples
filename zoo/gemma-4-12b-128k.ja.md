@@ -1,4 +1,4 @@
-# CoreML-Gemma4-128K
+# Gemma 4 12B IT — 128K Context Ladder (Core ML)
 
 **Gemma 4 12B** を Apple Silicon 上で **Core ML** で動かし、**131,072 トークン**のフルコンテキストを
 扱えるサンプル。鍵は *Context Ladder*（コンテキストラダー）— 短い会話は高速なまま、会話が実際に 32K を
@@ -6,7 +6,7 @@
 
 > **12B** · **131,072** ctx · **~11 tok/s**（32K モード・M4 Max）· **6.7 GB** 単一バンドル · **ゼロコピー** 32K→128K 昇格 · **ロスレス**投機的デコード
 
-[English README →](README.md) · 記事: *coming soon*
+[← モデル一覧へ戻る](../README.ja.md) · [English →](gemma-4-12b-128k.md) · 記事: *coming soon*
 
 ---
 
@@ -21,7 +21,7 @@
 - **ロスレス投機的デコード** — 小さなドラフターがトークンを先読みし、本体グラフが 1 回のバッチ verify で
   greedy 一致分だけ採択します。出力は非投機と*完全に同一*で、変わるのは速度だけ。
 - **全経路のビット一致検証** — int4 変換・リング KV・昇格・投機のそれぞれを greedy 完全一致の oracle で
-  ゲートしています。[docs/verification.md](docs/verification.md) を参照。
+  ゲートしています。[docs/verification.md](../docs/verification.md) を参照。
 
 ---
 
@@ -32,8 +32,8 @@
 
 ```bash
 # 1. クローン
-git clone https://github.com/oka-yuji/CoreML-Gemma4-128K.git
-cd CoreML-Gemma4-128K
+git clone https://github.com/oka-yuji/coreml-model-zoo.git
+cd coreml-model-zoo
 
 # 2. モデルバンドルをダウンロード(~11 GB)
 ./scripts/download-model.sh
@@ -135,7 +135,7 @@ base decode に対するペア比中央値の高速化(プロンプト種別ご�
 
 > 本リポジトリのスモークテスト(同一 Mac)で再現: base decode **10.2 tok/s**、同じ Q&A プロンプトに
 > MTP を効かせて **16.0 tok/s**・採択率 **0.75** — かつテキストはバイト完全一致。これが
-> [docs/verification.md](docs/verification.md) が説明する「2 実行の等価性」です。
+> [docs/verification.md](../docs/verification.md) が説明する「2 実行の等価性」です。
 
 ### 昇格・メモリ・サイズ
 
@@ -191,8 +191,8 @@ base decode に対するペア比中央値の高速化(プロンプト種別ご�
 
 ## 仕組み
 
-- [docs/architecture.md](docs/architecture.md) — パイプライン、Context Ladder、リング KV、ドラフター経路。
-- [docs/verification.md](docs/verification.md) — ビット一致 / ロスレスのゲートと margin rule。
+- [docs/architecture.md](../docs/architecture.md) — パイプライン、Context Ladder、リング KV、ドラフター経路。
+- [docs/verification.md](../docs/verification.md) — ビット一致 / ロスレスのゲートと margin rule。
 
 ## リポジトリ構成
 
@@ -210,7 +210,7 @@ docs/                      アーキテクチャ・検証ノート
 
 ## ライセンス
 
-- **コード:** MIT — [LICENSE](LICENSE) を参照。
+- **コード:** MIT — [LICENSE](../LICENSE) を参照。
 - **モデル重み**(Hugging Face で別途配布):
   [`google/gemma-4-12B-it`](https://huggingface.co/google/gemma-4-12B-it) からの派生
   (Core ML グラフへの変換 + int4 AWQ matmul / int8 lm_head 量子化)で、**Apache License 2.0**
