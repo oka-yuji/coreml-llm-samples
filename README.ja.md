@@ -216,7 +216,7 @@ docs/                      アーキテクチャ・検証ノート
   [`google/gemma-4-12B-it`](https://huggingface.co/google/gemma-4-12B-it) の **Model Derivative**
   (Core ML グラフへの変換 + int4 matmul / int8 lm_head 量子化)です。**Built with Gemma.**
 
-以下はモデル重みにのみ適用されます(本リポジトリのコードは MIT のままです):
+以下はモデル重みにのみ適用されます(本リポジトリのコードは MIT のままです)。
 Gemma is provided under and subject to the Gemma Terms of Use found at https://ai.google.dev/gemma/terms. By downloading or using the weights you agree to those terms, including the [Gemma Prohibited Use Policy](https://ai.google.dev/gemma/prohibited_use_policy).
 
 "Gemma" は Google LLC、"Core ML" と "Apple Silicon" は Apple Inc. の商標です。
