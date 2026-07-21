@@ -56,6 +56,10 @@ GUI で試すなら `Examples/ChatApp/ChatApp.xcodeproj` を Xcode で開いて 
 同一のエンジンで動きます。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
 App Store 配布物ではありません。
 
+Xcode ではなく CLI からビルドする場合はアーキテクチャを固定してください:
+`xcodebuild ARCHS=arm64 -project Examples/ChatApp/ChatApp.xcodeproj -scheme ChatApp -configuration Release build`
+(同梱パッケージが Apple Silicon 専用のため)。Xcode から Run する通常経路はそのままで構いません。
+
 ---
 
 ## リポジトリ構成

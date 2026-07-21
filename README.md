@@ -58,6 +58,10 @@ slow** in the [model card](samples/gemma-4-12b-128k.md); later replies are fast.
 libraries as the CLI, so it runs the identical engine. It is a local development sample with App
 Sandbox disabled so it can open a bundle from any path, not an App Store build.
 
+To build it from the command line instead of Xcode, pin the architecture:
+`xcodebuild ARCHS=arm64 -project Examples/ChatApp/ChatApp.xcodeproj -scheme ChatApp -configuration Release build`
+(the bundled package is Apple Silicon only). Running from Xcode needs no such flag.
+
 ---
 
 ## Repository layout

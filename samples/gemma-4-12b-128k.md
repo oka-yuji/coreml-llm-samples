@@ -61,13 +61,15 @@ Two one-time costs stack up on the very first run:
    `.mlmodelc`. The first load compiles them to `.mlmodelc` **once** and caches the result inside
    the bundle directory (next to the `.mlpackage`), so every later load skips it. This step is
    fast: measured at **~1.2 s total** for the whole bundle on an M4 Max (about 0.3 s per chunk).
-2. **GPU specialization.** The **first inference in a process then spends ~40 seconds**
-   specializing GPU kernels (mostly the int8 `lm_head`'s 262K-way argmax GEMM). This one is
-   per-process and is *not* cached across runs.
+2. **GPU specialization.** Before the first inference the GPU kernels specialize (mostly the int8
+   `lm_head`'s 262K-way argmax GEMM). A 2026-07-05 measurement put this at **~40 seconds per
+   process**; a 2026-07-21 re-check on macOS 26.5.x instead saw it **cached across processes** — a
+   fresh process reached its first token in **0.25–3.8 s** (CPU+GPU, drafter off/on). Budget the
+   full ~40 s for a first-ever run (no cache, or after clearing the E5RT cache); later runs on the
+   same machine are fast.
 
-The CLI prints a `[warming up…]` notice so you know what it's doing. Subsequent turns in the same
-session are fast, and subsequent process launches skip the compile (only the GPU specialization
-recurs).
+The CLI prints a `[warming up…]` notice before the first token. Subsequent turns in the same session
+are fast, and later process launches skip the compile.
 
 ### CLI flags
 
@@ -177,15 +179,18 @@ is **always lossless** (output identical to `--no-mtp`).
 - **Speculation's edge shrinks with context.** The fixed-width verify tax means the largest wins are
   on short, structured prompts. Deeper contexts still benefit but by less; free-form prose is near
   break-even.
-- **First inference costs ~40 s** of one-time, per-process GPU kernel specialization (not cached).
+- **First-ever run pays ~40 s** of one-time GPU kernel specialization (measured 2026-07-05). On
+  macOS 26.5.x (re-checked 2026-07-21) this is cached across processes, so later runs reach the first
+  token in seconds; budget ~40 s only for the first run or after clearing the E5RT cache.
 
 ---
 
 ## Troubleshooting
 
-- **"It hangs for 40 seconds on the first token."** Expected — that's the one-time `lm_head` GPU
-  specialization. Warm turns in the same session are fast. Pre-warm at app launch if you embed the
-  library.
+- **"It hangs on the first token."** The one-time `lm_head` GPU specialization runs before the first
+  token. On a first-ever run (no cache) budget ~40 s (measured 2026-07-05); on macOS 26.5.x the
+  specialization is cached across processes (re-checked 2026-07-21), so a fresh process is back to a
+  few seconds. Warm turns in the same session are fast. Pre-warm at app launch if you embed the library.
 - **Disk fills up / random segfaults after many runs.** Core ML's E5RT cache
   (`~/Library/Caches/com.apple.e5rt.e5bundlecache` and the swiftpm-testing-helper variant) grows
   several GB per run. Clear it if you're low on space (it regenerates; next load is just slower).
