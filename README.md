@@ -13,10 +13,10 @@ verification discipline is the house style — the receipts are in each model ca
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| ✅ [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
 
-> ✅ published · 🚧 in preparation. **Speed** is one representative figure; the full measurement
-> conditions and every number live in each model's card.
+> **Speed** is one representative figure; the full measurement conditions and every number live in
+> each model's card.
 
 ### Planned
 
@@ -68,7 +68,7 @@ its card and its Hugging Face bundle, not a new runtime.
 
 Each row in the table links to a **model card** under `samples/`. A card is self-contained: who the
 model is for, what makes the conversion notable, a benchmark table with its conditions and sources,
-requirements, limitations, troubleshooting, and the weights' license. The 🤗 column points to the
+requirements, limitations, troubleshooting, and the weights' license. The HF column points to the
 Hugging Face repo that hosts the actual weights; the code that runs them lives in this repository.
 Numbers on this index are single representative figures — the card is the source of truth for the
 conditions behind them.

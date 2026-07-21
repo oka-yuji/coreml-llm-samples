@@ -12,9 +12,9 @@
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| ✅ [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
 
-> ✅ 公開済み · 🚧 準備中。**Speed** は代表値 1 つです。詳細な測定条件と全数値は各モデルカードにあります。
+> **Speed** は代表値 1 つです。詳細な測定条件と全数値は各モデルカードにあります。
 
 ### 予定（Planned）
 
@@ -65,7 +65,7 @@ LICENSE                    MIT(コードに適用)
 ## サンプルの読み方
 
 表の各行は `samples/` 以下の**モデルカード**にリンクします。カードは自己完結です — 対象読者、変換の勘所、
-測定条件と出典つきのベンチマーク表、要件、制限、トラブルシューティング、重みのライセンス。🤗 列は実際の
+測定条件と出典つきのベンチマーク表、要件、制限、トラブルシューティング、重みのライセンス。HF 列は実際の
 重みをホストする Hugging Face リポジトリを指し、それを動かすコードはこのリポジトリにあります。この索引の
 数値は代表値 1 つで、条件の正本はカードです。
 
