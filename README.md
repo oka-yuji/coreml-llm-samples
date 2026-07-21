@@ -46,6 +46,18 @@ cd coreml-llm-samples
 swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
+### Or open the Xcode project
+
+Prefer a GUI? Open `Examples/ChatApp/ChatApp.xcodeproj` in Xcode and press Run. In the app, click
+**Choose…** to pick a downloaded model bundle directory, press **Load**, and chat. Responses stream
+as they generate, and the status line reports the last turn's tokens/second and time-to-first-token.
+The first reply of a run pays the one-time GPU specialization cost described under **First run is
+slow** in the [model card](samples/gemma-4-12b-128k.md); later replies are fast.
+
+`ChatApp` is a small macOS 26 SwiftUI app that links the same `LLMCore` and `CoreMLBackend`
+libraries as the CLI, so it runs the identical engine. It is a local development sample with App
+Sandbox disabled so it can open a bundle from any path, not an App Store build.
+
 ---
 
 ## Repository layout
@@ -54,6 +66,7 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 README.md / README.ja.md   this index — the model table + quick start
 samples/                   one self-contained model card per model (start here to pick a model)
 Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
+Examples/ChatApp/          minimal macOS SwiftUI chat app (open in Xcode; links the Sources/ runtime)
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md
 LICENSE                    MIT (covers the code)

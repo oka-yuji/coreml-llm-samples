@@ -44,6 +44,18 @@ cd coreml-llm-samples
 swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
+### Xcode プロジェクトを開く場合
+
+GUI で試すなら `Examples/ChatApp/ChatApp.xcodeproj` を Xcode で開いて Run してください。アプリで
+**Choose…** からダウンロード済みのモデルバンドルのディレクトリを選び、**Load** を押すとチャットでき
+ます。応答は生成しながらストリーミング表示され、下部のステータス行に直近ターンの tok/s と TTFT が出
+ます。各実行の初回応答は GPU カーネル特殊化の一度きりのコストを払います（[モデルカード](samples/gemma-4-12b-128k.ja.md)
+の「初回実行が遅いのは仕様です」を参照）。以降の応答は高速です。
+
+`ChatApp` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな macOS 26 SwiftUI アプリで、
+同一のエンジンで動きます。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
+App Store 配布物ではありません。
+
 ---
 
 ## リポジトリ構成
@@ -52,6 +64,7 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 README.md / README.ja.md   この索引 — モデル表 + クイックスタート
 samples/                   モデルごとの自己完結カード(モデル選びはここから)
 Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
+Examples/ChatApp/          最小の macOS SwiftUI チャットアプリ(Xcode で開く。Sources/ のランタイムをリンク)
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md
 LICENSE                    MIT(コードに適用)

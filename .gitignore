@@ -16,6 +16,12 @@ models/
 DerivedData/
 xcuserdata/
 
+# The sample app ships a committed Xcode project so it opens straight after clone. Track that one
+# project (re-include the directory before its contents), but never per-user state inside it.
+!Examples/ChatApp/ChatApp.xcodeproj
+!Examples/ChatApp/ChatApp.xcodeproj/**
+Examples/ChatApp/ChatApp.xcodeproj/**/xcuserdata/
+
 # macOS
 .DS_Store
 
