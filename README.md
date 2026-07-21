@@ -1,4 +1,4 @@
-# Core ML Model Zoo
+# Core ML LLM Samples
 
 Core ML–native conversions of open LLMs for **Apple Silicon**. Every model ships with a shared Swift
 runtime you can clone and run, every benchmark is quoted with its measurement conditions and its
@@ -13,7 +13,7 @@ verification discipline is the house style — the receipts are in each model ca
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| ✅ [Gemma 4 12B IT — 128K Context Ladder](zoo/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| ✅ [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
 
 > ✅ published · 🚧 in preparation. **Speed** is one representative figure; the full measurement
 > conditions and every number live in each model's card.
@@ -29,14 +29,14 @@ Not published yet — listed here honestly, without links until they actually sh
 ## Quick start
 
 The featured model is **Gemma 4 12B IT — 128K Context Ladder** (see its
-[model card](zoo/gemma-4-12b-128k.md) for benchmarks, requirements, and limitations).
+[model card](samples/gemma-4-12b-128k.md) for benchmarks, requirements, and limitations).
 
 **Requirements:** an Apple Silicon Mac, macOS 26+, and the Swift 6.2 toolchain (Xcode 26).
 
 ```bash
 # 1. Clone
-git clone https://github.com/oka-yuji/coreml-model-zoo.git
-cd coreml-model-zoo
+git clone https://github.com/oka-yuji/coreml-llm-samples.git
+cd coreml-llm-samples
 
 # 2. Download the model bundle (~11 GB)
 ./scripts/download-model.sh
@@ -52,21 +52,21 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ```
 README.md / README.ja.md   this index — the model table + quick start
-zoo/                       one self-contained model card per model (start here to pick a model)
+samples/                   one self-contained model card per model (start here to pick a model)
 Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md
 LICENSE                    MIT (covers the code)
 ```
 
-The Swift runtime under `Sources/` is shared by every model in the zoo; adding a model means adding
+The Swift runtime under `Sources/` is shared by every model here; adding a model means adding
 its card and its Hugging Face bundle, not a new runtime.
 
 ---
 
-## How this zoo works
+## How these samples are organized
 
-Each row in the table links to a **model card** under `zoo/`. A card is self-contained: who the
+Each row in the table links to a **model card** under `samples/`. A card is self-contained: who the
 model is for, what makes the conversion notable, a benchmark table with its conditions and sources,
 requirements, limitations, troubleshooting, and the weights' license. The 🤗 column points to the
 Hugging Face repo that hosts the actual weights; the code that runs them lives in this repository.
@@ -76,7 +76,7 @@ conditions behind them.
 ## License
 
 - **Code:** MIT — see [LICENSE](LICENSE). The shared Swift runtime under `Sources/` is MIT for every
-  model in the zoo.
+  model here.
 - **Model weights:** distributed separately on Hugging Face, each under its own license (see the
   **License** column above and the weights section of the relevant model card). The weights are
   *not* covered by this repository's MIT license.

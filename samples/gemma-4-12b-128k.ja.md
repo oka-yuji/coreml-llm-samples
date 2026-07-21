@@ -32,8 +32,8 @@
 
 ```bash
 # 1. クローン
-git clone https://github.com/oka-yuji/coreml-model-zoo.git
-cd coreml-model-zoo
+git clone https://github.com/oka-yuji/coreml-llm-samples.git
+cd coreml-llm-samples
 
 # 2. モデルバンドルをダウンロード(~11 GB)
 ./scripts/download-model.sh

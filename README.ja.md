@@ -1,4 +1,4 @@
-# Core ML Model Zoo
+# Core ML LLM Samples
 
 オープンな LLM を **Apple Silicon** 向けに Core ML ネイティブ変換して公開するリポジトリです。各モデルは
 クローンしてすぐ動く共有 Swift ランタイムを同梱し、ベンチマークはすべて測定条件と出典つきで示し、変換は
@@ -12,7 +12,7 @@
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| ✅ [Gemma 4 12B IT — 128K Context Ladder](zoo/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| ✅ [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [🤗 okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
 
 > ✅ 公開済み · 🚧 準備中。**Speed** は代表値 1 つです。詳細な測定条件と全数値は各モデルカードにあります。
 
@@ -27,14 +27,14 @@
 ## クイックスタート
 
 注目モデルは **Gemma 4 12B IT — 128K Context Ladder** です（ベンチマーク・要件・制限は
-[モデルカード](zoo/gemma-4-12b-128k.ja.md)を参照）。
+[モデルカード](samples/gemma-4-12b-128k.ja.md)を参照）。
 
 **要件:** Apple Silicon Mac、macOS 26 以降、Swift 6.2 ツールチェーン（Xcode 26）。
 
 ```bash
 # 1. クローン
-git clone https://github.com/oka-yuji/coreml-model-zoo.git
-cd coreml-model-zoo
+git clone https://github.com/oka-yuji/coreml-llm-samples.git
+cd coreml-llm-samples
 
 # 2. モデルバンドルをダウンロード(~11 GB)
 ./scripts/download-model.sh
@@ -50,21 +50,21 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ```
 README.md / README.ja.md   この索引 — モデル表 + クイックスタート
-zoo/                       モデルごとの自己完結カード(モデル選びはここから)
+samples/                   モデルごとの自己完結カード(モデル選びはここから)
 Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md
 LICENSE                    MIT(コードに適用)
 ```
 
-`Sources/` の Swift ランタイムは zoo の全モデルで共有します。モデルの追加とは、カードと Hugging Face
+`Sources/` の Swift ランタイムは本リポジトリの全モデルで共有します。モデルの追加とは、カードと Hugging Face
 バンドルを足すことであって、新しいランタイムを足すことではありません。
 
 ---
 
-## この zoo の歩き方
+## サンプルの読み方
 
-表の各行は `zoo/` 以下の**モデルカード**にリンクします。カードは自己完結です — 対象読者、変換の勘所、
+表の各行は `samples/` 以下の**モデルカード**にリンクします。カードは自己完結です — 対象読者、変換の勘所、
 測定条件と出典つきのベンチマーク表、要件、制限、トラブルシューティング、重みのライセンス。🤗 列は実際の
 重みをホストする Hugging Face リポジトリを指し、それを動かすコードはこのリポジトリにあります。この索引の
 数値は代表値 1 つで、条件の正本はカードです。
