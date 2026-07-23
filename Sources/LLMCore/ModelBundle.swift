@@ -11,8 +11,8 @@ public struct ModelBundle: Sendable {
 
     public init(contentsOf directoryURL: URL) throws {
         let manifestURL = directoryURL.appending(path: "manifest.json")
-        guard FileManager.default.fileExists(atPath: manifestURL.path()) else {
-            throw LLMEngineError.modelNotFound(path: manifestURL.path())
+        guard FileManager.default.fileExists(atPath: manifestURL.path(percentEncoded: false)) else {
+            throw LLMEngineError.modelNotFound(path: manifestURL.path(percentEncoded: false))
         }
         let data = try Data(contentsOf: manifestURL)
         self.directoryURL = directoryURL

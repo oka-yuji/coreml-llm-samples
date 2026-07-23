@@ -9,12 +9,14 @@ enum ModelStorage {
         let completedAt: String
     }
 
-    static func appBaseDirectory() -> URL {
-        FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/DemoApp")
+    static func applicationSupportDirectory() -> URL {
+        let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
+            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support")
+        return base.appending(path: "DemoApp")
     }
 
     static func modelsRoot() -> URL {
-        let root = appBaseDirectory().appending(path: "models")
+        let root = applicationSupportDirectory().appending(path: "models")
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         excludeFromBackup(root)
         return root

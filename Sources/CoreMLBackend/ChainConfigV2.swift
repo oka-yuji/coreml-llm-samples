@@ -140,7 +140,7 @@ struct ChainConfigV2: Codable, Sendable {
             bundleURL.appending(path: "convert_config_v2int4.json"),
             bundleURL.appending(path: "convert_config_ladder.json"),
         ]
-        let url = candidates.first { fm.fileExists(atPath: $0.path()) } ?? candidates[0]
+        let url = candidates.first { fm.fileExists(atPath: $0.path(percentEncoded: false)) } ?? candidates[0]
         return try load(from: url)
     }
 }

@@ -223,11 +223,11 @@ final class CoreMLChainV2 {
         if config.usesSplitOnehot {
 
             let ringDrafter = bundleURL.appending(path: "drafter_ring.mlmodelc")
-            drafterURL = fm.fileExists(atPath: ringDrafter.path()) ? ringDrafter : nil
+            drafterURL = fm.fileExists(atPath: ringDrafter.path(percentEncoded: false)) ? ringDrafter : nil
 
             if config.isLadder {
                 let preDrafter = bundleURL.appending(path: "drafter_ring32k.mlmodelc")
-                drafterPreURL = fm.fileExists(atPath: preDrafter.path()) ? preDrafter : nil
+                drafterPreURL = fm.fileExists(atPath: preDrafter.path(percentEncoded: false)) ? preDrafter : nil
             } else {
                 drafterPreURL = nil
             }
@@ -237,7 +237,7 @@ final class CoreMLChainV2 {
                 bundleURL.appending(path: "drafter.mlmodelc"),
                 bundleURL.deletingLastPathComponent().appending(path: "drafter.mlmodelc"),
             ]
-            drafterURL = drafterCandidates.first { fm.fileExists(atPath: $0.path()) }
+            drafterURL = drafterCandidates.first { fm.fileExists(atPath: $0.path(percentEncoded: false)) }
             drafterPreURL = nil
         }
 
@@ -893,7 +893,7 @@ extension CoreMLChainV2 {
     @discardableResult
     func exportStates(to url: URL, pendingNextToken: Int?, processedTokens: [Int]) throws -> StateManifest {
         let fm = FileManager.default
-        if fm.fileExists(atPath: url.path()) { try fm.removeItem(at: url) }
+        if fm.fileExists(atPath: url.path(percentEncoded: false)) { try fm.removeItem(at: url) }
         try fm.createDirectory(at: url, withIntermediateDirectories: true)
 
         var entries: [StateEntry] = []
@@ -947,7 +947,7 @@ extension CoreMLChainV2 {
             for name in stateNames(of: chunks[ci]) {
                 guard let entry = byName[name] else { throw StatePersistenceError.unknownState(name) }
                 let fileURL = url.appending(path: entry.file)
-                guard fm.fileExists(atPath: fileURL.path()) else {
+                guard fm.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
                     throw StatePersistenceError.missingStateFile(entry.file)
                 }
                 let data = try Data(contentsOf: fileURL, options: [.alwaysMapped])

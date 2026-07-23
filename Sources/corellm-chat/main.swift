@@ -82,7 +82,7 @@ func fmtSeconds(_ d: Duration) -> Double { d / .seconds(1) }
 func drafterPresent(in bundleURL: URL) -> Bool {
     let fm = FileManager.default
     for name in ["drafter_ring.mlmodelc", "drafter.mlmodelc"] {
-        if fm.fileExists(atPath: bundleURL.appending(path: name).path()) { return true }
+        if fm.fileExists(atPath: bundleURL.appending(path: name).path(percentEncoded: false)) { return true }
     }
     return false
 }
@@ -166,11 +166,11 @@ func runMain() async throws {
     }
 
     let modelURL = URL(fileURLWithPath: modelPath, isDirectory: true)
-    guard FileManager.default.fileExists(atPath: modelURL.appending(path: "manifest.json").path()) else {
-        fail("no manifest.json under \(modelURL.path()) — is this a model bundle directory?")
+    guard FileManager.default.fileExists(atPath: modelURL.appending(path: "manifest.json").path(percentEncoded: false)) else {
+        fail("no manifest.json under \(modelURL.path(percentEncoded: false)) — is this a model bundle directory?")
     }
 
-    err("Loading model bundle: \(modelURL.path())\n")
+    err("Loading model bundle: \(modelURL.path(percentEncoded: false))\n")
     let bundle = try ModelBundle(contentsOf: modelURL)
     let drafterDetected = drafterPresent(in: modelURL)
     err("  \(bundle.manifest.name)\n")

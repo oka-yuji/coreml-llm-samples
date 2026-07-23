@@ -8,7 +8,7 @@ enum CompiledModelStore {
         let compiledName = name.replacingOccurrences(of: ".mlpackage", with: ".mlmodelc")
 
         let sibling = bundleURL.appending(path: compiledName)
-        if fileManager.fileExists(atPath: sibling.path()) { return sibling }
+        if fileManager.fileExists(atPath: sibling.path(percentEncoded: false)) { return sibling }
 
         let packageURL = bundleURL.appending(path: name)
 
@@ -18,7 +18,7 @@ enum CompiledModelStore {
         #else
 
         let cached = try applicationSupportCompiledURL(bundleURL: bundleURL, compiledName: compiledName)
-        if fileManager.fileExists(atPath: cached.path()) { return cached }
+        if fileManager.fileExists(atPath: cached.path(percentEncoded: false)) { return cached }
         try fileManager.createDirectory(
             at: cached.deletingLastPathComponent(), withIntermediateDirectories: true)
         return try await compileAndCache(package: packageURL, destination: cached)
@@ -48,7 +48,7 @@ enum CompiledModelStore {
     }
 
     private static func stableKey(for url: URL) -> String {
-        let path = url.standardizedFileURL.path()
+        let path = url.standardizedFileURL.path(percentEncoded: false)
         var hash: UInt64 = 0xcbf2_9ce4_8422_2325
         for byte in path.utf8 {
             hash ^= UInt64(byte)
