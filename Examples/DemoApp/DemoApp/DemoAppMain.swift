@@ -15,6 +15,9 @@ enum DemoAppMain {
         if CommandLine.arguments.contains("--selftest") {
             SelfTest.run()
         }
+        if CommandLine.arguments.contains("--models-selftest") {
+            ModelsSelfTest.run()
+        }
         DemoApp.main()
     }
 }

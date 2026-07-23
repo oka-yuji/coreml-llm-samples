@@ -2,18 +2,21 @@ import AppKit
 import SwiftUI
 
 struct SplitChatView: View {
-    @State private var vm = ChatViewModel()
-
-    @AppStorage("lastModelPath") private var selectedPath = ""
+    @Environment(ChatViewModel.self) private var vm
+    @Environment(DemoNavigator.self) private var navigator
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            transcript
-            Divider()
-            footer
-            composer
+            if vm.isModelLoaded {
+                transcript
+                Divider()
+                footer
+                composer
+            } else {
+                emptyState
+            }
         }
         .frame(minWidth: 560, minHeight: 480)
     }
@@ -25,8 +28,8 @@ struct SplitChatView: View {
                     .font(.headline)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                if !selectedPath.isEmpty {
-                    Text(selectedPath)
+                if vm.isModelLoaded, !vm.loadedPath.isEmpty {
+                    Text(vm.loadedPath)
                         .font(.caption)
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -34,15 +37,46 @@ struct SplitChatView: View {
                 }
             }
             Spacer()
-            Button("Choose…", action: chooseModel)
-                .disabled(!vm.canLoad)
-            Button("Load") { Task { await vm.loadModel(path: selectedPath) } }
-                .keyboardShortcut("l", modifiers: .command)
-                .disabled(!vm.canLoad || !pathHasManifest)
             Button("Reset", action: vm.reset)
                 .disabled(!vm.canReset)
         }
         .padding(10)
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            Spacer()
+            switch vm.phase {
+            case .loading:
+                ProgressView()
+                Text(statusText)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+            case .failed(let why):
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
+                Text("Failed to load model").font(.headline)
+                Text(why)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                Button("Open Models") { navigator.selection = .models }
+            default:
+                Image(systemName: "square.and.arrow.down")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("No model loaded").font(.headline)
+                Text("Open Models to download or load a bundle.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Open Models") { navigator.selection = .models }
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 
     private var transcript: some View {
@@ -97,7 +131,7 @@ struct SplitChatView: View {
     private var statusText: String {
         switch vm.phase {
         case .idle:
-            return "Choose a model bundle directory, then Load."
+            return "Idle."
         case .loading(let s):
             return s
         case .failed(let s):
@@ -112,7 +146,8 @@ struct SplitChatView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        @Bindable var vm = vm
+        return HStack(alignment: .bottom, spacing: 8) {
             TextField("Message", text: $vm.input, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
@@ -134,30 +169,9 @@ struct SplitChatView: View {
         .padding(10)
     }
 
-    private var pathHasManifest: Bool {
-        guard !selectedPath.isEmpty else { return false }
-        return FileManager.default.fileExists(
-            atPath: URL(fileURLWithPath: selectedPath).appending(path: "manifest.json").path())
-    }
-
     private func sendIfPossible() {
         guard vm.canSend else { return }
         vm.send()
-    }
-
-    private func chooseModel() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Select"
-        panel.message = "Choose a model bundle directory (the folder that contains manifest.json)"
-        if !selectedPath.isEmpty {
-            panel.directoryURL = URL(fileURLWithPath: selectedPath)
-        }
-        if panel.runModal() == .OK, let url = panel.url {
-            selectedPath = url.path
-        }
     }
 }
 

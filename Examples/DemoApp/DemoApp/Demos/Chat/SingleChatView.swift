@@ -1,35 +1,61 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SingleChatView: View {
-    @State private var vm = ChatViewModel()
-    @AppStorage("lastModelPath") private var selectedPath = ""
-    @State private var importing = false
+    @Environment(ChatViewModel.self) private var vm
+    @Environment(DemoNavigator.self) private var navigator
 
     var body: some View {
-        VStack(spacing: 0) {
-            transcript
-            Divider()
-            statusBar
-            composer
+        Group {
+            if vm.isModelLoaded {
+                VStack(spacing: 0) {
+                    transcript
+                    Divider()
+                    statusBar
+                    composer
+                }
+            } else {
+                emptyState
+            }
         }
         .navigationTitle(vm.isModelLoaded ? vm.modelName : "Chat")
         .toolbar {
             ToolbarItemGroup {
-                Button("Choose") { importing = true }
-                    .disabled(!vm.canLoad)
-                Button("Load") { Task { await vm.loadModel(path: selectedPath) } }
-                    .disabled(!vm.canLoad || !pathHasManifest)
                 Button("Reset", action: vm.reset)
                     .disabled(!vm.canReset)
             }
         }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.folder]) { result in
-            if case .success(let url) = result {
-                _ = url.startAccessingSecurityScopedResource()
-                selectedPath = url.path
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 12) {
+            switch vm.phase {
+            case .loading:
+                ProgressView()
+                Text(statusText).font(.callout).foregroundStyle(.secondary)
+            case .failed(let why):
+                Image(systemName: "exclamationmark.triangle")
+                    .font(.largeTitle)
+                    .foregroundStyle(.orange)
+                Text("Failed to load model").font(.headline)
+                Text(why)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .padding(.horizontal)
+                Button("Open Models") { navigator.selection = .models }
+            default:
+                Image(systemName: "square.and.arrow.down")
+                    .font(.largeTitle)
+                    .foregroundStyle(.secondary)
+                Text("No model loaded").font(.headline)
+                Text("Open Models to download or load a bundle.")
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                Button("Open Models") { navigator.selection = .models }
             }
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding()
     }
 
     private var transcript: some View {
@@ -72,7 +98,7 @@ struct SingleChatView: View {
     private var statusText: String {
         switch vm.phase {
         case .idle:
-            return "Choose a model bundle directory, then Load."
+            return "Idle."
         case .loading(let s):
             return s
         case .failed(let s):
@@ -87,7 +113,8 @@ struct SingleChatView: View {
     }
 
     private var composer: some View {
-        HStack(alignment: .bottom, spacing: 8) {
+        @Bindable var vm = vm
+        return HStack(alignment: .bottom, spacing: 8) {
             TextField("Message", text: $vm.input, axis: .vertical)
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
@@ -104,12 +131,6 @@ struct SingleChatView: View {
             }
         }
         .padding(10)
-    }
-
-    private var pathHasManifest: Bool {
-        guard !selectedPath.isEmpty else { return false }
-        return FileManager.default.fileExists(
-            atPath: URL(fileURLWithPath: selectedPath).appending(path: "manifest.json").path())
     }
 
     private func sendIfPossible() {

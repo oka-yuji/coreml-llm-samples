@@ -49,8 +49,12 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 ### Or open the Xcode project
 
 Prefer a GUI? Open `Examples/DemoApp/DemoApp.xcodeproj` in Xcode and press Run. `DemoApp` is a demo
-list — a sidebar of demos with the selected one shown on the right. It contains one demo, **Chat**,
-selected on launch; more models and modalities each add a row and a screen here.
+list — a sidebar of demos with the selected one shown on the right. It has two demos, **Chat** and
+**Models**, with Chat selected on launch; more models and modalities each add a row and a screen here.
+
+The **Models** screen downloads model bundles in-app from Hugging Face, with progress, cancel, and
+delete, and loads a finished bundle straight into Chat. For a private or gated repo it auto-detects a
+token from `HF_TOKEN` or the `hf` CLI; a public repo needs none.
 
 In the Chat demo, click **Choose…** to pick a downloaded model bundle directory, press **Load**, and
 chat. Responses stream as they generate, and the status line reports the last turn's tokens/second
@@ -73,7 +77,7 @@ To build it from the command line instead of Xcode, pin the architecture:
 README.md / README.ja.md   this index — the model table + quick start
 samples/                   one self-contained model card per model (start here to pick a model)
 Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
-Examples/DemoApp/          macOS SwiftUI demo app — a sidebar of demos (Chat); links the Sources/ runtime
+Examples/DemoApp/          macOS SwiftUI demo app — a sidebar of demos (Chat, Models); links the Sources/ runtime
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md
 LICENSE                    MIT (covers the code)

@@ -40,6 +40,8 @@ final class ChatViewModel {
 
     var modelName: String = ""
 
+    var loadedPath: String = ""
+
     var maxTokens: Int = 512
 
     @ObservationIgnored private var engine: CoreMLEngine?
@@ -73,7 +75,7 @@ final class ChatViewModel {
         guard canLoad else { return }
         let url = URL(fileURLWithPath: path, isDirectory: true)
         let manifestURL = url.appending(path: "manifest.json")
-        guard FileManager.default.fileExists(atPath: manifestURL.path()) else {
+        guard FileManager.default.fileExists(atPath: manifestURL.path(percentEncoded: false)) else {
             phase = .failed("no manifest.json under \(path) — is this a model bundle directory?")
             return
         }
@@ -85,6 +87,7 @@ final class ChatViewModel {
             let newEngine = CoreMLEngine()
             try await newEngine.load(bundle, options: LoadOptions(computeUnits: .cpuAndGPU))
             engine = newEngine
+            loadedPath = path
             history = []
             messages = []
             hasWarmedUp = false
@@ -94,8 +97,25 @@ final class ChatViewModel {
             phase = .ready
         } catch {
             engine = nil
+            loadedPath = ""
             phase = .failed(String(describing: error))
         }
+    }
+
+    func unload() {
+        guard canLoad else { return }
+        generation?.cancel()
+        generation = nil
+        engine = nil
+        history = []
+        messages = []
+        modelName = ""
+        loadedPath = ""
+        statusLine = ""
+        loadStatus = ""
+        warming = false
+        hasWarmedUp = false
+        phase = .idle
     }
 
     @discardableResult

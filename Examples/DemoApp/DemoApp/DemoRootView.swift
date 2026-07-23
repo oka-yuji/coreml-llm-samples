@@ -1,3 +1,4 @@
+import Observation
 import SwiftUI
 #if canImport(UIKit)
 import UIKit
@@ -5,38 +6,50 @@ import UIKit
 
 enum Demo: String, CaseIterable, Identifiable {
     case chat
+    case models
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
         case .chat: return "Chat"
+        case .models: return "Models"
         }
     }
 
     var summary: String {
         switch self {
         case .chat: return "Streaming chat with a Core ML LLM bundle"
+        case .models: return "Download and manage model bundles"
         }
     }
 
     var systemImage: String {
         switch self {
         case .chat: return "bubble.left.and.bubble.right"
+        case .models: return "square.and.arrow.down"
         }
     }
 
     @MainActor @ViewBuilder var splitView: some View {
         switch self {
         case .chat: SplitChatView()
+        case .models: SplitModelsView()
         }
     }
 
     @MainActor @ViewBuilder var singleView: some View {
         switch self {
         case .chat: SingleChatView()
+        case .models: SingleModelsView()
         }
     }
+}
+
+@MainActor
+@Observable
+final class DemoNavigator {
+    var selection: Demo? = .chat
 }
 
 enum DeviceKind {
@@ -63,11 +76,14 @@ struct DemoRootView: View {
 }
 
 struct SplitRootView: View {
-    @State private var selection: Demo? = .chat
+    @State private var navigator = DemoNavigator()
+    @State private var chatVM = ChatViewModel()
+    @State private var modelsVM = ModelsViewModel()
 
     var body: some View {
+        @Bindable var navigator = navigator
         NavigationSplitView {
-            List(selection: $selection) {
+            List(selection: $navigator.selection) {
                 ForEach(Demo.allCases) { demo in
                     NavigationLink(value: demo) {
                         DemoRow(demo: demo)
@@ -77,16 +93,23 @@ struct SplitRootView: View {
             .navigationTitle("Demos")
             .navigationSplitViewColumnWidth(min: 200, ideal: 240)
         } detail: {
-            if let selection {
+            if let selection = navigator.selection {
                 selection.splitView
             } else {
                 ContentUnavailableView("Select a demo", systemImage: "square.grid.2x2")
             }
         }
+        .environment(navigator)
+        .environment(chatVM)
+        .environment(modelsVM)
     }
 }
 
 struct SingleRootView: View {
+    @State private var navigator = DemoNavigator()
+    @State private var chatVM = ChatViewModel()
+    @State private var modelsVM = ModelsViewModel()
+
     var body: some View {
         NavigationStack {
             List(Demo.allCases) { demo in
@@ -99,6 +122,9 @@ struct SingleRootView: View {
                 demo.singleView
             }
         }
+        .environment(navigator)
+        .environment(chatVM)
+        .environment(modelsVM)
     }
 }
 

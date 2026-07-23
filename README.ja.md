@@ -47,8 +47,12 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 ### Xcode プロジェクトを開く場合
 
 GUI で試すなら `Examples/DemoApp/DemoApp.xcodeproj` を Xcode で開いて Run してください。`DemoApp` は
-デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。デモは **Chat** の 1 つで、
-起動時に選択済みです。今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
+デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。デモは **Chat** と **Models**
+の 2 つで、起動時は Chat が選択されています。今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
+
+**Models** 画面では、モデルバンドルを Hugging Face からアプリ内でダウンロードできます(進捗・キャンセル・
+削除つき)。ダウンロード済みのバンドルはそのまま Chat に読み込めます。private / gated リポジトリの場合は
+`HF_TOKEN` か `hf` CLI のトークンを自動検出します(public リポジトリは不要)。
 
 Chat デモでは **Choose…** からダウンロード済みのモデルバンドルのディレクトリを選び、**Load** を押すと
 チャットできます。応答は生成しながらストリーミング表示され、下部のステータス行に直近ターンの tok/s と
@@ -71,7 +75,7 @@ Xcode ではなく CLI からビルドする場合はアーキテクチャを固
 README.md / README.ja.md   この索引 — モデル表 + クイックスタート
 samples/                   モデルごとの自己完結カード(モデル選びはここから)
 Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
-Examples/DemoApp/          macOS SwiftUI デモアプリ — デモ一覧(現状 Chat)。Sources/ のランタイムをリンク
+Examples/DemoApp/          macOS SwiftUI デモアプリ — デモ一覧(Chat / Models)。Sources/ のランタイムをリンク
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md
 LICENSE                    MIT(コードに適用)
