@@ -48,18 +48,21 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ### Or open the Xcode project
 
-Prefer a GUI? Open `Examples/ChatApp/ChatApp.xcodeproj` in Xcode and press Run. In the app, click
-**Choose…** to pick a downloaded model bundle directory, press **Load**, and chat. Responses stream
-as they generate, and the status line reports the last turn's tokens/second and time-to-first-token.
-The first reply of a run pays the one-time GPU specialization cost described under **First run is
-slow** in the [model card](samples/gemma-4-12b-128k.md); later replies are fast.
+Prefer a GUI? Open `Examples/DemoApp/DemoApp.xcodeproj` in Xcode and press Run. `DemoApp` is a demo
+list — a sidebar of demos with the selected one shown on the right. It contains one demo, **Chat**,
+selected on launch; more models and modalities each add a row and a screen here.
 
-`ChatApp` is a small macOS 26 SwiftUI app that links the same `LLMCore` and `CoreMLBackend`
-libraries as the CLI, so it runs the identical engine. It is a local development sample with App
-Sandbox disabled so it can open a bundle from any path, not an App Store build.
+In the Chat demo, click **Choose…** to pick a downloaded model bundle directory, press **Load**, and
+chat. Responses stream as they generate, and the status line reports the last turn's tokens/second
+and time-to-first-token. The first reply of a run pays the one-time GPU specialization cost described
+under **First run is slow** in the [model card](samples/gemma-4-12b-128k.md); later replies are fast.
+
+`DemoApp` is a small macOS 26 SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries
+as the CLI, so it runs the identical engine. It is a local development sample with App Sandbox
+disabled so it can open a bundle from any path, not an App Store build.
 
 To build it from the command line instead of Xcode, pin the architecture:
-`xcodebuild ARCHS=arm64 -project Examples/ChatApp/ChatApp.xcodeproj -scheme ChatApp -configuration Release build`
+`xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
 (the bundled package is Apple Silicon only). Running from Xcode needs no such flag.
 
 ---
@@ -70,7 +73,7 @@ To build it from the command line instead of Xcode, pin the architecture:
 README.md / README.ja.md   this index — the model table + quick start
 samples/                   one self-contained model card per model (start here to pick a model)
 Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
-Examples/ChatApp/          minimal macOS SwiftUI chat app (open in Xcode; links the Sources/ runtime)
+Examples/DemoApp/          macOS SwiftUI demo app — a sidebar of demos (Chat); links the Sources/ runtime
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md
 LICENSE                    MIT (covers the code)

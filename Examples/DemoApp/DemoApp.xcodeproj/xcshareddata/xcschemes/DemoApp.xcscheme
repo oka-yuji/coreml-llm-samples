@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "F46C707D758A05C4A3BEE0B2"
-               BuildableName = "ChatApp.app"
-               BlueprintName = "ChatApp"
-               ReferencedContainer = "container:ChatApp.xcodeproj">
+               BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
+               BuildableName = "DemoApp.app"
+               BlueprintName = "DemoApp"
+               ReferencedContainer = "container:DemoApp.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "F46C707D758A05C4A3BEE0B2"
-            BuildableName = "ChatApp.app"
-            BlueprintName = "ChatApp"
-            ReferencedContainer = "container:ChatApp.xcodeproj">
+            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
+            BuildableName = "DemoApp.app"
+            BlueprintName = "DemoApp"
+            ReferencedContainer = "container:DemoApp.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "F46C707D758A05C4A3BEE0B2"
-            BuildableName = "ChatApp.app"
-            BlueprintName = "ChatApp"
-            ReferencedContainer = "container:ChatApp.xcodeproj">
+            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
+            BuildableName = "DemoApp.app"
+            BlueprintName = "DemoApp"
+            ReferencedContainer = "container:DemoApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "F46C707D758A05C4A3BEE0B2"
-            BuildableName = "ChatApp.app"
-            BlueprintName = "ChatApp"
-            ReferencedContainer = "container:ChatApp.xcodeproj">
+            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
+            BuildableName = "DemoApp.app"
+            BlueprintName = "DemoApp"
+            ReferencedContainer = "container:DemoApp.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

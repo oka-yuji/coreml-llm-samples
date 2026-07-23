@@ -1,4 +1,4 @@
-name: ChatApp
+name: DemoApp
 
 options:
   bundleIdPrefix: com.coreml-llm-samples
@@ -10,7 +10,7 @@ options:
 # Apple Silicon only. The Core ML backend uses Float16, a type that is unavailable (won't even
 # compile) on x86_64 macOS, so this app is arm64-only. Opening the project in Xcode and pressing
 # Run works out of the box (Debug builds only the active arch). A command-line *Release* build must
-# pin the architecture — `xcodebuild ARCHS=arm64 -scheme ChatApp -configuration Release build` —
+# pin the architecture — `xcodebuild ARCHS=arm64 -scheme DemoApp -configuration Release build` —
 # because Xcode otherwise builds the Swift-package dependency graph universally and the x86_64
 # slice fails. A project/target ARCHS or EXCLUDED_ARCHS does not reach those synthesized package
 # projects; only a command-line build-setting override does.
@@ -25,12 +25,12 @@ packages:
     path: ../..
 
 targets:
-  ChatApp:
+  DemoApp:
     type: application
     platform: macOS
     deploymentTarget: "26.0"
     sources:
-      - path: ChatApp
+      - path: DemoApp
     dependencies:
       - package: CoreLLMKit
         product: LLMCore
@@ -38,14 +38,14 @@ targets:
         product: CoreMLBackend
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.coreml-llm-samples.ChatApp
-        PRODUCT_NAME: ChatApp
+        PRODUCT_BUNDLE_IDENTIFIER: com.coreml-llm-samples.DemoApp
+        PRODUCT_NAME: DemoApp
         MARKETING_VERSION: "1.0"
         CURRENT_PROJECT_VERSION: "1"
         SWIFT_VERSION: "6.0"
         MACOSX_DEPLOYMENT_TARGET: "26.0"
         GENERATE_INFOPLIST_FILE: "YES"
-        INFOPLIST_KEY_CFBundleDisplayName: Core ML Chat
+        INFOPLIST_KEY_CFBundleDisplayName: Core ML Demos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         # Local development sample: ad-hoc signed, App Sandbox disabled so it can open a
@@ -56,10 +56,10 @@ targets:
         ENABLE_APP_SANDBOX: "NO"
 
 schemes:
-  ChatApp:
+  DemoApp:
     build:
       targets:
-        ChatApp: all
+        DemoApp: all
     run:
       config: Debug
     profile:
