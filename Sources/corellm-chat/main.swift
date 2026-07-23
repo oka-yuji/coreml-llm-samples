@@ -2,26 +2,7 @@ import CoreMLBackend
 import Foundation
 import LLMCore
 
-// corellm-chat — a streaming chat CLI for the Core ML 12B / 128K Context Ladder bundle.
-//
-//   corellm-chat --model <bundle-dir>                      # interactive REPL (stdin)
-//   corellm-chat --model <bundle-dir> --prompt "…"         # one-shot, then exit
-//
-// Design notes:
-//   - Model tokens are streamed to STDOUT. All chrome (prompts, progress, stats) goes to STDERR,
-//     so `--prompt` output pipes cleanly.
-//   - Compute units are fixed to CPU+GPU: the v2 stateful ladder keeps its KV in GPU-resident
-//     MLState and cannot run CPU-only / ANE (multiple MLState instances segfault there). This
-//     also matches the published benchmark configuration (90.51 ms/tok, ctx32k).
-//   - Speculative decoding (MTP) is ON by default when the bundle ships a drafter; `--no-mtp`
-//     disables it. Output is identical either way (verify makes speculation lossless).
-
-// The ctx32k window of the Context Ladder. Crossing it promotes the KV to the ctx128k function
-// (zero-copy, bit-exact). We can only estimate the boundary crossing from CLI-side token counts
-// (the engine does not expose a promotion callback), so this is an informational notice only.
 let ctx32kWindow = 32768
-
-// MARK: - Argument parsing
 
 struct Options {
     var modelPath: String?
@@ -44,7 +25,7 @@ func parseArguments(_ argv: [String]) -> Options {
     }
     while i < argv.count {
         let arg = argv[i]
-        // Support both `--flag value` and `--flag=value`.
+
         let (name, inline): (String, String?) = {
             if let eq = arg.firstIndex(of: "="), arg.hasPrefix("--") {
                 return (String(arg[..<eq]), String(arg[arg.index(after: eq)...]))
@@ -89,8 +70,6 @@ func printUsage() {
     err(usage + "\n")
 }
 
-// MARK: - stdio helpers
-
 func err(_ s: String) { FileHandle.standardError.write(Data(s.utf8)) }
 func out(_ s: String) { FileHandle.standardOutput.write(Data(s.utf8)) }
 func fail(_ message: String) -> Never {
@@ -100,11 +79,6 @@ func fail(_ message: String) -> Never {
 
 func fmtSeconds(_ d: Duration) -> Double { d / .seconds(1) }
 
-/// Mirror the engine's drafter auto-detection so the header/stats are accurate. Ring/ladder
-/// bundles ship `drafter_ring.mlmodelc` at the bundle root; the classic 2048 bundle ships
-/// `drafter.mlmodelc`. This is deliberately file-based, not manifest-based: the ladder bundle
-/// auto-detects its drafter from disk even though its manifest omits `drafterRelativePath`.
-/// The engine remains the final authority (`speculative.supportsMTP`); this only drives messaging.
 func drafterPresent(in bundleURL: URL) -> Bool {
     let fm = FileManager.default
     for name in ["drafter_ring.mlmodelc", "drafter.mlmodelc"] {
@@ -113,10 +87,6 @@ func drafterPresent(in bundleURL: URL) -> Bool {
     return false
 }
 
-// MARK: - Generation
-
-/// Consume one generation stream: stream tokens to stdout, print progress/notices to stderr,
-/// and return the assistant text plus the final metrics.
 func consume(
     _ engine: CoreMLEngine,
     _ request: GenerationRequest,
@@ -188,8 +158,6 @@ func printStats(_ m: GenerationMetrics, mtp: Bool) {
     err(lines.joined(separator: "\n") + "\n")
 }
 
-// MARK: - Main
-
 func runMain() async throws {
     let opts = parseArguments(Array(CommandLine.arguments.dropFirst()))
     guard let modelPath = opts.modelPath else {
@@ -215,7 +183,6 @@ func runMain() async throws {
     try await engine.load(bundle, options: LoadOptions(computeUnits: .cpuAndGPU))
     err("  chunks loaded in \(String(format: "%.1f", fmtSeconds(ContinuousClock().now - loadStart)))s\n")
 
-    // MTP only takes effect if the bundle actually ships a drafter (detected from disk above).
     let mtp = opts.mtp && drafterDetected
     if opts.mtp && !drafterDetected {
         err("  note: bundle has no drafter — running without speculation\n")
@@ -225,7 +192,7 @@ func runMain() async throws {
     err("  speculative decoding: \(mtp ? "ON" : "OFF")\n\n")
 
     if let prompt = opts.prompt {
-        // One-shot.
+
         let request = GenerationRequest(prompt: prompt, config: config, history: [], reuseCache: false)
         let (_, metrics) = try await consume(engine, request, stats: opts.stats, warmupHint: true)
         out("\n")
@@ -233,7 +200,6 @@ func runMain() async throws {
         return
     }
 
-    // Interactive REPL.
     err("Interactive chat. Each line is one turn; KV is reused across turns.\n")
     err("Commands: /reset (new conversation), Ctrl-D to exit.\n")
     var history: [ChatTurn] = []

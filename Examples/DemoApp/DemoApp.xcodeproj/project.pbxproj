@@ -7,20 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		57D6857C51E920DC024ABB4A /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
+		83FC106BD6520C3AB9130495 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */; };
 		873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */; };
 		89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */; };
+		DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6946403106441AB2ED7A4630 /* DemoRootView.swift */; };
 		DFA0256A139D0EF6D51130AF /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = E556E9D126D4364A57D7B8D2 /* LLMCore */; };
 		EB0CEF1EEDF7B846F6F75962 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = B895059F5EBD906FCB751E1C /* CoreMLBackend */; };
-		F054EA73A985B4D591628A4C /* ChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D721601AF8302B97432587EA /* ChatView.swift */; };
 		F7419A36171D9CEF222FE436 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		3986EDEFC61F7234B500496B /* SplitChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitChatView.swift; sourceTree = "<group>"; };
+		6946403106441AB2ED7A4630 /* DemoRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRootView.swift; sourceTree = "<group>"; };
 		96BE74A7623526708986F062 /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAppMain.swift; sourceTree = "<group>"; };
-		D721601AF8302B97432587EA /* ChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatView.swift; sourceTree = "<group>"; };
 		E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
+		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
 /* End PBXFileReference section */
 
@@ -49,9 +53,10 @@
 		5138FDD1E4F08E501221B1DB /* Chat */ = {
 			isa = PBXGroup;
 			children = (
-				D721601AF8302B97432587EA /* ChatView.swift */,
 				E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */,
 				96BE74A7623526708986F062 /* SelfTest.swift */,
+				F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */,
+				3986EDEFC61F7234B500496B /* SplitChatView.swift */,
 			);
 			path = Chat;
 			sourceTree = "<group>";
@@ -84,6 +89,7 @@
 			isa = PBXGroup;
 			children = (
 				CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */,
+				6946403106441AB2ED7A4630 /* DemoRootView.swift */,
 				5183B0CE22F31FA0116AC0F5 /* Demos */,
 			);
 			path = DemoApp;
@@ -153,10 +159,12 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F054EA73A985B4D591628A4C /* ChatView.swift in Sources */,
 				89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */,
 				873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */,
+				DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */,
 				F7419A36171D9CEF222FE436 /* SelfTest.swift in Sources */,
+				83FC106BD6520C3AB9130495 /* SingleChatView.swift in Sources */,
+				57D6857C51E920DC024ABB4A /* SplitChatView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

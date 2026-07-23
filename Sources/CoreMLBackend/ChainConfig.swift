@@ -1,7 +1,5 @@
 import Foundation
 
-/// 変換パイプライン(tools/e4b)が出力する `convert_config.json`。
-/// チェーン実行に必要な全メタデータ(形状・層構成・RoPE 逆周波数など)。
 struct ChainConfig: Codable, Sendable {
     var model: String
     var H: Int
@@ -9,9 +7,9 @@ struct ChainConfig: Codable, Sendable {
     var GHD: Int
     var NH: Int
     var NKV: Int
-    /// full 層の KV ヘッド数(gemma4_unified の MQA)。nil なら NKV と同じ(E 系)。
+
     var NKV_FULL: Int?
-    /// per-layer embeddings の次元。0 なら PLE なし(12B / gemma4_unified)。
+
     var PLE: Int
     var NLAYERS: Int
     var CTX: Int
@@ -27,7 +25,7 @@ struct ChainConfig: Codable, Sendable {
     var lmhead: String
     var sidecars: Sidecars
     var hostio: HostIO
-    /// MTP(投機的デコード)用アセット。nil なら MTP 非対応バンドル。
+
     var mtp: MTP?
 
     struct MTP: Codable, Sendable {
@@ -46,7 +44,7 @@ struct ChainConfig: Codable, Sendable {
 
     struct Sidecars: Codable, Sendable {
         var embed: File
-        /// PLE サイドカー。PLE なしのモデル(12B)には存在しない。
+
         var ple: File?
 
         struct File: Codable, Sendable {
@@ -78,12 +76,10 @@ struct ChainConfig: Codable, Sendable {
 
     var hasPLE: Bool { PLE > 0 }
 
-    /// 層 i の head_dim(full 層は GHD=512、sliding 層は HD=256)。
     func headDim(ofLayer i: Int) -> Int {
         layerTypes[i] == "full_attention" ? GHD : HD
     }
 
-    /// 層 i の KV ヘッド数(gemma4_unified は full 層のみ MQA=1)。
     func kvHeads(ofLayer i: Int) -> Int {
         layerTypes[i] == "full_attention" ? (NKV_FULL ?? NKV) : NKV
     }

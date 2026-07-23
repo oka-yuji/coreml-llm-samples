@@ -1,7 +1,5 @@
 import Foundation
 
-/// GUI 経路をヘッドレスで検証する開発用フック。ViewModel の通常送信経路(UI と同一コード)で
-/// 1 往復生成し、応答を stdout に、tok/s を含む stats を stderr に出して exit する。
 enum SelfTest {
     static func run() -> Never {
         let args = CommandLine.arguments
@@ -16,7 +14,7 @@ enum SelfTest {
         Task { @MainActor in
             exit(await execute(model: model, prompt: prompt, maxTokens: maxTokens))
         }
-        dispatchMain()  // メインキューを回して @MainActor Task を実行させる(exit で終了)。
+        dispatchMain()
     }
 
     @MainActor

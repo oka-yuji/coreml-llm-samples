@@ -2,8 +2,6 @@ import Foundation
 import LLMCore
 import Tokenizers
 
-/// swift-transformers のトークナイザを `Tokenizing` に適合させる薄いラッパ(D3)。
-/// バンドル内の tokenizer.json / tokenizer_config.json をオフラインで読む。
 struct HFTokenizer: Tokenizing {
     private let tokenizer: any Tokenizer
     let eosTokenIDs: Set<Int>

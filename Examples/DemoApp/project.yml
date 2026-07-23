@@ -7,19 +7,10 @@ options:
   createIntermediateGroups: true
   minimumXcodeGenVersion: "2.0.0"
 
-# Apple Silicon only. The Core ML backend uses Float16, a type that is unavailable (won't even
-# compile) on x86_64 macOS, so this app is arm64-only. Opening the project in Xcode and pressing
-# Run works out of the box (Debug builds only the active arch). A command-line *Release* build must
-# pin the architecture — `xcodebuild ARCHS=arm64 -scheme DemoApp -configuration Release build` —
-# because Xcode otherwise builds the Swift-package dependency graph universally and the x86_64
-# slice fails. A project/target ARCHS or EXCLUDED_ARCHS does not reach those synthesized package
-# projects; only a command-line build-setting override does.
 settings:
   base:
     EXCLUDED_ARCHS: x86_64
 
-# Link the repository's root Swift package by relative path so the project opens straight
-# after `git clone` — no copied sources, no separate implementation.
 packages:
   CoreLLMKit:
     path: ../..
@@ -48,8 +39,6 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: Core ML Demos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
-        # Local development sample: ad-hoc signed, App Sandbox disabled so it can open a
-        # model bundle from any path chosen with NSOpenPanel. Not an App Store artifact.
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
         ENABLE_HARDENED_RUNTIME: "NO"

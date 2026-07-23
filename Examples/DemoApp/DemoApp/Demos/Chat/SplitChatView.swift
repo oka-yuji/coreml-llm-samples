@@ -1,10 +1,9 @@
 import AppKit
 import SwiftUI
 
-/// 1 枚のチャットウィンドウ。上部にモデル選択/ロード、中央にメッセージ、下部に入力と 1 行ステータス。
-struct ChatView: View {
+struct SplitChatView: View {
     @State private var vm = ChatViewModel()
-    /// 前回選んだバンドルパスを記憶(起動時は自動ロードせず、Load ボタンで開始する)。
+
     @AppStorage("lastModelPath") private var selectedPath = ""
 
     var body: some View {
@@ -18,8 +17,6 @@ struct ChatView: View {
         }
         .frame(minWidth: 560, minHeight: 480)
     }
-
-    // MARK: - Header (model selection + load + reset)
 
     private var header: some View {
         HStack(spacing: 8) {
@@ -48,8 +45,6 @@ struct ChatView: View {
         .padding(10)
     }
 
-    // MARK: - Transcript
-
     private var transcript: some View {
         ScrollViewReader { proxy in
             ScrollView {
@@ -72,8 +67,6 @@ struct ChatView: View {
     }
 
     private let bottomAnchor = "bottom-anchor"
-
-    // MARK: - Footer (status line)
 
     private var footer: some View {
         HStack(spacing: 8) {
@@ -118,8 +111,6 @@ struct ChatView: View {
         }
     }
 
-    // MARK: - Composer (input + send/stop)
-
     private var composer: some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("Message", text: $vm.input, axis: .vertical)
@@ -142,8 +133,6 @@ struct ChatView: View {
         }
         .padding(10)
     }
-
-    // MARK: - Actions
 
     private var pathHasManifest: Bool {
         guard !selectedPath.isEmpty else { return false }
@@ -172,7 +161,6 @@ struct ChatView: View {
     }
 }
 
-/// 1 メッセージ行。role でラベルと背景を分ける。
 private struct MessageRow: View {
     let message: ChatViewModel.Message
 

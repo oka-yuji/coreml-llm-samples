@@ -1,21 +1,4 @@
 #!/usr/bin/env bash
-#
-# download-model.sh — fetch the Gemma 4 12B Core ML 128K Context Ladder bundle.
-#
-# Downloads the model bundle (~11 GB) into ./models/. Contents:
-#   - int4 transformer chunks + int8 lm_head as .mlpackage (compiled to .mlmodelc once on the
-#     first load and cached inside the bundle directory; not shipped pre-compiled)
-#   - the two MTP drafters (drafter_ring.mlmodelc / drafter_ring32k.mlmodelc)
-#   - the fp16 embedding sidecar (embed_fp16.bin)
-#   - the tokenizer (tokenizer.json / tokenizer_config.json)
-#
-# Usage:
-#   ./scripts/download-model.sh                 # → ./models/gemma-4-12b-it-coreml-128k
-#   ./scripts/download-model.sh /path/to/dest   # custom destination
-#
-# If the repo is private or gated (e.g. under the Gemma Terms of Use), authenticate first:
-#   hf auth login
-#
 set -euo pipefail
 
 REPO="${CORELLM_HF_REPO:-okayuji/gemma-4-12b-it-coreml-128k}"
@@ -35,7 +18,6 @@ fi
 
 mkdir -p "$DEST"
 
-# --local-dir places real files (no cache symlinks) so the bundle is self-contained and portable.
 hf download "$REPO" \
   --repo-type model \
   --local-dir "$DEST"

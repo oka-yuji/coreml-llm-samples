@@ -3,15 +3,10 @@ import Foundation
 import LLMCore
 import Observation
 
-/// チャット画面の状態と生成ループを持つ ViewModel。
-///
-/// エンジンの生成経路は corellm-chat CLI と同一(`CoreMLEngine` の actor +
-/// `AsyncThrowingStream<GenerationEvent>` を消費)。UI はこの ViewModel だけを見て描画し、
-/// selftest(ヘッドレス)も同じ `loadModel` / `send` を通る。
 @MainActor
 @Observable
 final class ChatViewModel {
-    /// 画面全体のフェーズ。付随文字列は進捗/エラーの表示に使う。
+
     enum Phase: Equatable {
         case idle
         case loading(String)
@@ -20,7 +15,6 @@ final class ChatViewModel {
         case failed(String)
     }
 
-    /// 1 メッセージ(user / assistant)。assistant は streaming で `text` が伸びる。
     struct Message: Identifiable, Equatable {
         enum Role { case user, assistant }
         let id: UUID
@@ -34,33 +28,27 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Observed UI state
-
     var messages: [Message] = []
     var input: String = ""
     var phase: Phase = .idle
-    /// 直近ターンの 1 行サマリ(tok/s・TTFT・採択率)。CLI の --stats の最小版。
-    var statusLine: String = ""
-    /// ロード/prefill の段階表示。
-    var loadStatus: String = ""
-    /// 初回推論の GPU カーネル特殊化(~40s)の最中かどうか。
-    var warming: Bool = false
-    /// ロード済みバンドルの表示名。
-    var modelName: String = ""
-    /// 1 ターンの最大生成トークン数(selftest で上書きする)。
-    var maxTokens: Int = 512
 
-    // MARK: - Engine state (non-observed)
+    var statusLine: String = ""
+
+    var loadStatus: String = ""
+
+    var warming: Bool = false
+
+    var modelName: String = ""
+
+    var maxTokens: Int = 512
 
     @ObservationIgnored private var engine: CoreMLEngine?
     @ObservationIgnored private var history: [ChatTurn] = []
     @ObservationIgnored private var hasWarmedUp = false
-    /// 実行中の生成タスク。Stop でキャンセルし、selftest で完了を待つ。
+
     @ObservationIgnored var generation: Task<Void, Never>?
 
     init() {}
-
-    // MARK: - Derived flags
 
     var isGenerating: Bool { if case .generating = phase { return true } else { return false } }
     var isLoading: Bool { if case .loading = phase { return true } else { return false } }
@@ -81,9 +69,6 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Load
-
-    /// バンドルディレクトリをロードする。CLI と同じ CPU+GPU 固定(v2 stateful は GPU 必須)。
     func loadModel(path: String) async {
         guard canLoad else { return }
         let url = URL(fileURLWithPath: path, isDirectory: true)
@@ -113,10 +98,6 @@ final class ChatViewModel {
         }
     }
 
-    // MARK: - Send / Stop / Reset
-
-    /// 入力を 1 ターン送信する。streaming で assistant メッセージを更新する。
-    /// 送信できたら true(selftest が完了待ちの前段で使う)。
     @discardableResult
     func send() -> Bool {
         guard canSend, let engine else { return false }
@@ -137,11 +118,8 @@ final class ChatViewModel {
         return true
     }
 
-    /// 生成をキャンセルする(部分出力は残す)。
     func stop() { generation?.cancel() }
 
-    /// 会話をリセットする(KV / 履歴 / メッセージを破棄。CLI の /reset 相当)。
-    /// カーネル特殊化はプロセス内で保持されるため hasWarmedUp は維持する。
     func reset() {
         guard let engine, canReset else { return }
         Task { await engine.resetConversation() }
@@ -150,8 +128,6 @@ final class ChatViewModel {
         statusLine = ""
         loadStatus = ""
     }
-
-    // MARK: - Stream consumption
 
     private func consume(
         engine: CoreMLEngine,
@@ -179,7 +155,7 @@ final class ChatViewModel {
                 }
             }
         } catch is CancellationError {
-            // 消費側の for-await は cancel で nil 終了するのが基本経路だが、明示 throw も拾う。
+
             finishStopped(userText: userText, assistantText: assistantText)
             return
         } catch {
@@ -203,7 +179,6 @@ final class ChatViewModel {
         phase = .ready
     }
 
-    /// Stop で打ち切ったときの後始末。部分出力を履歴に残し、KV を破棄して次ターンを健全化する。
     private func finishStopped(userText: String, assistantText: String) {
         history.append(ChatTurn(role: .user, text: userText))
         history.append(ChatTurn(role: .assistant, text: assistantText))
@@ -211,8 +186,6 @@ final class ChatViewModel {
         statusLine = "Stopped"
         phase = .ready
     }
-
-    // MARK: - Helpers
 
     private func setAssistantText(id: UUID, _ text: String) {
         if let i = messages.firstIndex(where: { $0.id == id }) { messages[i].text = text }

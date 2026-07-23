@@ -1,11 +1,5 @@
 import Foundation
 
-/// モデル不要のダミーエンジン。プロンプトを語単位でストリーム返しする。
-///
-/// 用途:
-/// - UI / ViewModel の開発・プレビュー(実モデルなしでストリーミング挙動を再現)
-/// - LLMEngine プロトコル準拠の参照実装(actor + nonisolated generate のパターン)
-/// - MTP トグルの動作確認(ON 時は擬似的に高速化し採択率を報告する)
 public actor EchoEngine: LLMEngine {
     public nonisolated let descriptor = EngineDescriptor(
         name: "Echo",
@@ -54,14 +48,12 @@ public actor EchoEngine: LLMEngine {
         let start = clock.now
         let mtp = request.config.multiTokenPrediction
 
-        // 擬似 prefill。
         let promptTokens = max(request.prompt.count / 3, 1)
         try await clock.sleep(for: .milliseconds(120))
         continuation.yield(.prefillCompleted(
             PrefillMetrics(promptTokens: promptTokens, duration: clock.now - start)
         ))
 
-        // 語単位の擬似トークン列。MTP ON では 1/3 の遅延で流す(≈ 3x 相当の見た目)。
         let words = Self.pseudoTokens(echoing: request.prompt, mtp: mtp)
         let delay = mtp ? tokenDelay / 3 : tokenDelay
         let decodeStart = clock.now
@@ -100,7 +92,7 @@ public actor EchoEngine: LLMEngine {
         let header = "(echo / \(mode)) "
         let body = prompt.split(separator: " ", omittingEmptySubsequences: false)
             .flatMap { word -> [String] in
-                // 日本語などスペース区切りでない入力はある程度の長さで刻む。
+
                 guard word.count > 8 else { return [String(word) + " "] }
                 return word.chunked(into: 4).map(String.init)
             }

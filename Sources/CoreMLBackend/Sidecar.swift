@@ -1,8 +1,6 @@
 import Foundation
 import LLMCore
 
-/// fp16 行列サイドカー(embed / PLE)。mmap して行単位でギャザーする。
-/// スケール(embed×√H、PLE×√256)は変換時に焼き込み済み。
 final class Sidecar {
     private let data: Data
     let rows: Int
@@ -13,14 +11,13 @@ final class Sidecar {
         let expected = rows * cols * MemoryLayout<Float16>.size
         guard data.count == expected else {
             throw LLMEngineError.incompatibleBundle(
-                reason: "\(url.lastPathComponent): サイズ不一致(実際 \(data.count) bytes、期待 \(expected) bytes)"
+                reason: "\(url.lastPathComponent): size mismatch (actual \(data.count) bytes, expected \(expected) bytes)"
             )
         }
         self.rows = rows
         self.cols = cols
     }
 
-    /// 行 `row` の要素 [offset, offset+count) を fp16 のまま書き込む。
     func read(row: Int, offset: Int = 0, count: Int? = nil, into destination: UnsafeMutableRawPointer) {
         let n = count ?? cols
         precondition(row >= 0 && row < rows && offset + n <= cols)
