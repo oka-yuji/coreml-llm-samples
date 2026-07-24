@@ -13,7 +13,7 @@ verification discipline is the house style — the receipts are in each model ca
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | [demo](https://x.com/oka_yuuji/status/2080660675333161154/video/1) | Apache-2.0 |
 
 > **Speed** is one representative figure; the full measurement conditions and every number live in
 > each model's card.

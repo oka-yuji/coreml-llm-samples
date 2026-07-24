@@ -12,7 +12,7 @@
 
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
-| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | — | Apache-2.0 |
+| [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | *coming soon* | [デモ](https://x.com/oka_yuuji/status/2080660675333161154/video/1) | Apache-2.0 |
 
 > **Speed** は代表値 1 つです。詳細な測定条件と全数値は各モデルカードにあります。
 
