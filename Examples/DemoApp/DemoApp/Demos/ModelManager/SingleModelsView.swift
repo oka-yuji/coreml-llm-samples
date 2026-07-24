@@ -1,5 +1,4 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SingleModelsView: View {
     @Environment(ModelsViewModel.self) private var vm
@@ -7,7 +6,6 @@ struct SingleModelsView: View {
     @Environment(DemoNavigator.self) private var navigator
 
     @State private var pendingDeleteID: String?
-    @State private var importing = false
 
     var body: some View {
         List {
@@ -31,23 +29,9 @@ struct SingleModelsView: View {
                     Text(ByteFormatting.formatBytes(vm.availableDiskSpace)).monospacedDigit()
                 }
             }
-            Section("Local") {
-                Button {
-                    importing = true
-                } label: {
-                    Label("Open local bundle…", systemImage: "folder")
-                }
-            }
         }
         .navigationTitle("Models")
         .onAppear { vm.refresh() }
-        .fileImporter(isPresented: $importing, allowedContentTypes: [.folder]) { result in
-            guard case .success(let url) = result else { return }
-            let accessed = url.startAccessingSecurityScopedResource()
-            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
-            guard FileManager.default.fileExists(atPath: url.appending(path: "manifest.json").path(percentEncoded: false)) else { return }
-            loadPath(url.path)
-        }
         .alert("Delete this model?", isPresented: deleteAlertBinding) {
             Button("Delete", role: .destructive) {
                 if let id = pendingDeleteID, let row = vm.row(for: id) { performDelete(row) }

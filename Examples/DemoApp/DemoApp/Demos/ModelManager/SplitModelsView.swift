@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct SplitModelsView: View {
@@ -8,7 +7,6 @@ struct SplitModelsView: View {
 
     @State private var pendingDeleteID: String?
     @State private var showDeleteAll = false
-    @State private var localBundleError: String?
 
     var body: some View {
         List {
@@ -25,15 +23,9 @@ struct SplitModelsView: View {
                 }
             }
             storageSection
-            localSection
         }
         .navigationTitle("Models")
         .onAppear { vm.refresh() }
-        .alert("Cannot open bundle", isPresented: localBundleErrorBinding) {
-            Button("OK", role: .cancel) { localBundleError = nil }
-        } message: {
-            Text(localBundleError ?? "")
-        }
         .alert("Delete this model?", isPresented: deleteAlertBinding) {
             Button("Delete", role: .destructive) {
                 if let id = pendingDeleteID, let row = vm.row(for: id) { performDelete(row) }
@@ -56,28 +48,6 @@ struct SplitModelsView: View {
             get: { pendingDeleteID != nil },
             set: { if !$0 { pendingDeleteID = nil } }
         )
-    }
-
-    private var localBundleErrorBinding: Binding<Bool> {
-        Binding(
-            get: { localBundleError != nil },
-            set: { if !$0 { localBundleError = nil } }
-        )
-    }
-
-    @ViewBuilder
-    private var localSection: some View {
-        Section("Local") {
-            Button {
-                openLocalBundle()
-            } label: {
-                Label("Open local bundle…", systemImage: "folder")
-            }
-            .help("Load a model bundle from disk without downloading")
-            Text("Point at a folder that contains manifest.json to run a bundle you already have.")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-        }
     }
 
     @ViewBuilder
@@ -105,21 +75,6 @@ struct SplitModelsView: View {
     private func loadPath(_ path: String) {
         Task { await chatVM.loadModel(path: path) }
         navigator.selection = .chat
-    }
-
-    private func openLocalBundle() {
-        let panel = NSOpenPanel()
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = false
-        panel.allowsMultipleSelection = false
-        panel.prompt = "Load"
-        panel.message = "Choose a model bundle directory (the folder that contains manifest.json)"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        guard FileManager.default.fileExists(atPath: url.appending(path: "manifest.json").path(percentEncoded: false)) else {
-            localBundleError = "That folder has no manifest.json. Choose a model bundle directory."
-            return
-        }
-        loadPath(url.path)
     }
 
     private func performDelete(_ row: ModelRowState) {
