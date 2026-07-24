@@ -54,9 +54,9 @@ GUI で試すなら `Examples/DemoApp/DemoApp.xcodeproj` を Xcode で開いて 
 削除つき)。ダウンロード済みのバンドルはそのまま Chat に読み込めます。private / gated リポジトリの場合は
 `HF_TOKEN` か `hf` CLI のトークンを自動検出します(public リポジトリは不要)。
 
-Chat デモでは **Choose…** からダウンロード済みのモデルバンドルのディレクトリを選び、**Load** を押すと
-チャットできます。応答は生成しながらストリーミング表示され、下部のステータス行に直近ターンの tok/s と
-TTFT が出ます。各実行の初回応答は GPU カーネル特殊化の一度きりのコストを払います（[モデルカード](samples/gemma-4-12b-128k.ja.md)
+**Chat** デモは会話画面です。使うモデルは **Models** 画面で選び、ダウンロード完了後に **Load in Chat**
+を押すと Chat に切り替わって会話できます。応答は生成しながらストリーミング表示され、下部のステータス行に
+直近ターンの tok/s と TTFT が出ます。各実行の初回応答は GPU カーネル特殊化の一度きりのコストを払います（[モデルカード](samples/gemma-4-12b-128k.ja.md)
 の「初回実行が遅いのは仕様です」を参照）。以降の応答は高速です。
 
 `DemoApp` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな macOS 26 SwiftUI アプリで、

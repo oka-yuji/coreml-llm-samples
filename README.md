@@ -56,10 +56,11 @@ The **Models** screen downloads model bundles in-app from Hugging Face, with pro
 delete, and loads a finished bundle straight into Chat. For a private or gated repo it auto-detects a
 token from `HF_TOKEN` or the `hf` CLI; a public repo needs none.
 
-In the Chat demo, click **Choose…** to pick a downloaded model bundle directory, press **Load**, and
-chat. Responses stream as they generate, and the status line reports the last turn's tokens/second
-and time-to-first-token. The first reply of a run pays the one-time GPU specialization cost described
-under **First run is slow** in the [model card](samples/gemma-4-12b-128k.md); later replies are fast.
+The **Chat** demo is the conversation screen. Select a model in **Models** and press **Load in Chat**
+to switch here and talk. Responses stream as they generate, and the status line reports the last
+turn's tokens/second and time-to-first-token. The first reply of a run pays the one-time GPU
+specialization cost described under **First run is slow** in the
+[model card](samples/gemma-4-12b-128k.md); later replies are fast.
 
 `DemoApp` is a small macOS 26 SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries
 as the CLI, so it runs the identical engine. It is a local development sample with App Sandbox
