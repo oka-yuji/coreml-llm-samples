@@ -9,14 +9,11 @@ let package = Package(
         .visionOS(.v26),
     ],
     products: [
-        // Embeddable libraries: the pure-Swift core (types, protocols) and the Core ML backend.
         .library(name: "LLMCore", targets: ["LLMCore"]),
         .library(name: "CoreMLBackend", targets: ["CoreMLBackend"]),
-        // Ready-to-run streaming chat CLI.
         .executable(name: "corellm-chat", targets: ["corellm-chat"]),
     ],
     dependencies: [
-        // Tokenizer only. Hidden behind the `Tokenizing` protocol so LLMCore stays vocab-agnostic.
         .package(url: "https://github.com/huggingface/swift-transformers", from: "1.0.0"),
     ],
     targets: [
