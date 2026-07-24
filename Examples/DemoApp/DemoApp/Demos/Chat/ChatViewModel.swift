@@ -48,6 +48,9 @@ final class ChatViewModel {
     @ObservationIgnored private var history: [ChatTurn] = []
     @ObservationIgnored private var hasWarmedUp = false
 
+    @ObservationIgnored private var presenter = StreamPresenter()
+    @ObservationIgnored private var displayTask: Task<Void, Never>?
+
     @ObservationIgnored var generation: Task<Void, Never>?
 
     init() {}
@@ -106,6 +109,8 @@ final class ChatViewModel {
         guard canLoad else { return }
         generation?.cancel()
         generation = nil
+        stopDisplayLoop()
+        presenter.reset()
         engine = nil
         history = []
         messages = []
@@ -130,6 +135,9 @@ final class ChatViewModel {
         phase = .generating
         if !hasWarmedUp { warming = true }
 
+        presenter.reset()
+        startDisplayLoop(assistantID: assistantID)
+
         let config = GenerationConfig(maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: true)
         let request = GenerationRequest(prompt: userText, config: config, history: history, reuseCache: true)
         generation = Task { [self] in
@@ -142,11 +150,37 @@ final class ChatViewModel {
 
     func reset() {
         guard let engine, canReset else { return }
+        stopDisplayLoop()
+        presenter.reset()
         Task { await engine.resetConversation() }
         messages = []
         history = []
         statusLine = ""
         loadStatus = ""
+    }
+
+    private func startDisplayLoop(assistantID: UUID) {
+        displayTask?.cancel()
+        displayTask = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .milliseconds(33))
+                guard let self, !Task.isCancelled else { return }
+                if self.presenter.tick() {
+                    self.setAssistantText(id: assistantID, self.presenter.displayed)
+                }
+            }
+        }
+    }
+
+    private func stopDisplayLoop() {
+        displayTask?.cancel()
+        displayTask = nil
+    }
+
+    private func flushDisplay(id: UUID) {
+        stopDisplayLoop()
+        presenter.flush()
+        setAssistantText(id: id, presenter.displayed)
     }
 
     private func consume(
@@ -169,17 +203,18 @@ final class ChatViewModel {
                     warming = false
                     hasWarmedUp = true
                     assistantText += chunk.text
-                    setAssistantText(id: assistantID, assistantText)
+                    presenter.append(chunk.text)
                 case .finished(let m):
                     metrics = m
                 }
             }
         } catch is CancellationError {
 
-            finishStopped(userText: userText, assistantText: assistantText)
+            finishStopped(userText: userText, assistantText: assistantText, assistantID: assistantID)
             return
         } catch {
             warming = false
+            flushDisplay(id: assistantID)
             if assistantText.isEmpty {
                 setAssistantText(id: assistantID, "(generation failed)")
             }
@@ -190,16 +225,18 @@ final class ChatViewModel {
 
         warming = false
         if Task.isCancelled {
-            finishStopped(userText: userText, assistantText: assistantText)
+            finishStopped(userText: userText, assistantText: assistantText, assistantID: assistantID)
             return
         }
+        flushDisplay(id: assistantID)
         history.append(ChatTurn(role: .user, text: userText))
         history.append(ChatTurn(role: .assistant, text: assistantText))
         if let metrics { statusLine = statsLine(metrics) }
         phase = .ready
     }
 
-    private func finishStopped(userText: String, assistantText: String) {
+    private func finishStopped(userText: String, assistantText: String, assistantID: UUID) {
+        flushDisplay(id: assistantID)
         history.append(ChatTurn(role: .user, text: userText))
         history.append(ChatTurn(role: .assistant, text: assistantText))
         if let engine { Task { await engine.resetConversation() } }
