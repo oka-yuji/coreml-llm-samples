@@ -6,7 +6,7 @@ once a conversation actually grows past 32K. Clone, download the bundle, and cha
 
 > **12B** · **131,072** ctx · **~11 tok/s** (32K mode, M4 Max) · **6.7 GB** single bundle · **zero-copy** 32K→128K promotion · **lossless** speculative decoding
 
-[← Back to the samples index](../README.md) · [日本語版 →](gemma-4-12b-128k.ja.md) · Article: *coming soon*
+[← Back to the samples index](../README.md) · [日本語版 →](gemma-4-12b-128k.ja.md) · [Article](https://zenn.dev/oka_yuuji/articles/c116fc796cf347)
 
 ---
 

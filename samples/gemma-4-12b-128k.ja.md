@@ -6,7 +6,7 @@
 
 > **12B** · **131,072** ctx · **~11 tok/s**（32K モード・M4 Max）· **6.7 GB** 単一バンドル · **ゼロコピー** 32K→128K 昇格 · **ロスレス**投機的デコード
 
-[← モデル一覧へ戻る](../README.ja.md) · [English →](gemma-4-12b-128k.md) · 記事: *coming soon*
+[← モデル一覧へ戻る](../README.ja.md) · [English →](gemma-4-12b-128k.md) · [記事](https://zenn.dev/oka_yuuji/articles/c116fc796cf347)
 
 ---
 
