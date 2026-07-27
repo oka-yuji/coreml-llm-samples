@@ -11,7 +11,7 @@ enum ModelStorage {
 
     static func applicationSupportDirectory() -> URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first
-            ?? FileManager.default.homeDirectoryForCurrentUser.appending(path: "Library/Application Support")
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Library/Application Support")
         return base.appending(path: "DemoApp")
     }
 
@@ -97,7 +97,7 @@ enum ModelStorage {
     }
 
     static func availableDiskSpace() -> UInt64 {
-        let probe = FileManager.default.homeDirectoryForCurrentUser
+        let probe = URL(fileURLWithPath: NSHomeDirectory())
         if let values = try? probe.resourceValues(forKeys: [.volumeAvailableCapacityForImportantUsageKey]),
            let capacity = values.volumeAvailableCapacityForImportantUsage {
             return UInt64(max(0, capacity))

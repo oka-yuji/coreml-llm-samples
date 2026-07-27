@@ -53,13 +53,13 @@ final class DemoNavigator {
 }
 
 enum DeviceKind {
-    case mac, pad, phone
+    case iPhone, iPad, mac
 
     static var current: DeviceKind {
         #if os(macOS)
         return .mac
         #else
-        return UIDevice.current.userInterfaceIdiom == .phone ? .phone : .pad
+        return UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
         #endif
     }
 }
@@ -67,9 +67,9 @@ enum DeviceKind {
 struct DemoRootView: View {
     var body: some View {
         switch DeviceKind.current {
-        case .mac, .pad:
+        case .mac, .iPad:
             SplitRootView()
-        case .phone:
+        case .iPhone:
             SingleRootView()
         }
     }

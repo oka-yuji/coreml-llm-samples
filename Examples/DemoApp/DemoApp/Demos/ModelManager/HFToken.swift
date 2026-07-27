@@ -6,6 +6,7 @@ enum HFToken {
             let trimmed = env.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
         }
+        #if os(macOS)
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
             home.appending(path: ".cache/huggingface/token"),
@@ -16,6 +17,7 @@ enum HFToken {
             let trimmed = raw.trimmingCharacters(in: .whitespacesAndNewlines)
             if !trimmed.isEmpty { return trimmed }
         }
+        #endif
         return nil
     }
 

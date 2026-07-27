@@ -42,11 +42,18 @@ final class ChatViewModel {
 
     var loadedPath: String = ""
 
+    var localBundles: [URL] = []
+
     var maxTokens: Int = 512
+
+    var speculative: Bool = true
+
+    var kvStatus: String = ""
 
     @ObservationIgnored private var engine: CoreMLEngine?
     @ObservationIgnored private var history: [ChatTurn] = []
     @ObservationIgnored private var hasWarmedUp = false
+    @ObservationIgnored private var lastCheckpointPrompt: String?
 
     @ObservationIgnored private var presenter = StreamPresenter()
     @ObservationIgnored private var displayTask: Task<Void, Never>?
@@ -63,6 +70,14 @@ final class ChatViewModel {
     var canSend: Bool { isModelLoaded && !isGenerating && !isLoading && !trimmedInput.isEmpty }
     var canReset: Bool { isModelLoaded && !isGenerating && !isLoading && !messages.isEmpty }
     var canLoad: Bool { !isGenerating && !isLoading }
+    var canCheckpoint: Bool { isModelLoaded && !isGenerating && !isLoading }
+
+    private var checkpointURL: URL {
+        let base = (try? FileManager.default.url(
+            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? URL(fileURLWithPath: NSTemporaryDirectory())
+        return base.appending(path: "CoreLLMCheckpoints/chat-kv", directoryHint: .isDirectory)
+    }
 
     var phaseDescription: String {
         switch phase {
@@ -72,6 +87,19 @@ final class ChatViewModel {
         case .generating: return "generating"
         case .failed(let s): return "failed: \(s)"
         }
+    }
+
+    func refreshLocalBundles() {
+        let fm = FileManager.default
+        let docs = (try? fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Documents")
+        localBundles = LLMModels.localBundles().compactMap { model -> URL? in
+            guard let folder = model.localFolderName else { return nil }
+            let url = docs.appending(path: folder, directoryHint: .isDirectory)
+            let manifest = url.appending(path: "manifest.json")
+            return fm.fileExists(atPath: manifest.path(percentEncoded: false)) ? url : nil
+        }
+        .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     func loadModel(path: String) async {
@@ -86,9 +114,11 @@ final class ChatViewModel {
         do {
             let bundle = try ModelBundle(contentsOf: url)
             modelName = bundle.manifest.name
-            phase = .loading("Compiling / loading Core ML chunks (CPU+GPU)…")
+            let preference = bundle.manifest.computeUnits
+                .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
+            phase = .loading("Compiling / loading Core ML models (\(preference.rawValue))…")
             let newEngine = CoreMLEngine()
-            try await newEngine.load(bundle, options: LoadOptions(computeUnits: .cpuAndGPU))
+            try await newEngine.load(bundle, options: LoadOptions(computeUnits: preference))
             engine = newEngine
             loadedPath = path
             history = []
@@ -132,13 +162,14 @@ final class ChatViewModel {
         let assistantID = UUID()
         messages.append(Message(id: assistantID, role: .assistant, text: ""))
         statusLine = ""
+        kvStatus = ""
         phase = .generating
         if !hasWarmedUp { warming = true }
 
         presenter.reset()
         startDisplayLoop(assistantID: assistantID)
 
-        let config = GenerationConfig(maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: true)
+        let config = GenerationConfig(maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: speculative)
         let request = GenerationRequest(prompt: userText, config: config, history: history, reuseCache: true)
         generation = Task { [self] in
             await consume(engine: engine, request: request, userText: userText, assistantID: assistantID)
@@ -157,6 +188,55 @@ final class ChatViewModel {
         history = []
         statusLine = ""
         loadStatus = ""
+        kvStatus = ""
+    }
+
+    func saveKV() {
+        guard let engine, canCheckpoint else { return }
+        let prompt = trimmedInput.isEmpty ? (messages.last { $0.role == .user }?.text ?? "") : trimmedInput
+        guard !prompt.isEmpty else {
+            kvStatus = "Type a prompt in the box, then Save Checkpoint."
+            return
+        }
+        let dir = checkpointURL
+        lastCheckpointPrompt = prompt
+        kvStatus = "Saving KV checkpoint…"
+        Task { [self] in
+            do {
+                let info = try await engine.kvSave(to: dir, prompt: prompt)
+                kvStatus = String(
+                    format: "Saved KV: %d tokens, %.0f KB, resident prefill %@",
+                    info.tokenCount, Double(info.fileBytes) / 1024, "\(info.residentPrefillWidths)")
+            } catch {
+                kvStatus = "KV save failed: \(error)"
+            }
+        }
+    }
+
+    func restoreKV() {
+        guard let engine, canCheckpoint else { return }
+        guard let prompt = lastCheckpointPrompt else {
+            kvStatus = "Save a checkpoint first, then Restore + Continue."
+            return
+        }
+        let dir = checkpointURL
+        let useSpec = speculative
+        kvStatus = "Restoring KV (no prefill)…"
+        Task { [self] in
+            do {
+                let info = try await engine.kvRestoreAndContinue(
+                    from: dir, verifyPrompt: prompt, maxNew: maxTokens, speculative: useSpec)
+                let text = info.continuationText ?? ""
+                messages.append(Message(role: .user, text: prompt))
+                messages.append(Message(role: .assistant, text: text))
+                let seconds = info.importSeconds ?? 0
+                kvStatus = String(
+                    format: "Restored KV in %.3fs, continued %d tokens (no prefill), resident prefill %@",
+                    seconds, info.continuation?.count ?? 0, "\(info.residentPrefillWidths)")
+            } catch {
+                kvStatus = "KV restore failed: \(error)"
+            }
+        }
     }
 
     private func startDisplayLoop(assistantID: UUID) {
@@ -253,11 +333,11 @@ final class ChatViewModel {
     private func statsLine(_ m: GenerationMetrics) -> String {
         let msPerTok = m.decodeTokensPerSecond > 0 ? 1000.0 / m.decodeTokensPerSecond : 0
         var s = String(
-            format: "%.1f tok/s  ·  %.0f ms/tok  ·  TTFT %.2fs  ·  %d→%d tok",
+            format: "%.1f tok/s  |  %.0f ms/tok  |  TTFT %.2fs  |  %d->%d tok",
             m.decodeTokensPerSecond, msPerTok, seconds(m.timeToFirstToken),
             m.promptTokens, m.generatedTokens)
         if let acc = m.draftAcceptanceRate {
-            s += String(format: "  ·  draft %.0f%%", acc * 100)
+            s += String(format: "  |  draft %.0f%%", acc * 100)
         }
         return s
     }

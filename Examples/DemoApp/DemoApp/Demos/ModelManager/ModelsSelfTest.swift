@@ -23,8 +23,8 @@ enum ModelsSelfTest {
         let subcommand = value("--models-selftest") ?? args.first { arg in
             ["list", "download", "cancel", "delete", "deleteall", "verify"].contains(arg)
         } ?? "verify"
-        let repoID = value("--repo") ?? ModelCatalog.all.first?.hfRepoID ?? ""
-        let revision = value("--revision") ?? ModelCatalog.all.first(where: { $0.hfRepoID == repoID })?.revision ?? "main"
+        let repoID = value("--repo") ?? LLMModels.downloadable(on: .macOS).first?.hfRepoID ?? ""
+        let revision = value("--revision") ?? LLMModels.all.first(where: { $0.hfRepoID == repoID })?.hfRevision ?? "main"
         let seconds = value("--seconds").flatMap { Double($0) } ?? 5
 
         Task { @MainActor in

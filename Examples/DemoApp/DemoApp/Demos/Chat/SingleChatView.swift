@@ -48,14 +48,33 @@ struct SingleChatView: View {
                     .font(.largeTitle)
                     .foregroundStyle(.secondary)
                 Text("No model loaded").font(.headline)
-                Text("Open Models to download or load a bundle.")
+                Text("Open Models to download a bundle, or load one placed in Documents.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 Button("Open Models") { navigator.selection = .models }
+                localBundlesList
             }
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+        .task { vm.refreshLocalBundles() }
+    }
+
+    @ViewBuilder private var localBundlesList: some View {
+        if !vm.localBundles.isEmpty {
+            Divider()
+            Text("On-device bundles (Documents)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(vm.localBundles, id: \.self) { url in
+                Button {
+                    Task { await vm.loadModel(path: url.path(percentEncoded: false)) }
+                } label: {
+                    Label(url.lastPathComponent, systemImage: "shippingbox")
+                }
+            }
+        }
     }
 
     private var transcript: some View {
@@ -81,14 +100,26 @@ struct SingleChatView: View {
     private let bottomAnchor = "bottom-anchor"
 
     private var statusBar: some View {
-        HStack(spacing: 8) {
+        @Bindable var vm = vm
+        return HStack(spacing: 8) {
             if vm.isLoading || vm.isGenerating { ProgressView().controlSize(.small) }
-            Text(statusText)
+            Text(vm.kvStatus.isEmpty ? statusText : vm.kvStatus)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
+            Toggle("Spec", isOn: $vm.speculative)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .labelsHidden()
+                .disabled(vm.isGenerating)
+            Menu("KV") {
+                Button("Save Checkpoint", action: vm.saveKV)
+                Button("Restore + Continue", action: vm.restoreKV)
+            }
+            .disabled(!vm.canCheckpoint)
+            .fixedSize()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)

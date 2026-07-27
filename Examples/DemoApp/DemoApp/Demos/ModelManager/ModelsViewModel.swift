@@ -4,7 +4,7 @@ import Observation
 @MainActor
 @Observable
 final class ModelRowState {
-    let model: CatalogModel
+    let model: LLMModel
     var isDownloading = false
     var progress: Double = 0
     var downloadedBytes: Int64 = 0
@@ -17,7 +17,7 @@ final class ModelRowState {
     @ObservationIgnored var downloader: HubDownloader?
     @ObservationIgnored var task: Task<Void, Never>?
 
-    init(model: CatalogModel) {
+    init(model: LLMModel) {
         self.model = model
     }
 
@@ -27,7 +27,7 @@ final class ModelRowState {
     }
 
     var bundleDirectory: URL {
-        ModelStorage.bundleDirectory(for: model.hfRepoID)
+        ModelStorage.bundleDirectory(for: model.hfRepoID ?? model.id)
     }
 }
 
@@ -39,7 +39,7 @@ final class ModelsViewModel {
     var availableDiskSpace: UInt64 = 0
 
     init() {
-        rows = ModelCatalog.all.map { ModelRowState(model: $0) }
+        rows = LLMModels.downloadable().map { ModelRowState(model: $0) }
         refresh()
     }
 
@@ -62,13 +62,14 @@ final class ModelsViewModel {
     }
 
     func startDownload(_ id: String) {
-        guard let row = row(for: id), !row.isDownloading else { return }
+        guard let row = row(for: id), !row.isDownloading,
+              let repoID = row.model.hfRepoID, let revision = row.model.hfRevision else { return }
         row.error = nil
         row.isDownloading = true
         row.progress = 0
         row.downloadedBytes = 0
         row.bytesPerSecond = 0
-        row.totalBytes = Int64(CatalogModel.parseSizeHint(row.model.approxSizeText))
+        row.totalBytes = Int64(LLMModel.parseSizeHint(row.model.approxSizeText))
 
         let quickAvailable = ModelStorage.availableDiskSpace()
         if row.totalBytes > 0, quickAvailable > 0, quickAvailable < UInt64(row.totalBytes) {
@@ -79,8 +80,6 @@ final class ModelsViewModel {
 
         let downloader = HubDownloader()
         row.downloader = downloader
-        let repoID = row.model.hfRepoID
-        let revision = row.model.revision
         let destination = row.bundleDirectory
 
         row.task = Task { [weak self] in
@@ -124,7 +123,7 @@ final class ModelsViewModel {
 
     func delete(_ id: String) {
         guard let row = row(for: id) else { return }
-        try? ModelStorage.deleteBundle(for: row.model.hfRepoID)
+        try? ModelStorage.deleteBundle(for: row.model.hfRepoID ?? row.model.id)
         refresh()
     }
 

@@ -10,16 +10,22 @@ struct SplitModelsView: View {
 
     var body: some View {
         List {
-            Section("Models") {
-                ForEach(vm.rows, id: \.model.id) { row in
-                    ModelRow(
-                        row: row,
-                        onDownload: { vm.startDownload(row.model.id) },
-                        onCancel: { vm.cancelDownload(row.model.id) },
-                        onLoad: { loadInChat(row) },
-                        onDelete: { pendingDeleteID = row.model.id }
-                    )
-                    .padding(.vertical, 4)
+            Section("Downloadable models") {
+                if vm.rows.isEmpty {
+                    Text("No downloadable models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(vm.rows, id: \.model.id) { row in
+                        ModelRow(
+                            row: row,
+                            onDownload: { vm.startDownload(row.model.id) },
+                            onCancel: { vm.cancelDownload(row.model.id) },
+                            onLoad: { loadInChat(row) },
+                            onDelete: { pendingDeleteID = row.model.id }
+                        )
+                        .padding(.vertical, 4)
+                    }
                 }
             }
             storageSection
@@ -105,6 +111,9 @@ struct ModelRow: View {
                 .fontWeight(.medium)
                 .lineLimit(1)
                 .truncationMode(.middle)
+            Text("Verified on \(row.model.verifiedOn)")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
 
             if row.isDownloading {
                 downloadingView
@@ -136,7 +145,7 @@ struct ModelRow: View {
                     Text("Preparing…")
                 }
                 if let remaining = row.estimatedTimeRemaining {
-                    Text("· \(ByteFormatting.formatDuration(remaining)) left").monospacedDigit()
+                    Text("- \(ByteFormatting.formatDuration(remaining)) left").monospacedDigit()
                 }
                 Spacer()
                 if row.totalBytes > 0 {
@@ -168,7 +177,7 @@ struct ModelRow: View {
     @ViewBuilder
     private var notDownloadedView: some View {
         HStack {
-            Text("Not downloaded · \(row.model.approxSizeText)")
+            Text("Not downloaded - \(row.model.approxSizeText)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
             Spacer()

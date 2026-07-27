@@ -1,4 +1,3 @@
-import AppKit
 import SwiftUI
 
 struct SplitChatView: View {
@@ -68,15 +67,34 @@ struct SplitChatView: View {
                     .font(.largeTitle)
                     .foregroundStyle(.secondary)
                 Text("No model loaded").font(.headline)
-                Text("Open Models to download or load a bundle.")
+                Text("Open Models to download a bundle, or load one placed in Documents.")
                     .font(.callout)
                     .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
                 Button("Open Models") { navigator.selection = .models }
+                localBundlesList
             }
             Spacer()
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .padding()
+        .task { vm.refreshLocalBundles() }
+    }
+
+    @ViewBuilder private var localBundlesList: some View {
+        if !vm.localBundles.isEmpty {
+            Divider().frame(maxWidth: 320)
+            Text("On-device bundles (Documents)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            ForEach(vm.localBundles, id: \.self) { url in
+                Button {
+                    Task { await vm.loadModel(path: url.path(percentEncoded: false)) }
+                } label: {
+                    Label(url.lastPathComponent, systemImage: "shippingbox")
+                }
+            }
+        }
     }
 
     private var transcript: some View {
@@ -103,14 +121,25 @@ struct SplitChatView: View {
     private let bottomAnchor = "bottom-anchor"
 
     private var footer: some View {
-        HStack(spacing: 8) {
+        @Bindable var vm = vm
+        return HStack(spacing: 8) {
             statusIcon
-            Text(statusText)
+            Text(vm.kvStatus.isEmpty ? statusText : vm.kvStatus)
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
+            Toggle("Speculation", isOn: $vm.speculative)
+                .toggleStyle(.switch)
+                .controlSize(.mini)
+                .disabled(vm.isGenerating)
+            Menu("KV") {
+                Button("Save Checkpoint", action: vm.saveKV)
+                Button("Restore + Continue", action: vm.restoreKV)
+            }
+            .disabled(!vm.canCheckpoint)
+            .fixedSize()
         }
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
@@ -152,8 +181,8 @@ struct SplitChatView: View {
                 .textFieldStyle(.plain)
                 .lineLimit(1...6)
                 .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(Color(nsColor: .textBackgroundColor)))
-                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color(nsColor: .separatorColor)))
+                .background(RoundedRectangle(cornerRadius: 8).fill(Color.fieldBackground))
+                .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.fieldBorder))
                 .disabled(!vm.isModelLoaded || vm.isLoading)
                 .onSubmit(sendIfPossible)
 
@@ -191,7 +220,7 @@ private struct MessageRow: View {
                 .padding(10)
                 .background(
                     RoundedRectangle(cornerRadius: 10)
-                        .fill(isUser ? Color.accentColor.opacity(0.12) : Color(nsColor: .controlBackgroundColor)))
+                        .fill(isUser ? Color.accentColor.opacity(0.12) : Color.bubbleBackground))
         }
     }
 }
