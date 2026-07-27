@@ -55,6 +55,7 @@ final class DemoNavigator {
 enum DeviceKind {
     case iPhone, iPad, mac
 
+    @MainActor
     static var current: DeviceKind {
         #if os(macOS)
         return .mac
