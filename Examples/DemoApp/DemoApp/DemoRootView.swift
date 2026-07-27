@@ -112,15 +112,14 @@ struct SingleRootView: View {
     @State private var modelsVM = ModelsViewModel()
 
     var body: some View {
-        NavigationStack {
-            List(Demo.allCases) { demo in
-                NavigationLink(value: demo) {
-                    DemoRow(demo: demo)
+        @Bindable var navigator = navigator
+        TabView(selection: $navigator.selection) {
+            ForEach(Demo.allCases) { demo in
+                NavigationStack {
+                    demo.singleView
                 }
-            }
-            .navigationTitle("Demos")
-            .navigationDestination(for: Demo.self) { demo in
-                demo.singleView
+                .tabItem { Label(demo.title, systemImage: demo.systemImage) }
+                .tag(demo as Demo?)
             }
         }
         .environment(navigator)
