@@ -39,6 +39,9 @@ struct SingleModelsView: View {
             }
         }
         .navigationTitle("Models")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .onAppear { vm.refresh() }
         .alert("Delete this model?", isPresented: deleteAlertBinding) {
             Button("Delete", role: .destructive) {

@@ -19,8 +19,11 @@ struct SingleChatView: View {
             }
         }
         .navigationTitle(vm.isModelLoaded ? vm.modelName : "Chat")
+        #if os(iOS)
+        .navigationBarTitleDisplayMode(.inline)
+        #endif
         .toolbar {
-            ToolbarItemGroup {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Button("Reset", action: vm.reset)
                     .disabled(!vm.canReset)
             }
