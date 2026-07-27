@@ -38,13 +38,16 @@ example `gemma-4-e2b-speculative-pal6/`.
 
 ```bash
 cd Examples/DemoApp
-xcodegen generate          # regenerates DemoApp.xcodeproj from project.yml
+cp Local.xcconfig.template Local.xcconfig   # once: set DEVELOPMENT_TEAM = your 10-char Team ID
+xcodegen generate                           # regenerates DemoApp.xcodeproj from project.yml
 open DemoApp.xcodeproj
 ```
 
-In Xcode, select the **`DemoApp-iOS`** scheme and your iPhone as the run destination. On the
-`DemoApp-iOS` target's **Signing & Capabilities**, pick your development team (the project ships with
-automatic signing). Press Run to install the app.
+`Local.xcconfig` is git-ignored and holds your `DEVELOPMENT_TEAM`, so your signing team survives every
+`xcodegen generate`. Find your Team ID in Xcode (Settings -> Accounts) or with
+`security find-identity -v -p codesigning`. If you skip this file, pick your team once in Xcode under the
+`DemoApp-iOS` target's **Signing & Capabilities** instead (the project uses automatic signing). Select the
+**`DemoApp-iOS`** scheme and your iPhone, then press Run.
 
 The macOS **`DemoApp`** scheme still builds and runs unchanged; it is the same app for the Mac.
 
@@ -72,10 +75,10 @@ The app reads bundles from its own **Documents** folder (file sharing is enabled
 3. **Speculation on / off:** the **Speculation** switch in the status bar toggles prompt-lookup
    speculation. It only changes speed — the text is identical either way (verification makes it
    lossless). It fires on quotation / verbatim / repetitive spans and stays out of the way otherwise.
-4. **KV save / restore:** the **KV** menu has *Save Checkpoint* (prefill the current prompt once and
-   dump the KV cache) and *Restore + Continue* (reload that KV and keep decoding with no prefill).
-   The status line reports the checkpoint size and that no wide prefill functions were resident during
-   restore.
+4. **KV save / restore:** the overflow (`...`) menu in the status bar has *Save context checkpoint*
+   (prefill the current prompt once and dump the KV cache) and *Restore checkpoint* (reload that KV and
+   keep decoding with no prefill). The status line reports the checkpoint size and that no wide prefill
+   functions were resident during restore.
 
 ---
 

@@ -114,10 +114,13 @@ struct SingleChatView: View {
                 .controlSize(.mini)
                 .labelsHidden()
                 .disabled(vm.isGenerating)
-            Menu("KV") {
-                Button("Save Checkpoint", action: vm.saveKV)
-                Button("Restore + Continue", action: vm.restoreKV)
+            Menu {
+                Button("Save context checkpoint", action: vm.saveKV)
+                Button("Restore checkpoint", action: vm.restoreKV)
+            } label: {
+                Image(systemName: "ellipsis.circle")
             }
+            .menuIndicator(.hidden)
             .disabled(!vm.canCheckpoint)
             .fixedSize()
         }
