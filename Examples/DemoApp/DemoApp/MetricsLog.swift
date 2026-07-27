@@ -61,12 +61,14 @@ enum MetricsLog {
         documentsDirectory().appending(path: "metrics.jsonl")
     }
 
+    @MainActor
     static func session(models: [String]) {
         var record = base(kind: "session")
         record.models = models
         append(record)
     }
 
+    @MainActor
     static func message(
         metrics: GenerationMetrics, modelID: String?, hfRevision: String?,
         computeUnits: String?, bundleFolder: String?, modelLoadSeconds: Double?
@@ -108,6 +110,7 @@ enum MetricsLog {
         append(record)
     }
 
+    @MainActor
     static func kv(
         info: KVCheckpointInfo, op: String, modelID: String?, hfRevision: String?,
         computeUnits: String?, bundleFolder: String?
@@ -133,6 +136,7 @@ enum MetricsLog {
         append(record)
     }
 
+    @MainActor
     private static func base(kind: String) -> MetricsRecord {
         let (model, os) = deviceAndOS()
         let (level, state) = battery()
@@ -149,7 +153,10 @@ enum MetricsLog {
         guard var data = try? encoder.encode(record) else { return }
         data.append(0x0A)
         let url = fileURL
-        let fileManager = FileManager.default
+        Task.detached(priority: .utility) { writeLine(data, to: url) }
+    }
+
+    private static func writeLine(_ data: Data, to url: URL) {
         if let handle = try? FileHandle(forWritingTo: url) {
             defer { try? handle.close() }
             _ = try? handle.seekToEnd()
@@ -158,7 +165,6 @@ enum MetricsLog {
             try? data.write(to: url, options: .atomic)
         }
         excludeFromBackup(url)
-        _ = fileManager
     }
 
     private static func documentsDirectory() -> URL {
@@ -186,9 +192,9 @@ enum MetricsLog {
         #endif
         var size = 0
         sysctlbyname(key, nil, &size, nil, 0)
-        var value = [CChar](repeating: 0, count: max(size, 1))
+        var value = [UInt8](repeating: 0, count: max(size, 1))
         sysctlbyname(key, &value, &size, nil, 0)
-        let machine = String(cString: value)
+        let machine = String(decoding: value.prefix(while: { $0 != 0 }), as: UTF8.self)
         return (machine, ProcessInfo.processInfo.operatingSystemVersionString)
     }
 
@@ -202,6 +208,7 @@ enum MetricsLog {
         }
     }
 
+    @MainActor
     private static func battery() -> (Double?, String?) {
         #if canImport(UIKit) && !os(macOS)
         UIDevice.current.isBatteryMonitoringEnabled = true
