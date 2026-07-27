@@ -13,16 +13,12 @@
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
 | [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.ja.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s（32K モード・M4 Max）| [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | [記事](https://zenn.dev/oka_yuuji/articles/c116fc796cf347) | [デモ](https://x.com/oka_yuuji/status/2080660675333161154/video/1) | Apache-2.0 |
+| [Gemma 4 E2B IT — ANE 投機（iOS・macOS）](docs/e2b-speculative-device.md) | ~4.9 GB (pal6+int8) | 2,048 | ~12 tok/s（iPhone 15）・~16 tok/s（17 Pro）| [okayuji/Gemma-4-E2B-it-coreml-speculative](https://huggingface.co/okayuji/Gemma-4-E2B-it-coreml-speculative) | — | — | Apache-2.0 |
 
 > **Speed** は代表値 1 つです。詳細な測定条件と全数値は各モデルカードにあります。
-
-### 予定（Planned）
-
-まだ未公開です。公開までリンクは張らず、予定だけ正直に記載します。
-
-- **Gemma 4 E2B** — iOS / ANE、オンデバイス。ランタイム（3-chunk multifunction・prompt-lookup ロスレス投機・
-  KV save/restore）は共有ライブラリとデモアプリに実装済みで、モデルバンドルのみ未配布です。アプリをビルドして
-  実機で試す手順は [docs/e2b-speculative-device.md](docs/e2b-speculative-device.md) を参照してください。
+>
+> **Gemma 4 E2B** は、prompt-lookup ロスレス投機を **iPhone 15（A16）の Neural Engine 上でバイト一致検証**
+> 済みで、クロスマシンの KV restore も同梱します。詳細とメモリ会計はカードを参照してください。
 
 ---
 

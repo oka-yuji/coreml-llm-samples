@@ -14,18 +14,13 @@ verification discipline is the house style — the receipts are in each model ca
 | Model | Size | Context | Speed | HF | Article | Demo | License |
 |---|---|---|---|---|---|---|---|
 | [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | [article](https://medium.com/@yu.j.0513/running-gemma-4-12b-with-a-128k-context-on-core-ml-23d6918dd370) | [demo](https://x.com/oka_yuuji/status/2080660675333161154/video/1) | Apache-2.0 |
+| [Gemma 4 E2B IT — ANE Speculative (iOS · macOS)](docs/e2b-speculative-device.md) | ~4.9 GB (pal6+int8) | 2,048 | ~12 tok/s (iPhone 15) · ~16 tok/s (17 Pro) | [okayuji/Gemma-4-E2B-it-coreml-speculative](https://huggingface.co/okayuji/Gemma-4-E2B-it-coreml-speculative) | — | — | Apache-2.0 |
 
 > **Speed** is one representative figure; the full measurement conditions and every number live in
 > each model's card.
-
-### Planned
-
-Not published yet — listed here honestly, without links until they actually ship:
-
-- **Gemma 4 E2B** — iOS / ANE, on-device. The runtime (3-chunk multifunction, prompt-lookup lossless
-  speculation, KV save/restore) already ships in the shared library and the demo app; the model bundle
-  is not distributed yet. To build the app and try it on a device, see
-  [docs/e2b-speculative-device.md](docs/e2b-speculative-device.md).
+>
+> **Gemma 4 E2B** ships lossless prompt-lookup speculation verified **byte-identical on an iPhone 15
+> (A16) Neural Engine**, plus cross-machine KV restore — details and the memory ledger are in its card.
 
 ---
 
