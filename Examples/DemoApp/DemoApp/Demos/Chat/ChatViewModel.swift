@@ -44,7 +44,7 @@ final class ChatViewModel {
 
     var localBundles: [URL] = []
 
-    var maxTokens: Int = 512
+    var maxTokens: Int = 0
 
     var speculative: Bool = true
 
@@ -54,6 +54,11 @@ final class ChatViewModel {
     @ObservationIgnored private var history: [ChatTurn] = []
     @ObservationIgnored private var hasWarmedUp = false
     @ObservationIgnored private var lastCheckpointPrompt: String?
+    @ObservationIgnored private var loadedModelID: String?
+    @ObservationIgnored private var loadedRevision: String?
+    @ObservationIgnored private var loadedComputeUnits: String?
+    @ObservationIgnored private var loadedFolder: String?
+    @ObservationIgnored private var loadedModelLoadSeconds: Double?
 
     @ObservationIgnored private var presenter = StreamPresenter()
     @ObservationIgnored private var displayTask: Task<Void, Never>?
@@ -114,6 +119,12 @@ final class ChatViewModel {
             try await newEngine.load(bundle, options: LoadOptions(computeUnits: preference))
             engine = newEngine
             loadedPath = path
+            loadedFolder = url.lastPathComponent
+            let catalogModel = LLMModels.all.first { $0.bundleFolderName == url.lastPathComponent }
+            loadedModelID = catalogModel?.id ?? bundle.manifest.name
+            loadedRevision = catalogModel?.hfRevision
+            loadedComputeUnits = preference.rawValue
+            loadedModelLoadSeconds = nil
             history = []
             messages = []
             hasWarmedUp = false
@@ -197,6 +208,9 @@ final class ChatViewModel {
         Task { [self] in
             do {
                 let info = try await engine.kvSave(to: dir, prompt: prompt)
+                MetricsLog.kv(
+                    info: info, op: "save", modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder)
                 kvStatus = String(
                     format: "Saved KV: %d tokens, %.0f KB, resident prefill %@",
                     info.tokenCount, Double(info.fileBytes) / 1024, "\(info.residentPrefillWidths)")
@@ -219,6 +233,9 @@ final class ChatViewModel {
             do {
                 let info = try await engine.kvRestoreAndContinue(
                     from: dir, verifyPrompt: prompt, maxNew: maxTokens, speculative: useSpec)
+                MetricsLog.kv(
+                    info: info, op: "restore", modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder)
                 let text = info.continuationText ?? ""
                 messages.append(Message(role: .user, text: prompt))
                 messages.append(Message(role: .assistant, text: text))
@@ -269,6 +286,7 @@ final class ChatViewModel {
                 switch event {
                 case .loadCompleted(let m):
                     loadStatus = String(format: "Model loaded in %.1fs", seconds(m.duration))
+                    loadedModelLoadSeconds = seconds(m.duration)
                 case .prefillCompleted(let p):
                     loadStatus = "Prefilled \(p.promptTokens) prompt tokens"
                     + (p.reusedTokens > 0 ? " (reused \(p.reusedTokens) from KV cache)" : "")
@@ -304,7 +322,14 @@ final class ChatViewModel {
         flushDisplay(id: assistantID)
         history.append(ChatTurn(role: .user, text: userText))
         history.append(ChatTurn(role: .assistant, text: assistantText))
-        if let metrics { statusLine = statsLine(metrics) }
+        if let metrics {
+            statusLine = statsLine(metrics)
+            MetricsLog.message(
+                metrics: metrics, modelID: loadedModelID, hfRevision: loadedRevision,
+                computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                modelLoadSeconds: loadedModelLoadSeconds)
+            loadedModelLoadSeconds = nil
+        }
         phase = .ready
     }
 
@@ -324,14 +349,19 @@ final class ChatViewModel {
     private func seconds(_ d: Duration) -> Double { d / .seconds(1) }
 
     private func statsLine(_ m: GenerationMetrics) -> String {
-        let msPerTok = m.decodeTokensPerSecond > 0 ? 1000.0 / m.decodeTokensPerSecond : 0
-        var s = String(
-            format: "%.1f tok/s  |  %.0f ms/tok  |  TTFT %.2fs  |  %d->%d tok",
-            m.decodeTokensPerSecond, msPerTok, seconds(m.timeToFirstToken),
-            m.promptTokens, m.generatedTokens)
-        if let acc = m.draftAcceptanceRate {
-            s += String(format: "  |  draft %.0f%%", acc * 100)
+        var parts = [
+            String(format: "TTFT %.2fs", seconds(m.timeToFirstToken)),
+            String(format: "%.1f tok/s", m.decodeTokensPerSecond),
+        ]
+        if m.reusedTokens > 0 {
+            parts.append("prompt \(m.promptTokens) (+reused \(m.reusedTokens))")
+        } else {
+            parts.append("prompt \(m.promptTokens)")
         }
-        return s
+        parts.append("\(m.generatedTokens) tok")
+        if let acc = m.draftAcceptanceRate { parts.append(String(format: "draft %.0f%%", acc * 100)) }
+        if let mb = m.peakMemoryBytes { parts.append(String(format: "mem %.0fMB", Double(mb) / 1_048_576)) }
+        if let reason = m.finishReason { parts.append(reason.rawValue) }
+        return parts.joined(separator: "  |  ")
     }
 }

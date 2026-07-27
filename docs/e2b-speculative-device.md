@@ -120,3 +120,29 @@ MODEL=/path/to/gemma-4-e2b-speculative-pal6
 - **KV portability.** A checkpoint carries an identity key (config hash, shapes, sidecar stage, layer
   head-dims). Restoring into a different or altered bundle is refused; the bundle's folder name is a
   record-only field and does not have to match.
+
+## Reading the metrics
+
+Each reply shows a one-line caption, for example:
+
+```
+TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |  mem 310MB  |  eos
+```
+
+- **reused** is the KV cache reused from earlier turns (LCP prefix). The second turn of a conversation
+  only prefills the new tokens, so its TTFT is much smaller than the first turn's.
+- **finish reason** is one of `eos` (the model stopped), `cap` (an explicit token limit), or
+  `contextFull` (the context window filled). Generation is **unlimited by default** now: it runs until
+  `eos` or the context is full, not a fixed token count.
+- **mem** is the app's own `phys_footprint` (its accounting). On the Neural Engine the model weights are
+  wired by the OS **outside** this number (about 1.5 GB for E2B), so the whole-device memory use is
+  higher than the `mem` shown here.
+
+The first reply after loading pays a one-time ANE kernel specialization (tens of seconds on the phone);
+later replies are fast, and later turns reuse the KV cache. If replies feel slow "every time", it is
+this one-time specialization per launch, not re-processing the conversation.
+
+A full record for every message, checkpoint, and launch is appended as JSON lines to
+`Documents/metrics.jsonl` (identity, token counts, `finishReason`, TTFT / prefill / per-token latencies,
+speculation stats, KV op timings, staged `phys_footprint` and available memory, thermal state, battery).
+Retrieve it with the Files app (*On My iPhone -> DemoApp -> metrics.jsonl*) or `devicectl device copy from`.

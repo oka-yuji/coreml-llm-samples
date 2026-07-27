@@ -18,11 +18,13 @@
 		4630CC3684415D3996499255 /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */; };
 		4F1283003B2FC67A6A4EA433 /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */; };
 		57D6857C51E920DC024ABB4A /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
+		5FF4C42E6FBA3B39734F975E /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4257A85A05752939D54D8DD6 /* MetricsLog.swift */; };
 		79A7364653127581F7C23C40 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = 5EAEC2F93FF5A70943C13A10 /* CoreMLBackend */; };
 		83FC106BD6520C3AB9130495 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */; };
 		873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */; };
 		89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */; };
 		8A80C55FCFB485CFDE43E02D /* ModelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FDDE78A1F2C3AA789F5EBBF /* ModelsViewModel.swift */; };
+		8D555BCF6E073C3C3A198FEC /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4257A85A05752939D54D8DD6 /* MetricsLog.swift */; };
 		910DF033B78B0FE570A85DB8 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */; };
 		967C378D1B52E637CD31D24D /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */; };
 		9841C54821A9E069A1BCFC23 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */; };
@@ -55,6 +57,7 @@
 		2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPresenter.swift; sourceTree = "<group>"; };
 		3986EDEFC61F7234B500496B /* SplitChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitChatView.swift; sourceTree = "<group>"; };
 		422BFD81DE53F48FD3C73B56 /* HFToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HFToken.swift; sourceTree = "<group>"; };
+		4257A85A05752939D54D8DD6 /* MetricsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsLog.swift; sourceTree = "<group>"; };
 		50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModels.swift; sourceTree = "<group>"; };
 		51DDF698F9A3A35A67384C75 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
 		6946403106441AB2ED7A4630 /* DemoRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRootView.swift; sourceTree = "<group>"; };
@@ -160,6 +163,7 @@
 			children = (
 				CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */,
 				6946403106441AB2ED7A4630 /* DemoRootView.swift */,
+				4257A85A05752939D54D8DD6 /* MetricsLog.swift */,
 				51DDF698F9A3A35A67384C75 /* PlatformColors.swift */,
 				5183B0CE22F31FA0116AC0F5 /* Demos */,
 			);
@@ -261,6 +265,7 @@
 				BAA02C4DAD5623F8E5EE7349 /* HFToken.swift in Sources */,
 				FA7972DCB5F33B4FB4846D95 /* HubDownloader.swift in Sources */,
 				BF18F932B1923EDF3D3AAB41 /* LLMModels.swift in Sources */,
+				5FF4C42E6FBA3B39734F975E /* MetricsLog.swift in Sources */,
 				2571C7BFDD45C331F1399D3D /* ModelStorage.swift in Sources */,
 				DADD73CF0BAD3EEA7B78DF66 /* ModelsSelfTest.swift in Sources */,
 				8A80C55FCFB485CFDE43E02D /* ModelsViewModel.swift in Sources */,
@@ -285,6 +290,7 @@
 				F6289510C9CD56401512950F /* HFToken.swift in Sources */,
 				B8F35C74F2102797C6B9BF41 /* HubDownloader.swift in Sources */,
 				967C378D1B52E637CD31D24D /* LLMModels.swift in Sources */,
+				8D555BCF6E073C3C3A198FEC /* MetricsLog.swift in Sources */,
 				F2A166E74426BAAF95F80FF9 /* ModelStorage.swift in Sources */,
 				1CB862214A5CBE682C98D3A2 /* ModelsSelfTest.swift in Sources */,
 				43BBA120DF41B0C70A8991D8 /* ModelsViewModel.swift in Sources */,

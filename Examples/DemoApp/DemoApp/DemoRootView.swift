@@ -67,12 +67,15 @@ enum DeviceKind {
 
 struct DemoRootView: View {
     var body: some View {
-        switch DeviceKind.current {
-        case .mac, .iPad:
-            SplitRootView()
-        case .iPhone:
-            SingleRootView()
+        Group {
+            switch DeviceKind.current {
+            case .mac, .iPad:
+                SplitRootView()
+            case .iPhone:
+                SingleRootView()
+            }
         }
+        .task { MetricsLog.session(models: LLMModels.all.map { $0.id }) }
     }
 }
 
