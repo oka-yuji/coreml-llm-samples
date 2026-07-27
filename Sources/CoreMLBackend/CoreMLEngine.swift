@@ -1,6 +1,7 @@
 import CoreML
 import Foundation
 import LLMCore
+import os
 
 public actor CoreMLEngine: LLMEngine {
     public nonisolated let descriptor = EngineDescriptor(
@@ -128,9 +129,11 @@ public actor CoreMLEngine: LLMEngine {
         processedTokens = manifest.processedTokens
         let seed = manifest.pendingNextToken ?? 0
         let eos = Set(tokenizer.eosTokenIDs)
+        let budget = max(0, chain.contextLength - manifest.position - 8)
+        let effectiveMaxNew = maxNew > 0 ? min(maxNew, budget) : budget
         let cont = useSpec
-            ? try chain.continueSpeculative(seed: seed, context: manifest.processedTokens, maxNew: maxNew, eos: eos)
-            : try chain.continueGreedy(seed: seed, maxNew: maxNew, eos: eos)
+            ? try chain.continueSpeculative(seed: seed, context: manifest.processedTokens, maxNew: effectiveMaxNew, eos: eos)
+            : try chain.continueGreedy(seed: seed, maxNew: effectiveMaxNew, eos: eos)
         let bytes = manifest.layers.reduce(0) { $0 + $1.kBytes + $1.vBytes }
         let pld = useSpec ? chain.pldStatsSnapshot() : nil
         return KVCheckpointInfo(
@@ -268,7 +271,12 @@ public actor CoreMLEngine: LLMEngine {
                 reason: "prompt (\(promptIDs.count) tokens) exceeds context length \(chain.contextLength)"
             )
         }
-        let maxNewTokens = min(request.config.maxNewTokens, chain.contextLength - promptIDs.count)
+        let thermalStart = Self.thermalName()
+        let margin = 8
+        let budget = max(0, chain.contextLength - promptIDs.count - margin)
+        let requested = request.config.maxNewTokens
+        let cap = requested > 0 ? min(requested, budget) : budget
+        let capIsContextBound = !(requested > 0 && requested <= budget)
 
         let useMTP = request.config.multiTokenPrediction && (speculative?.supportsMTP ?? false)
 
@@ -288,6 +296,8 @@ public actor CoreMLEngine: LLMEngine {
         if useMTP { try await installMTPIfNeeded() }
         let diff = reusedTokens > 0 ? Array(promptIDs[reusedTokens...]) : promptIDs
         var nextToken = try chain.prefill(diff)
+        let prefillSeconds = (clock.now - start) / .seconds(1)
+        let footprintAfterPrefill = Self.memoryFootprint()
 
         processedTokens = promptIDs
         continuation.yield(.prefillCompleted(
@@ -301,10 +311,13 @@ public actor CoreMLEngine: LLMEngine {
         var emittedText = ""
         var acceptedTotal = 0
         var draftedTotal = 0
+        var tokenInstants: [ContinuousClock.Instant] = []
+        var sawEOS = false
 
         func emit(_ token: Int) throws {
             generated.append(token)
             let now = clock.now
+            tokenInstants.append(now)
             if firstTokenAt == nil { firstTokenAt = now }
             let fullText = try tokenizer.decode(generated)
             let delta = fullText.hasPrefix(emittedText) ? String(fullText.dropFirst(emittedText.count)) : fullText
@@ -318,9 +331,9 @@ public actor CoreMLEngine: LLMEngine {
             )))
         }
 
-        decodeLoop: while generated.count < maxNewTokens {
+        decodeLoop: while generated.count < cap {
             try Task.checkCancellation()
-            if tokenizer.eosTokenIDs.contains(nextToken) { break }
+            if tokenizer.eosTokenIDs.contains(nextToken) { sawEOS = true; break }
 
             if useMTP, let spec = speculative {
 
@@ -331,9 +344,8 @@ public actor CoreMLEngine: LLMEngine {
                 processedTokens.append(contentsOf: round.emitted)
                 for token in round.emitted {
                     try emit(token)
-                    if tokenizer.eosTokenIDs.contains(token) || generated.count >= maxNewTokens {
-                        break decodeLoop
-                    }
+                    if tokenizer.eosTokenIDs.contains(token) { sawEOS = true; break decodeLoop }
+                    if generated.count >= cap { break decodeLoop }
                 }
                 nextToken = round.next
             } else {
@@ -345,13 +357,39 @@ public actor CoreMLEngine: LLMEngine {
         }
 
         let decodeSeconds = (clock.now - decodeStart) / .seconds(1)
+        let finishReason: FinishReason = sawEOS ? .eos : (capIsContextBound ? .contextFull : .cap)
+        let footprintAtEnd = Self.memoryFootprint()
+        let pld = useMTP ? (chain as? ChunkedSpeculativeChain)?.pldStatsSnapshot() : nil
+        let widths = (chain as? ChunkedSpeculativeChain)?.residentPrefillWidths()
+        var perTokenMillis: [Double] = []
+        var previous = decodeStart
+        for instant in tokenInstants {
+            perTokenMillis.append((instant - previous) / .seconds(1) * 1000)
+            previous = instant
+        }
+        let peak = [footprintAfterPrefill, footprintAtEnd].compactMap { $0 }.max()
         continuation.yield(.finished(GenerationMetrics(
             promptTokens: promptIDs.count,
             generatedTokens: generated.count,
             timeToFirstToken: (firstTokenAt ?? decodeStart) - start,
             decodeTokensPerSecond: Double(generated.count) / max(decodeSeconds, 0.001),
-            peakMemoryBytes: Self.memoryFootprint(),
-            draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil
+            peakMemoryBytes: peak,
+            draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil,
+            reusedTokens: reusedTokens,
+            finishReason: finishReason,
+            prefillSeconds: prefillSeconds,
+            perTokenMillis: perTokenMillis,
+            footprintAfterPrefillBytes: footprintAfterPrefill,
+            footprintAtEndBytes: footprintAtEnd,
+            availableMemoryBytes: Self.availableMemory(),
+            thermalStateStart: thermalStart,
+            thermalStateEnd: Self.thermalName(),
+            specEnabled: useMTP,
+            specRounds: pld?.pldRounds,
+            specDrafted: draftedTotal > 0 ? draftedTotal : nil,
+            specAccepted: draftedTotal > 0 ? acceptedTotal : nil,
+            specFallbackRounds: pld?.fallbackRounds,
+            feedWidths: widths
         )))
     }
 
@@ -442,5 +480,23 @@ public actor CoreMLEngine: LLMEngine {
             }
         }
         return result == KERN_SUCCESS ? Int(info.phys_footprint) : nil
+    }
+
+    private static func availableMemory() -> Int? {
+        #if os(iOS)
+        return Int(os_proc_available_memory())
+        #else
+        return nil
+        #endif
+    }
+
+    private static func thermalName() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 }

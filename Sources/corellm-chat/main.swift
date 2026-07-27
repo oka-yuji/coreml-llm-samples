@@ -7,7 +7,7 @@ let ctx32kWindow = 32768
 struct Options {
     var modelPath: String?
     var prompt: String?
-    var maxTokens = 512
+    var maxTokens = 0
     var mtp = true
     var stats = false
     var compute: String?
@@ -41,7 +41,7 @@ func parseArguments(_ argv: [String]) -> Options {
         case "--prompt": opts.prompt = value(after: name, inline: inline)
         case "--max-tokens":
             let raw = value(after: name, inline: inline)
-            guard let n = Int(raw), n > 0 else { fail("--max-tokens expects a positive integer, got \(raw)") }
+            guard let n = Int(raw), n >= 0 else { fail("--max-tokens expects a non-negative integer, got \(raw)") }
             opts.maxTokens = n
         case "--no-mtp": opts.mtp = false
         case "--stats": opts.stats = true
@@ -67,7 +67,7 @@ func printUsage() {
     OPTIONS:
       --model <dir>       Path to the model bundle directory (contains manifest.json). Required.
       --prompt "<text>"   Generate one response for <text> and exit. Omit for an interactive REPL.
-      --max-tokens <n>    Maximum tokens to generate per turn. Default: 512.
+      --max-tokens <n>    Max tokens per turn. Default: 0 = unlimited (until EOS or context is full).
       --no-mtp            Disable speculative decoding. Default: ON when the bundle supports it.
       --compute <units>   all | cpuAndGPU | cpuAndNeuralEngine | cpuOnly. Overrides the manifest.
       --stats             Print TTFT, decode ms/tok, tok/s, and draft acceptance after generation.
@@ -163,8 +163,9 @@ func printStats(_ m: GenerationMetrics, mtp: Bool) {
     let msPerTok = m.decodeTokensPerSecond > 0 ? 1000.0 / m.decodeTokensPerSecond : 0
     var lines = [
         "--- stats ---",
-        "prompt tokens:     \(m.promptTokens)",
+        "prompt tokens:     \(m.promptTokens)\(m.reusedTokens > 0 ? " (reused \(m.reusedTokens))" : "")",
         "generated tokens:  \(m.generatedTokens)",
+        "finish reason:     \(m.finishReason?.rawValue ?? "?")",
         "TTFT:              \(String(format: "%.2f", fmtSeconds(m.timeToFirstToken)))s",
         "decode:            \(String(format: "%.1f", msPerTok)) ms/tok  "
             + "(\(String(format: "%.1f", m.decodeTokensPerSecond)) tok/s)",

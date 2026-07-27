@@ -41,7 +41,7 @@ public struct GenerationConfig: Sendable, Hashable, Codable {
     public var multiTokenPrediction: Bool
 
     public init(
-        maxNewTokens: Int = 512,
+        maxNewTokens: Int = 0,
         temperature: Double = 0,
         topP: Double? = nil,
         seed: UInt64? = nil,
@@ -97,8 +97,17 @@ public struct PrefillMetrics: Sendable, Codable {
     }
 }
 
+public enum FinishReason: String, Sendable, Codable {
+    case eos
+    case cap
+    case contextFull
+    case cancelled
+    case error
+}
+
 public struct GenerationMetrics: Sendable, Codable {
     public var promptTokens: Int
+    public var reusedTokens: Int
     public var generatedTokens: Int
     public var timeToFirstToken: Duration
     public var decodeTokensPerSecond: Double
@@ -106,19 +115,64 @@ public struct GenerationMetrics: Sendable, Codable {
 
     public var draftAcceptanceRate: Double?
 
+    public var finishReason: FinishReason?
+    public var prefillSeconds: Double?
+    public var perTokenMillis: [Double]?
+    public var footprintAfterPrefillBytes: Int?
+    public var footprintAtEndBytes: Int?
+    public var availableMemoryBytes: Int?
+    public var thermalStateStart: String?
+    public var thermalStateEnd: String?
+    public var specEnabled: Bool?
+    public var specRounds: Int?
+    public var specDrafted: Int?
+    public var specAccepted: Int?
+    public var specFallbackRounds: Int?
+    public var feedWidths: [Int]?
+
     public init(
         promptTokens: Int,
         generatedTokens: Int,
         timeToFirstToken: Duration,
         decodeTokensPerSecond: Double,
         peakMemoryBytes: Int? = nil,
-        draftAcceptanceRate: Double? = nil
+        draftAcceptanceRate: Double? = nil,
+        reusedTokens: Int = 0,
+        finishReason: FinishReason? = nil,
+        prefillSeconds: Double? = nil,
+        perTokenMillis: [Double]? = nil,
+        footprintAfterPrefillBytes: Int? = nil,
+        footprintAtEndBytes: Int? = nil,
+        availableMemoryBytes: Int? = nil,
+        thermalStateStart: String? = nil,
+        thermalStateEnd: String? = nil,
+        specEnabled: Bool? = nil,
+        specRounds: Int? = nil,
+        specDrafted: Int? = nil,
+        specAccepted: Int? = nil,
+        specFallbackRounds: Int? = nil,
+        feedWidths: [Int]? = nil
     ) {
         self.promptTokens = promptTokens
+        self.reusedTokens = reusedTokens
         self.generatedTokens = generatedTokens
         self.timeToFirstToken = timeToFirstToken
         self.decodeTokensPerSecond = decodeTokensPerSecond
         self.peakMemoryBytes = peakMemoryBytes
         self.draftAcceptanceRate = draftAcceptanceRate
+        self.finishReason = finishReason
+        self.prefillSeconds = prefillSeconds
+        self.perTokenMillis = perTokenMillis
+        self.footprintAfterPrefillBytes = footprintAfterPrefillBytes
+        self.footprintAtEndBytes = footprintAtEndBytes
+        self.availableMemoryBytes = availableMemoryBytes
+        self.thermalStateStart = thermalStateStart
+        self.thermalStateEnd = thermalStateEnd
+        self.specEnabled = specEnabled
+        self.specRounds = specRounds
+        self.specDrafted = specDrafted
+        self.specAccepted = specAccepted
+        self.specFallbackRounds = specFallbackRounds
+        self.feedWidths = feedWidths
     }
 }
