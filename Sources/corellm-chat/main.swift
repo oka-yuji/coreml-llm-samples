@@ -10,6 +10,10 @@ struct Options {
     var maxTokens = 512
     var mtp = true
     var stats = false
+    var compute: String?
+    var kvSave: String?
+    var kvRestore: String?
+    var kvSpec = false
 }
 
 func parseArguments(_ argv: [String]) -> Options {
@@ -41,6 +45,10 @@ func parseArguments(_ argv: [String]) -> Options {
             opts.maxTokens = n
         case "--no-mtp": opts.mtp = false
         case "--stats": opts.stats = true
+        case "--compute": opts.compute = value(after: name, inline: inline)
+        case "--kv-save": opts.kvSave = value(after: name, inline: inline)
+        case "--kv-restore": opts.kvRestore = value(after: name, inline: inline)
+        case "--kv-spec": opts.kvSpec = true
         case "--help", "-h": printUsage(); exit(0)
         default: fail("unknown argument: \(arg)")
         }
@@ -60,8 +68,12 @@ func printUsage() {
       --model <dir>       Path to the model bundle directory (contains manifest.json). Required.
       --prompt "<text>"   Generate one response for <text> and exit. Omit for an interactive REPL.
       --max-tokens <n>    Maximum tokens to generate per turn. Default: 512.
-      --no-mtp            Disable speculative decoding (MTP). Default: ON when a drafter ships.
+      --no-mtp            Disable speculative decoding. Default: ON when the bundle supports it.
+      --compute <units>   all | cpuAndGPU | cpuAndNeuralEngine | cpuOnly. Overrides the manifest.
       --stats             Print TTFT, decode ms/tok, tok/s, and draft acceptance after generation.
+      --kv-save <dir>     Prefill --prompt once, dump the KV cache to <dir>, and exit.
+      --kv-restore <dir>  Restore a KV cache from <dir> and continue decoding (no prefill), then exit.
+      --kv-spec           Use speculative decoding for the --kv-restore continuation.
       -h, --help          Show this help.
 
     In interactive mode, each line you type is one turn; KV is reused across turns.
@@ -79,12 +91,24 @@ func fail(_ message: String) -> Never {
 
 func fmtSeconds(_ d: Duration) -> Double { d / .seconds(1) }
 
-func drafterPresent(in bundleURL: URL) -> Bool {
-    let fm = FileManager.default
-    for name in ["drafter_ring.mlmodelc", "drafter.mlmodelc"] {
-        if fm.fileExists(atPath: bundleURL.appending(path: name).path(percentEncoded: false)) { return true }
+func printKVInfo(_ info: KVCheckpointInfo, mode: String) {
+    var lines = [
+        "--- kv \(mode) ---",
+        "position:          \(info.position)",
+        "committed tokens:  \(info.tokenCount)",
+        "kv bytes:          \(info.fileBytes)",
+        "own layers:        \(info.layerCount)",
+        "resident prefill:  \(info.residentPrefillWidths)",
+    ]
+    if let s = info.prefillSeconds { lines.append("prefill:           \(String(format: "%.3f", s))s") }
+    if let s = info.exportSeconds { lines.append("export:            \(String(format: "%.3f", s))s") }
+    if let s = info.importSeconds { lines.append("import:            \(String(format: "%.3f", s))s") }
+    if let n = info.continuation?.count { lines.append("continued tokens:  \(n)") }
+    if let r = info.pldRounds { lines.append("pld rounds:        \(r)") }
+    if let peak = info.peakMemoryBytes {
+        lines.append("peak memory:       \(String(format: "%.0f", Double(peak) / 1_048_576)) MB")
     }
-    return false
+    err(lines.joined(separator: "\n") + "\n")
 }
 
 func consume(
@@ -172,20 +196,38 @@ func runMain() async throws {
 
     err("Loading model bundle: \(modelURL.path(percentEncoded: false))\n")
     let bundle = try ModelBundle(contentsOf: modelURL)
-    let drafterDetected = drafterPresent(in: modelURL)
     err("  \(bundle.manifest.name)\n")
-    err("  context length: \(bundle.manifest.contextLength) | "
-        + "MTP drafter: \(drafterDetected ? "yes" : "no")\n")
+    err("  context length: \(bundle.manifest.contextLength)\n")
 
+    let preference: ComputeUnitPreference = opts.compute.flatMap(ComputeUnitPreference.init(rawValue:))
+        ?? bundle.manifest.computeUnits.flatMap(ComputeUnitPreference.init(rawValue:))
+        ?? .cpuAndGPU
     let engine = CoreMLEngine()
     let loadStart = ContinuousClock().now
-    err("  loading Core ML chunks (CPU+GPU)…\n")
-    try await engine.load(bundle, options: LoadOptions(computeUnits: .cpuAndGPU))
-    err("  chunks loaded in \(String(format: "%.1f", fmtSeconds(ContinuousClock().now - loadStart)))s\n")
+    err("  loading Core ML models (\(preference.rawValue))…\n")
+    try await engine.load(bundle, options: LoadOptions(computeUnits: preference))
+    err("  models loaded in \(String(format: "%.1f", fmtSeconds(ContinuousClock().now - loadStart)))s\n")
 
-    let mtp = opts.mtp && drafterDetected
-    if opts.mtp && !drafterDetected {
-        err("  note: bundle has no drafter — running without speculation\n")
+    let specAvailable = await engine.supportsSpeculation
+
+    if let dir = opts.kvSave {
+        guard let prompt = opts.prompt else { fail("--kv-save requires --prompt") }
+        let info = try await engine.kvSave(to: URL(fileURLWithPath: dir, isDirectory: true), prompt: prompt)
+        printKVInfo(info, mode: "save")
+        return
+    }
+    if let dir = opts.kvRestore {
+        let info = try await engine.kvRestoreAndContinue(
+            from: URL(fileURLWithPath: dir, isDirectory: true),
+            verifyPrompt: opts.prompt, maxNew: opts.maxTokens, speculative: opts.kvSpec && specAvailable)
+        printKVInfo(info, mode: "restore")
+        if let text = info.continuationText, !text.isEmpty { out(text + "\n") }
+        return
+    }
+
+    let mtp = opts.mtp && specAvailable
+    if opts.mtp && !specAvailable {
+        err("  note: this bundle has no speculation assets — running without speculation\n")
     }
     let config = GenerationConfig(
         maxNewTokens: opts.maxTokens, temperature: 0, multiTokenPrediction: mtp)
