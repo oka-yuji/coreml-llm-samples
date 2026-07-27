@@ -81,7 +81,7 @@ enum LLMModels {
                 folderName: "gemma-4-e2b-speculative-pal6"),
             supportedPlatforms: [.iOS, .macOS],
             verifiedOn: "iPhone 15, iOS 26",
-            approxSizeText: "4.7 GB"
+            approxSizeText: "4.9 GB"
         )
     ]
 
