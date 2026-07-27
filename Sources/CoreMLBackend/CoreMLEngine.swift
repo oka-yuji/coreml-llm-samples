@@ -25,6 +25,8 @@ public actor CoreMLEngine: LLMEngine {
 
     public init() {}
 
+    public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
+
     public func load(_ model: ModelBundle, options: LoadOptions) async throws {
         guard chain == nil else { return }
         let clock = ContinuousClock()
@@ -37,7 +39,15 @@ public actor CoreMLEngine: LLMEngine {
         case .cpuOnly: .cpuOnly
         }
 
-        if model.manifest.format == "coreml-stateful-chain-v2" {
+        if model.manifest.format == ChunkedSpeculativeChain.format {
+            let r = try await ChunkedSpeculativeChain(
+                bundleURL: model.directoryURL, computeUnits: units,
+                sidecarStage: model.manifest.sidecarStage)
+            tokenizer = try await HFTokenizer(
+                modelFolder: model.directoryURL, eosTokenIDs: Set(r.config.eosIDs))
+            chain = r
+            speculative = r
+        } else if model.manifest.format == "coreml-stateful-chain-v2" {
 
             guard units == .cpuAndGPU || units == .all else {
                 throw LLMEngineError.incompatibleBundle(
@@ -72,6 +82,66 @@ public actor CoreMLEngine: LLMEngine {
         tokenizer = nil
         pendingLoadMetrics = nil
         processedTokens = []
+    }
+
+    public func kvSave(to url: URL, prompt: String, warmupDecodes: Int = 0) async throws -> KVCheckpointInfo {
+        guard let chain = chain as? ChunkedSpeculativeChain else {
+            throw LLMEngineError.incompatibleBundle(reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let ids = try encodeConversation(history: [], prompt: prompt)
+        let clock = ContinuousClock()
+        try chain.reset()
+        let t0 = clock.now
+        var pending = try chain.prefillScheduled(ids)
+        let prefillSec = (clock.now - t0) / .seconds(1)
+        var processed = ids
+        for _ in 0..<max(0, warmupDecodes) {
+            processed.append(pending)
+            pending = try chain.decodeStep(tokenID: pending)
+        }
+        let e0 = clock.now
+        let manifest = try chain.exportKV(to: url, pendingNextToken: pending, processedTokens: processed)
+        let exportSec = (clock.now - e0) / .seconds(1)
+        processedTokens = processed
+        let bytes = manifest.layers.reduce(0) { $0 + $1.kBytes + $1.vBytes }
+        return KVCheckpointInfo(
+            position: manifest.position, tokenCount: manifest.tokenCount, pendingNextToken: pending,
+            fileBytes: bytes, layerCount: manifest.layers.count,
+            prefillSeconds: prefillSec, exportSeconds: exportSec, importSeconds: nil,
+            residentPrefillWidths: chain.residentPrefillWidths(), continuation: nil, continuationText: nil,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public func kvRestoreAndContinue(
+        from url: URL, verifyPrompt: String?, maxNew: Int, speculative useSpec: Bool = false
+    ) async throws -> KVCheckpointInfo {
+        guard let chain = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        chain.setBlockScheduledPrefill(true)
+        defer { chain.setBlockScheduledPrefill(false) }
+        let expected: [Int]? = try verifyPrompt.map { try encodeConversation(history: [], prompt: $0) }
+        let clock = ContinuousClock()
+        let i0 = clock.now
+        let manifest = try chain.importKV(from: url, expectedContext: expected)
+        let importSec = (clock.now - i0) / .seconds(1)
+        processedTokens = manifest.processedTokens
+        let seed = manifest.pendingNextToken ?? 0
+        let eos = Set(tokenizer.eosTokenIDs)
+        let cont = useSpec
+            ? try chain.continueSpeculative(seed: seed, context: manifest.processedTokens, maxNew: maxNew, eos: eos)
+            : try chain.continueGreedy(seed: seed, maxNew: maxNew, eos: eos)
+        let bytes = manifest.layers.reduce(0) { $0 + $1.kBytes + $1.vBytes }
+        let pld = useSpec ? chain.pldStatsSnapshot() : nil
+        return KVCheckpointInfo(
+            position: manifest.position, tokenCount: manifest.tokenCount, pendingNextToken: seed,
+            fileBytes: bytes, layerCount: manifest.layers.count,
+            prefillSeconds: nil, exportSeconds: nil, importSeconds: importSec,
+            residentPrefillWidths: chain.residentPrefillWidths(),
+            continuation: cont, continuationText: try? tokenizer.decode(cont),
+            peakMemoryBytes: Self.memoryFootprint(),
+            pldRounds: pld?.pldRounds, pldFallbackRounds: pld?.fallbackRounds,
+            pldDraftedTokens: pld?.draftedTokens, pldAcceptedTokens: pld?.acceptedTokens)
     }
 
     public func resetConversation() {
