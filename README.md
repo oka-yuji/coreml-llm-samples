@@ -22,7 +22,10 @@ verification discipline is the house style — the receipts are in each model ca
 
 Not published yet — listed here honestly, without links until they actually ship:
 
-- **Gemma 4 E2B** — iOS / ANE, on-device.
+- **Gemma 4 E2B** — iOS / ANE, on-device. The runtime (3-chunk multifunction, prompt-lookup lossless
+  speculation, KV save/restore) already ships in the shared library and the demo app; the model bundle
+  is not distributed yet. To build the app and try it on a device, see
+  [docs/e2b-speculative-device.md](docs/e2b-speculative-device.md).
 
 ---
 

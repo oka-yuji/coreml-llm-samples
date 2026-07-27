@@ -20,7 +20,9 @@
 
 まだ未公開です。公開までリンクは張らず、予定だけ正直に記載します。
 
-- **Gemma 4 E2B** — iOS / ANE、オンデバイス。
+- **Gemma 4 E2B** — iOS / ANE、オンデバイス。ランタイム（3-chunk multifunction・prompt-lookup ロスレス投機・
+  KV save/restore）は共有ライブラリとデモアプリに実装済みで、モデルバンドルのみ未配布です。アプリをビルドして
+  実機で試す手順は [docs/e2b-speculative-device.md](docs/e2b-speculative-device.md) を参照してください。
 
 ---
 
