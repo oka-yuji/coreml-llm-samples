@@ -77,7 +77,7 @@ enum LLMModels {
             displayName: "Gemma 4 E2B Speculative (pal6)",
             source: .huggingFace(
                 repoID: "okayuji/Gemma-4-E2B-it-coreml-speculative",
-                revision: "7ddede29d59c4e000d337f47772619a8089f4700",
+                revision: "6b95bf36211b0a21bf35af8721960e01409ae5b9",
                 folderName: "gemma-4-e2b-speculative-pal6"),
             supportedPlatforms: [.iOS, .macOS],
             verifiedOn: "iPhone 15, iOS 26",

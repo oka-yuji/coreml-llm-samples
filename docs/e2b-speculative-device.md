@@ -75,6 +75,8 @@ The app reads bundles from its own **Documents** folder (file sharing is enabled
 3. **Speculation on / off:** the **Speculation** switch in the status bar toggles prompt-lookup
    speculation. It only changes speed — the text is identical either way (verification makes it
    lossless). It fires on quotation / verbatim / repetitive spans and stays out of the way otherwise.
+   On a device with less than 7 GB of RAM the switch **defaults to off** (see the low-memory note
+   below); flipping it on loads the verify assets on the spot, which takes a few seconds the first time.
 4. **KV save / restore:** the overflow (`...`) menu in the status bar has *Save context checkpoint*
    (prefill the current prompt once and dump the KV cache) and *Restore checkpoint* (reload that KV and
    keep decoding with no prefill). The status line reports the checkpoint size and that no wide prefill
@@ -116,8 +118,19 @@ MODEL=/path/to/gemma-4-e2b-speculative-pal6
 
 - **Verify width is 4 only.** Speculation loads exactly one verify width (`prefill4` + `lmhead_v4`) to
   keep the resident footprint minimal, which is what survives on a 6 GB phone. The batched verify head
-  runs on `cpuOnly` under the ANE because an int8 batched argmax head misbehaves there; the forward
-  pass stays on the ANE, and the result is still bit-exact against plain decoding.
+  is `pal6` (grouped-16, about 291 MB, argmax-lossless against the int8 head) and runs on `cpuOnly`
+  while the forward pass stays on the ANE. Running that batched head directly on the ANE is **not**
+  lossless — the batched forward's near-ties flip an argmax that plain sequential decoding does not —
+  so the head stays on `cpuOnly` to keep speculation bit-exact against plain decoding. Set
+  `CORELLM_VERIFY_HEAD_CU=ane|gpu|cpu|all` to override the head's compute units for experiments.
+- **Speculation default and low memory (under 7 GB).** On a 6 GB phone speculation is **off by default**
+  and the verify assets (the `prefill4` function and the batched head) are not loaded or resident until
+  you turn the switch on, so a default session is plain decode plus KV restore — the configuration proven
+  safe on 6 GB. Turning speculation on loads those assets on the spot (a few seconds, reported in the
+  status line). The trade-off: with speculation on, a 6 GB phone can stall a few seconds per verify round
+  when the `cpuOnly` head's weights are paged out between rounds under memory pressure; `pal6` shrinks the
+  head from 385 MB to 291 MB to reduce — not eliminate — that paging. Devices with 8 GB or more keep the
+  previous behaviour: speculation on by default, verify assets warmed at model load.
 - **Restore is decode-only.** Restoring a checkpoint never loads the wide prefill functions, so it
   avoids the prefill working set that is the memory ceiling for long prompts on a small phone.
 - **KV portability.** A checkpoint carries an identity key (config hash, shapes, sidecar stage, layer
@@ -143,8 +156,10 @@ TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |
 
 The first reply after loading pays a one-time ANE kernel specialization (tens of seconds on the phone);
 later replies are fast, and later turns reuse the KV cache. If replies feel slow "every time", it is
-this one-time specialization per launch, not re-processing the conversation. The verify assets used by
-speculation are specialized during model load (not mid-reply), so a spec turn does not stall part-way.
+this one-time specialization per launch, not re-processing the conversation. When speculation is on at
+model load (the default on 8 GB and larger devices), the verify assets are specialized during that load,
+not mid-reply, so a spec turn does not stall part-way; on a low-memory device that defaults to off, that
+cost is paid the moment you turn speculation on instead.
 
 With speculation on, accepted tokens are emitted a round at a time, so the `perTokenMillis` array shows
 short bursts (several sub-15 ms deltas in a row) between verify rounds — that is the expected behavior,
