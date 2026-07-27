@@ -24,7 +24,7 @@ engine.
 ## What you need
 
 - An iPhone on iOS 26 (the campaign target is iPhone 15 / 6 GB) and a Mac with Xcode 26.
-- The **model bundle** (about 4.7 GB): the three `pal6` chunk `.mlmodelc` folders, `lmhead.mlmodelc`,
+- The **model bundle** (about 4.9 GB): the three `pal6` chunk `.mlmodelc` folders, `lmhead.mlmodelc`,
   `lmhead_v4.mlmodelc`, the int8 sidecars (`embed_int8.bin`, `ple_int8.bin`) and their `*_scale_f32.bin`
   files, the tokenizer, `convert_config.json`, and a `manifest.json` whose `format` is
   `coreml-corellm-r1`, `sidecarStage` is `int8`, and `computeUnits` is `all` (ANE).
