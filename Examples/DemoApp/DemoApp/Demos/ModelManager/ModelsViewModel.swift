@@ -27,7 +27,7 @@ final class ModelRowState {
     }
 
     var bundleDirectory: URL {
-        ModelStorage.bundleDirectory(for: model.hfRepoID ?? model.id)
+        ModelStorage.bundleDirectory(for: model.bundleFolderName)
     }
 }
 
@@ -37,6 +37,12 @@ final class ModelsViewModel {
     private(set) var rows: [ModelRowState]
     var modelsDirectorySize: UInt64 = 0
     var availableDiskSpace: UInt64 = 0
+
+    var hfToken: String = HFToken.stored ?? "" {
+        didSet { HFToken.save(hfToken) }
+    }
+
+    var tokenAvailable: Bool { HFToken.isAvailable }
 
     init() {
         rows = LLMModels.downloadable().map { ModelRowState(model: $0) }
@@ -123,7 +129,7 @@ final class ModelsViewModel {
 
     func delete(_ id: String) {
         guard let row = row(for: id) else { return }
-        try? ModelStorage.deleteBundle(for: row.model.hfRepoID ?? row.model.id)
+        try? ModelStorage.deleteBundle(for: row.model.bundleFolderName)
         refresh()
     }
 

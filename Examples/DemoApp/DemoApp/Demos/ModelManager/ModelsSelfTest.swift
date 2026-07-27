@@ -64,7 +64,8 @@ enum ModelsSelfTest {
         }
         out("[models-selftest] subcommand=\(subcommand) repo=\(repoID) rev=\(revision)")
         out("[models-selftest] token_detected=\(HFToken.isAvailable)")
-        let destination = ModelStorage.bundleDirectory(for: repoID)
+        let folderName = LLMModels.all.first { $0.hfRepoID == repoID }?.bundleFolderName ?? repoID
+        let destination = ModelStorage.bundleDirectory(for: folderName)
         out("[models-selftest] destination=\(destination.path(percentEncoded: false))")
 
         switch subcommand {

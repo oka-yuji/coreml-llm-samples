@@ -7,7 +7,7 @@ struct LLMModel: Identifiable, Sendable {
     }
 
     enum Source: Sendable {
-        case huggingFace(repoID: String, revision: String)
+        case huggingFace(repoID: String, revision: String, folderName: String)
         case localBundle(folderName: String)
     }
 
@@ -19,22 +19,23 @@ struct LLMModel: Identifiable, Sendable {
     let approxSizeText: String
 
     var hfRepoID: String? {
-        if case .huggingFace(let repoID, _) = source { return repoID }
+        if case .huggingFace(let repoID, _, _) = source { return repoID }
         return nil
     }
 
     var hfRevision: String? {
-        if case .huggingFace(_, let revision) = source { return revision }
+        if case .huggingFace(_, let revision, _) = source { return revision }
         return nil
     }
 
-    var localFolderName: String? {
-        if case .localBundle(let folderName) = source { return folderName }
-        return nil
+    var bundleFolderName: String {
+        switch source {
+        case .huggingFace(_, _, let folderName): return folderName
+        case .localBundle(let folderName): return folderName
+        }
     }
 
     var isDownloadable: Bool { hfRepoID != nil }
-    var isLocalBundle: Bool { localFolderName != nil }
 
     static func parseSizeHint(_ hint: String) -> UInt64 {
         let trimmed = hint
@@ -63,7 +64,10 @@ enum LLMModels {
         LLMModel(
             id: "gemma-4-12b-it-coreml-128k",
             displayName: "Gemma 4 12B IT — 128K Context Ladder",
-            source: .huggingFace(repoID: "okayuji/gemma-4-12b-it-coreml-128k", revision: "main"),
+            source: .huggingFace(
+                repoID: "okayuji/gemma-4-12b-it-coreml-128k",
+                revision: "main",
+                folderName: "okayuji/gemma-4-12b-it-coreml-128k"),
             supportedPlatforms: [.macOS],
             verifiedOn: "M4 Max, macOS 26",
             approxSizeText: "10.2 GB"
@@ -71,7 +75,10 @@ enum LLMModels {
         LLMModel(
             id: "gemma-4-e2b-speculative-pal6",
             displayName: "Gemma 4 E2B Speculative (pal6)",
-            source: .localBundle(folderName: "gemma-4-e2b-speculative-pal6"),
+            source: .huggingFace(
+                repoID: "okayuji/Gemma-4-E2B-it-coreml-speculative",
+                revision: "7ddede29d59c4e000d337f47772619a8089f4700",
+                folderName: "gemma-4-e2b-speculative-pal6"),
             supportedPlatforms: [.iOS, .macOS],
             verifiedOn: "iPhone 15, iOS 26",
             approxSizeText: "4.7 GB"
@@ -92,10 +99,6 @@ enum LLMModels {
 
     static func downloadable(on platform: LLMModel.Platform = currentPlatform) -> [LLMModel] {
         supported(on: platform).filter(\.isDownloadable)
-    }
-
-    static func localBundles(on platform: LLMModel.Platform = currentPlatform) -> [LLMModel] {
-        supported(on: platform).filter(\.isLocalBundle)
     }
 
     static func model(id: String) -> LLMModel? {

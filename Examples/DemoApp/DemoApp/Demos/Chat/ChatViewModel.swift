@@ -93,9 +93,8 @@ final class ChatViewModel {
         let fm = FileManager.default
         let docs = (try? fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Documents")
-        localBundles = LLMModels.localBundles().compactMap { model -> URL? in
-            guard let folder = model.localFolderName else { return nil }
-            let url = docs.appending(path: folder, directoryHint: .isDirectory)
+        localBundles = LLMModels.supported().compactMap { model -> URL? in
+            let url = docs.appending(path: model.bundleFolderName, directoryHint: .isDirectory)
             let manifest = url.appending(path: "manifest.json")
             return fm.fileExists(atPath: manifest.path(percentEncoded: false)) ? url : nil
         }
