@@ -90,15 +90,9 @@ final class ChatViewModel {
     }
 
     func refreshLocalBundles() {
-        let fm = FileManager.default
-        let docs = (try? fm.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
-            ?? URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Documents")
-        localBundles = LLMModels.supported().compactMap { model -> URL? in
-            let url = docs.appending(path: model.bundleFolderName, directoryHint: .isDirectory)
-            let manifest = url.appending(path: "manifest.json")
-            return fm.fileExists(atPath: manifest.path(percentEncoded: false)) ? url : nil
-        }
-        .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        localBundles = LLMModels.supported()
+            .compactMap { ModelStorage.locateBundle(folderName: $0.bundleFolderName) }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
     func loadModel(path: String) async {

@@ -75,7 +75,8 @@ struct SingleModelsView: View {
     }
 
     private func loadInChat(_ row: ModelRowState) {
-        loadPath(row.bundleDirectory.path)
+        let url = ModelStorage.locateBundle(folderName: row.model.bundleFolderName) ?? row.bundleDirectory
+        loadPath(url.path(percentEncoded: false))
     }
 
     private func loadPath(_ path: String) {

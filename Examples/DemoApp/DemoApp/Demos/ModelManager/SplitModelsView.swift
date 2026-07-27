@@ -93,7 +93,8 @@ struct SplitModelsView: View {
     }
 
     private func loadInChat(_ row: ModelRowState) {
-        loadPath(row.bundleDirectory.path)
+        let url = ModelStorage.locateBundle(folderName: row.model.bundleFolderName) ?? row.bundleDirectory
+        loadPath(url.path(percentEncoded: false))
     }
 
     private func loadPath(_ path: String) {
@@ -170,7 +171,9 @@ struct ModelRow: View {
                     Text("\(ByteFormatting.formatBytes(row.downloadedBytes)) / \(ByteFormatting.formatBytes(row.totalBytes))")
                         .monospacedDigit()
                 }
-                Button("Cancel", action: onCancel).controlSize(.small)
+                Button("Cancel", action: onCancel)
+                    .controlSize(.small)
+                    .buttonStyle(.borderless)
             }
             .font(.caption)
             .foregroundStyle(.secondary)
@@ -184,11 +187,14 @@ struct ModelRow: View {
                 .foregroundStyle(.green)
                 .font(.caption)
             Spacer()
-            Button("Load in Chat", action: onLoad).controlSize(.small)
+            Button("Load in Chat", action: onLoad)
+                .controlSize(.small)
+                .buttonStyle(.bordered)
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "trash")
             }
             .controlSize(.small)
+            .buttonStyle(.borderless)
         }
     }
 
@@ -201,6 +207,7 @@ struct ModelRow: View {
             Spacer()
             Button(row.error == nil ? "Download" : "Retry", action: onDownload)
                 .controlSize(.small)
+                .buttonStyle(.bordered)
         }
     }
 }

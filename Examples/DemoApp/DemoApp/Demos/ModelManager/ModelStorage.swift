@@ -15,8 +15,17 @@ enum ModelStorage {
         return base.appending(path: "DemoApp")
     }
 
+    static func documentsDirectory() -> URL {
+        (try? FileManager.default.url(for: .documentDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+            ?? URL(fileURLWithPath: NSHomeDirectory()).appending(path: "Documents")
+    }
+
     static func modelsRoot() -> URL {
+        #if os(macOS)
         let root = applicationSupportDirectory().appending(path: "models")
+        #else
+        let root = documentsDirectory().appending(path: "models")
+        #endif
         try? FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         excludeFromBackup(root)
         return root
@@ -24,6 +33,19 @@ enum ModelStorage {
 
     static func bundleDirectory(for repoID: String) -> URL {
         modelsRoot().appending(path: repoID)
+    }
+
+    static func locateBundle(folderName: String) -> URL? {
+        let candidates = [
+            bundleDirectory(for: folderName),
+            documentsDirectory().appending(path: folderName, directoryHint: .isDirectory)
+        ]
+        let fileManager = FileManager.default
+        for url in candidates {
+            let manifest = url.appending(path: "manifest.json")
+            if fileManager.fileExists(atPath: manifest.path(percentEncoded: false)) { return url }
+        }
+        return nil
     }
 
     static func writeCompletionMarker(at bundleDirectory: URL, fileCount: Int, totalBytes: Int64) {
