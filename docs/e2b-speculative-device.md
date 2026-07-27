@@ -143,7 +143,12 @@ TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |
 
 The first reply after loading pays a one-time ANE kernel specialization (tens of seconds on the phone);
 later replies are fast, and later turns reuse the KV cache. If replies feel slow "every time", it is
-this one-time specialization per launch, not re-processing the conversation.
+this one-time specialization per launch, not re-processing the conversation. The verify assets used by
+speculation are specialized during model load (not mid-reply), so a spec turn does not stall part-way.
+
+With speculation on, accepted tokens are emitted a round at a time, so the `perTokenMillis` array shows
+short bursts (several sub-15 ms deltas in a row) between verify rounds — that is the expected behavior,
+not a glitch.
 
 A full record for every message, checkpoint, and launch is appended as JSON lines to
 `Documents/metrics.jsonl` (identity, token counts, `finishReason`, TTFT / prefill / per-token latencies,

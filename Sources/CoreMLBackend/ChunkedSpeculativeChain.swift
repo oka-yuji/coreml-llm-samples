@@ -148,6 +148,13 @@ final class ChunkedSpeculativeChain {
         dMaskS = try alloc([CTX]); dMaskF = try alloc([CTX])
 
         try reset()
+
+        if batchedVerifyHead != nil {
+            let block = Array(repeating: 0, count: Self.verifyWidth)
+            let hidden = try runPrefillOffset(block, p: 0, N: Self.verifyWidth)
+            _ = try lmheadBatched(hidden, width: Self.verifyWidth, count: Self.verifyWidth)
+            try reset()
+        }
     }
 
     static func cuName(_ cu: MLComputeUnits) -> String {
