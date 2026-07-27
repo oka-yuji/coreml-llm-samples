@@ -8,6 +8,10 @@ options:
   createIntermediateGroups: true
   minimumXcodeGenVersion: "2.0.0"
 
+configFiles:
+  Debug: Signing.xcconfig
+  Release: Signing.xcconfig
+
 settings:
   base:
     EXCLUDED_ARCHS: x86_64

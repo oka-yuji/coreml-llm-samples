@@ -71,6 +71,7 @@
 		ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleModelsView.swift; sourceTree = "<group>"; };
 		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
+		"TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -166,6 +167,14 @@
 				4257A85A05752939D54D8DD6 /* MetricsLog.swift */,
 				51DDF698F9A3A35A67384C75 /* PlatformColors.swift */,
 				5183B0CE22F31FA0116AC0F5 /* Demos */,
+			);
+			path = DemoApp;
+			sourceTree = "<group>";
+		};
+		"TEMP_B5F753B0-AC32-4C09-B9EA-1279C832897D" /* DemoApp */ = {
+			isa = PBXGroup;
+			children = (
+				"TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -309,6 +318,7 @@
 /* Begin XCBuildConfiguration section */
 		041C67ECF87CA2F42B2A6BA2 /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -366,6 +376,7 @@
 		};
 		17707D7259CA9368A4B03200 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = "TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

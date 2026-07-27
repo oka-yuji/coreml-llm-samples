@@ -16,6 +16,9 @@ models/
 DerivedData/
 xcuserdata/
 
+# Local signing (per-developer team id; copy from Local.xcconfig.template)
+Examples/DemoApp/Local.xcconfig
+
 # The sample app ships a committed Xcode project so it opens straight after clone. Track that one
 # project (re-include the directory before its contents), but never per-user state inside it.
 !Examples/DemoApp/DemoApp.xcodeproj
