@@ -42,7 +42,8 @@ final class ChunkedSpeculativeChain {
 
     private let decodeModels: [MLModel]
     private let head: MLModel
-    private let batchedVerifyHead: MLModel?
+    private var batchedVerifyHead: MLModel?
+    private let bundleSupportsVerify: Bool
     private let embedSidecar: QuantizedSidecar
     private let pleSidecar: QuantizedSidecar
     private let chunkCompiledURLs: [URL]
@@ -73,7 +74,7 @@ final class ChunkedSpeculativeChain {
     }
 
     init(bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
-         verifyHeadComputeUnits: MLComputeUnits? = nil) async throws {
+         verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true) async throws {
         let config = try ChunkedChainConfig.load(from: bundleURL.appending(path: "convert_config.json"))
         self.config = config
         self.bundleURL = bundleURL
@@ -108,8 +109,10 @@ final class ChunkedSpeculativeChain {
 
         let headCU = verifyHeadComputeUnits ?? Self.resolveVerifyHeadComputeUnits(engine: computeUnits)
         verifyHeadCU = headCU
-        if let pkg = config.batchedHeadPackages[Self.verifyWidth],
-           config.verifyFunctions[Self.verifyWidth] != nil {
+        bundleSupportsVerify = config.batchedHeadPackages[Self.verifyWidth] != nil
+            && config.verifyFunctions[Self.verifyWidth] != nil
+        if preloadVerifyAssets, bundleSupportsVerify,
+           let pkg = config.batchedHeadPackages[Self.verifyWidth] {
             let compiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: pkg)
             batchedVerifyHead = try Self.loadFunction(compiledURL: compiled, functionName: nil, computeUnits: headCU)
         } else {
@@ -157,6 +160,21 @@ final class ChunkedSpeculativeChain {
         }
     }
 
+    var verifyHeadPackageName: String? {
+        bundleSupportsVerify ? config.batchedHeadPackages[Self.verifyWidth] : nil
+    }
+
+    func installVerifyHead(_ model: MLModel) throws {
+        guard batchedVerifyHead == nil else { return }
+        batchedVerifyHead = model
+        if position == 0 {
+            let block = Array(repeating: 0, count: Self.verifyWidth)
+            let hidden = try runPrefillOffset(block, p: 0, N: Self.verifyWidth)
+            _ = try lmheadBatched(hidden, width: Self.verifyWidth, count: Self.verifyWidth)
+            try reset()
+        }
+    }
+
     static func cuName(_ cu: MLComputeUnits) -> String {
         switch cu {
         case .cpuOnly: "cpuOnly"
@@ -177,7 +195,11 @@ final class ChunkedSpeculativeChain {
         case "gpu": return .cpuAndGPU
         case "ane": return .cpuAndNeuralEngine
         case "all": return .all
-        default: return engine
+        default:
+            switch engine {
+            case .all, .cpuAndNeuralEngine: return .cpuOnly
+            default: return engine
+            }
         }
     }
 
@@ -544,12 +566,12 @@ extension ChunkedSpeculativeChain: GenerationChain {
 }
 
 extension ChunkedSpeculativeChain: SpeculativeDecoding {
-    var supportsMTP: Bool { batchedVerifyHead != nil }
-    var mtpLoaded: Bool { supportsMTP }
+    var supportsMTP: Bool { bundleSupportsVerify }
+    var mtpLoaded: Bool { batchedVerifyHead != nil }
 
     func mtpRound(prediction: Int, context: [Int]) throws -> MTPRound {
         let base = position
-        guard supportsMTP else {
+        guard supportsMTP, batchedVerifyHead != nil else {
             let next = try decodeStep(tokenID: prediction)
             return MTPRound(emitted: [prediction], next: next, accepted: 0, drafted: 0)
         }

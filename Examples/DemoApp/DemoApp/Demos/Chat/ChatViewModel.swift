@@ -46,7 +46,9 @@ final class ChatViewModel {
 
     var maxTokens: Int = 0
 
-    var speculative: Bool = true
+    var speculative: Bool = SpeculationPolicy.defaultEnabled()
+
+    var preparingSpeculation: Bool = false
 
     var kvStatus: String = ""
 
@@ -72,7 +74,9 @@ final class ChatViewModel {
     var isModelLoaded: Bool { engine != nil }
     var trimmedInput: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
 
-    var canSend: Bool { isModelLoaded && !isGenerating && !isLoading && !trimmedInput.isEmpty }
+    var canSend: Bool {
+        isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation && !trimmedInput.isEmpty
+    }
     var canReset: Bool { isModelLoaded && !isGenerating && !isLoading && !messages.isEmpty }
     var canLoad: Bool { !isGenerating && !isLoading }
     var canCheckpoint: Bool { isModelLoaded && !isGenerating && !isLoading }
@@ -116,7 +120,8 @@ final class ChatViewModel {
                 .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
             phase = .loading("Compiling / loading Core ML models (\(preference.rawValue))…")
             let newEngine = CoreMLEngine()
-            try await newEngine.load(bundle, options: LoadOptions(computeUnits: preference))
+            try await newEngine.load(
+                bundle, options: LoadOptions(computeUnits: preference, preloadSpeculation: speculative))
             engine = newEngine
             loadedPath = path
             loadedFolder = url.lastPathComponent
@@ -182,6 +187,22 @@ final class ChatViewModel {
     }
 
     func stop() { generation?.cancel() }
+
+    func speculationToggleChanged(to enabled: Bool) {
+        guard enabled, let engine, isModelLoaded, !isGenerating, !isLoading, !preparingSpeculation else { return }
+        Task { [self] in
+            if await engine.speculationLoaded { return }
+            preparingSpeculation = true
+            statusLine = "Enabling speculation: one-time verify load, a few seconds…"
+            do {
+                try await engine.prepareSpeculation()
+                statusLine = "Speculation ready."
+            } catch {
+                statusLine = "Speculation load failed: \(error)"
+            }
+            preparingSpeculation = false
+        }
+    }
 
     func reset() {
         guard let engine, canReset else { return }

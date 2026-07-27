@@ -22,6 +22,7 @@ struct SingleChatView: View {
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
         #endif
+        .onChange(of: vm.speculative) { _, on in vm.speculationToggleChanged(to: on) }
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
                 Button("Reset", action: vm.reset)
@@ -108,7 +109,7 @@ struct SingleChatView: View {
     private var statusBar: some View {
         @Bindable var vm = vm
         return HStack(spacing: 8) {
-            if vm.isLoading || vm.isGenerating { ProgressView().controlSize(.small) }
+            if vm.isLoading || vm.isGenerating || vm.preparingSpeculation { ProgressView().controlSize(.small) }
             Text(vm.kvStatus.isEmpty ? statusText : vm.kvStatus)
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -119,7 +120,7 @@ struct SingleChatView: View {
                 .toggleStyle(.switch)
                 .controlSize(.mini)
                 .labelsHidden()
-                .disabled(vm.isGenerating)
+                .disabled(vm.isGenerating || vm.preparingSpeculation)
             Menu {
                 Button("Save context checkpoint", action: vm.saveKV)
                 Button("Restore checkpoint", action: vm.restoreKV)

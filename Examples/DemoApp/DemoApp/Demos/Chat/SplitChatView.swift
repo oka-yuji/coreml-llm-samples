@@ -19,6 +19,7 @@ struct SplitChatView: View {
             }
         }
         .frame(minWidth: 560, minHeight: 480)
+        .onChange(of: vm.speculative) { _, on in vm.speculationToggleChanged(to: on) }
     }
 
     private var header: some View {
@@ -136,7 +137,7 @@ struct SplitChatView: View {
             Toggle("Speculation", isOn: $vm.speculative)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
-                .disabled(vm.isGenerating)
+                .disabled(vm.isGenerating || vm.preparingSpeculation)
             Menu {
                 Button("Save context checkpoint", action: vm.saveKV)
                 Button("Restore checkpoint", action: vm.restoreKV)
@@ -153,13 +154,17 @@ struct SplitChatView: View {
     }
 
     @ViewBuilder private var statusIcon: some View {
-        switch vm.phase {
-        case .loading, .generating:
+        if vm.preparingSpeculation {
             ProgressView().controlSize(.small)
-        case .failed:
-            Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
-        default:
-            EmptyView()
+        } else {
+            switch vm.phase {
+            case .loading, .generating:
+                ProgressView().controlSize(.small)
+            case .failed:
+                Image(systemName: "exclamationmark.triangle").foregroundStyle(.orange)
+            default:
+                EmptyView()
+            }
         }
     }
 

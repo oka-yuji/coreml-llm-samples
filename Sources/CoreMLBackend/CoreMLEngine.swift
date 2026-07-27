@@ -28,6 +28,23 @@ public actor CoreMLEngine: LLMEngine {
 
     public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
 
+    public var speculationLoaded: Bool { speculative?.mtpLoaded ?? false }
+
+    public func prepareSpeculation() async throws {
+        guard let chunked = chain as? ChunkedSpeculativeChain else { return }
+        try await loadChunkedVerifyIfNeeded(chunked)
+    }
+
+    private func loadChunkedVerifyIfNeeded(_ chunked: ChunkedSpeculativeChain) async throws {
+        guard chunked.supportsMTP, !chunked.mtpLoaded,
+              let bundleURL = loadedBundleURL,
+              let pkg = chunked.verifyHeadPackageName else { return }
+        let compiled = try await ChunkedSpeculativeChain.compileIfNeeded(bundleURL: bundleURL, name: pkg)
+        let model = try ChunkedSpeculativeChain.loadFunction(
+            compiledURL: compiled, functionName: nil, computeUnits: chunked.verifyHeadCU)
+        try chunked.installVerifyHead(model)
+    }
+
     public func load(_ model: ModelBundle, options: LoadOptions) async throws {
         guard chain == nil else { return }
         let clock = ContinuousClock()
@@ -43,7 +60,8 @@ public actor CoreMLEngine: LLMEngine {
         if model.manifest.format == ChunkedSpeculativeChain.format {
             let r = try await ChunkedSpeculativeChain(
                 bundleURL: model.directoryURL, computeUnits: units,
-                sidecarStage: model.manifest.sidecarStage)
+                sidecarStage: model.manifest.sidecarStage,
+                preloadVerifyAssets: options.preloadSpeculation)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL, eosTokenIDs: Set(r.config.eosIDs))
             chain = r
@@ -428,6 +446,10 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     private func installMTPIfNeeded() async throws {
+        if let chunked = chain as? ChunkedSpeculativeChain {
+            try await loadChunkedVerifyIfNeeded(chunked)
+            return
+        }
         guard let bundleURL = loadedBundleURL else { return }
         let cfg = MLModelConfiguration()
         cfg.computeUnits = loadedUnits

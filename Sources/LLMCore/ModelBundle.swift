@@ -78,8 +78,11 @@ public struct ModelManifest: Sendable, Codable, Hashable {
 public struct LoadOptions: Sendable, Hashable {
     public var computeUnits: ComputeUnitPreference
 
-    public init(computeUnits: ComputeUnitPreference = .all) {
+    public var preloadSpeculation: Bool
+
+    public init(computeUnits: ComputeUnitPreference = .all, preloadSpeculation: Bool = true) {
         self.computeUnits = computeUnits
+        self.preloadSpeculation = preloadSpeculation
     }
 }
 
