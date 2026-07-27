@@ -172,8 +172,11 @@ final class ChunkedSpeculativeChain {
     }
 
     static func resolveVerifyHeadComputeUnits(engine: MLComputeUnits) -> MLComputeUnits {
-        switch engine {
-        case .all, .cpuAndNeuralEngine: return .cpuOnly
+        switch ProcessInfo.processInfo.environment["CORELLM_VERIFY_HEAD_CU"]?.lowercased() {
+        case "cpu": return .cpuOnly
+        case "gpu": return .cpuAndGPU
+        case "ane": return .cpuAndNeuralEngine
+        case "all": return .all
         default: return engine
         }
     }
