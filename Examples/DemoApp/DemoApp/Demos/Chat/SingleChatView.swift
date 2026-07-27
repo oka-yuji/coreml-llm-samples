@@ -3,6 +3,7 @@ import SwiftUI
 struct SingleChatView: View {
     @Environment(ChatViewModel.self) private var vm
     @Environment(DemoNavigator.self) private var navigator
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         Group {
@@ -88,6 +89,8 @@ struct SingleChatView: View {
                 }
                 .padding(12)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { inputFocused = false }
             .onChange(of: vm.messages.last?.text) { _, _ in
                 withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
             }
@@ -155,6 +158,7 @@ struct SingleChatView: View {
                 .padding(8)
                 .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
                 .disabled(!vm.isModelLoaded || vm.isLoading)
+                .focused($inputFocused)
                 .onSubmit(sendIfPossible)
 
             if vm.isGenerating {
@@ -169,6 +173,7 @@ struct SingleChatView: View {
 
     private func sendIfPossible() {
         guard vm.canSend else { return }
+        inputFocused = false
         vm.send()
     }
 }

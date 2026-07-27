@@ -3,6 +3,7 @@ import SwiftUI
 struct SplitChatView: View {
     @Environment(ChatViewModel.self) private var vm
     @Environment(DemoNavigator.self) private var navigator
+    @FocusState private var inputFocused: Bool
 
     var body: some View {
         VStack(spacing: 0) {
@@ -109,6 +110,8 @@ struct SplitChatView: View {
                 }
                 .padding(12)
             }
+            .scrollDismissesKeyboard(.interactively)
+            .onTapGesture { inputFocused = false }
             .onChange(of: vm.messages.last?.text) { _, _ in
                 withAnimation(.easeOut(duration: 0.1)) { proxy.scrollTo(bottomAnchor, anchor: .bottom) }
             }
@@ -187,6 +190,7 @@ struct SplitChatView: View {
                 .background(RoundedRectangle(cornerRadius: 8).fill(Color.fieldBackground))
                 .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.fieldBorder))
                 .disabled(!vm.isModelLoaded || vm.isLoading)
+                .focused($inputFocused)
                 .onSubmit(sendIfPossible)
 
             if vm.isGenerating {
@@ -203,6 +207,7 @@ struct SplitChatView: View {
 
     private func sendIfPossible() {
         guard vm.canSend else { return }
+        inputFocused = false
         vm.send()
     }
 }
