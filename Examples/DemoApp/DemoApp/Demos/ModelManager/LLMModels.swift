@@ -82,6 +82,17 @@ enum LLMModels {
             supportedPlatforms: [.iOS, .macOS],
             verifiedOn: "iPhone 15, iOS 26",
             approxSizeText: "4.9 GB"
+        ),
+        LLMModel(
+            id: "gemma-4-e4b-speculative",
+            displayName: "Gemma 4 E4B Speculative (Mac GPU)",
+            source: .huggingFace(
+                repoID: "okayuji/Gemma-4-E4B-it-coreml-speculative",
+                revision: "main",
+                folderName: "gemma-4-e4b-speculative"),
+            supportedPlatforms: [.macOS],
+            verifiedOn: "M4 Max, macOS 26",
+            approxSizeText: "6.5 GB"
         )
     ]
 

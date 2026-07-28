@@ -1,9 +1,89 @@
+import Accelerate
 import CoreML
 import Foundation
 import LLMCore
 
 private struct UncheckedBox<T>: @unchecked Sendable {
     let value: T
+}
+
+private final class Int8Sidecar {
+    private let data: Data
+    private let scaleData: Data
+    let rows: Int
+    let cols: Int
+    private let scratch: UnsafeMutablePointer<Float>
+
+    init(int8 url: URL, scale scaleURL: URL, rows: Int, cols: Int) throws {
+        self.data = try Data(contentsOf: url, options: [.alwaysMapped])
+        let expected = rows * cols
+        guard data.count == expected else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "\(url.lastPathComponent): int8 size mismatch (actual \(data.count), expected \(expected))")
+        }
+        let s = try Data(contentsOf: scaleURL, options: [.alwaysMapped])
+        guard s.count == rows * MemoryLayout<Float32>.size else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "\(scaleURL.lastPathComponent): scale size mismatch (actual \(s.count), expected \(rows * 4))")
+        }
+        self.scaleData = s
+        self.rows = rows
+        self.cols = cols
+        self.scratch = .allocate(capacity: cols)
+    }
+
+    deinit { scratch.deallocate() }
+
+    func read(row: Int, offset: Int, count: Int, into destination: UnsafeMutablePointer<Float16>) {
+        precondition(row >= 0 && row < rows && offset >= 0 && offset + count <= cols)
+        var factor = scaleData.withUnsafeBytes {
+            $0.load(fromByteOffset: row * 4, as: Float32.self)
+        } / 127.0
+        let base = row * cols + offset
+        data.withUnsafeBytes { raw in
+            let p = raw.bindMemory(to: Int8.self).baseAddress! + base
+            vDSP_vflt8(p, 1, scratch, 1, vDSP_Length(count))
+            vDSP_vsmul(scratch, 1, &factor, scratch, 1, vDSP_Length(count))
+            var src = vImage_Buffer(data: scratch, height: 1,
+                                    width: vImagePixelCount(count), rowBytes: count * 4)
+            var dst = vImage_Buffer(data: destination, height: 1,
+                                    width: vImagePixelCount(count), rowBytes: count * 2)
+            _ = vImageConvert_PlanarFtoPlanar16F(&src, &dst, vImage_Flags(kvImageNoFlags))
+        }
+    }
+}
+
+private enum V2Sidecar {
+    case fp16(Sidecar)
+    case int8(Int8Sidecar)
+
+    var rows: Int { switch self { case .fp16(let s): s.rows; case .int8(let s): s.rows } }
+    var cols: Int { switch self { case .fp16(let s): s.cols; case .int8(let s): s.cols } }
+
+    static func make(bundleURL: URL, spec: ChainConfigV2.Sidecars.File) throws -> V2Sidecar {
+        let rows = spec.shape[0]
+        let cols = spec.shape[1]
+        if spec.dtype == "int8" {
+            guard let scaleName = spec.scale else {
+                throw LLMEngineError.incompatibleBundle(
+                    reason: "\(spec.file): an int8 sidecar requires a scale entry")
+            }
+            return .int8(try Int8Sidecar(
+                int8: bundleURL.appending(path: spec.file),
+                scale: bundleURL.appending(path: scaleName),
+                rows: rows, cols: cols))
+        }
+        return .fp16(try Sidecar(url: bundleURL.appending(path: spec.file), rows: rows, cols: cols))
+    }
+
+    func read(row: Int, offset: Int = 0, count: Int? = nil, into destination: UnsafeMutablePointer<Float16>) {
+        switch self {
+        case .fp16(let s):
+            s.read(row: row, offset: offset, count: count, into: destination)
+        case .int8(let s):
+            s.read(row: row, offset: offset, count: count ?? (s.cols - offset), into: destination)
+        }
+    }
 }
 
 final class CoreMLChainV2 {
@@ -18,8 +98,18 @@ final class CoreMLChainV2 {
     private let bundleURL: URL
     private let chunks: [MLModel]
     private let head: MLModel
-    private let embedSidecar: Sidecar
+    private let embedSidecar: V2Sidecar
+    private let pleSidecar: V2Sidecar?
+    private let usesPLE: Bool
+    private var tokidBuffers: [String: MLMultiArray] = [:]
+
+    private let needsSharedKV: [Bool]
+    private let statefulChunk: [Bool]
+    private let hasSharedKV: Bool
     private let host: HostInputsV2
+
+    var chunkStatefulFlags: [Bool] { statefulChunk }
+    var chunkSharedKVFlags: [Bool] { needsSharedKV }
 
     private let chunks128: [MLModel]?
 
@@ -199,10 +289,17 @@ final class CoreMLChainV2 {
         }
         loadModelsSeconds = (clock.now - loadStart) / .seconds(1)
 
-        embedSidecar = try Sidecar(
-            url: bundleURL.appending(path: config.sidecars.embed.file),
-            rows: config.sidecars.embed.shape[0], cols: config.sidecars.embed.shape[1]
-        )
+        embedSidecar = try V2Sidecar.make(bundleURL: bundleURL, spec: config.sidecars.embed)
+        usesPLE = config.usesPLE
+        if let ple = config.sidecars.ple {
+            pleSidecar = try V2Sidecar.make(bundleURL: bundleURL, spec: ple)
+        } else {
+            pleSidecar = nil
+        }
+        let sharedFlags = chunks.map { $0.modelDescription.inputDescriptionsByName.keys.contains("sks") }
+        needsSharedKV = sharedFlags
+        statefulChunk = sharedFlags.map { !$0 }
+        hasSharedKV = sharedFlags.contains(true)
         host = HostInputsV2(config: config)
         if config.isLadder {
 
@@ -543,11 +640,12 @@ final class CoreMLChainV2 {
             let activeChunks = promoted ? chunks128! : chunks
             let activeHost = promoted ? hostCtx128k! : hostCtx32k!
             let feats = try activeHost.filled(base: basePosition, count: s)
-            return try runChunks(chunks: activeChunks, hidden: hin, feats: feats, splitOnehot: true)
+            return try runChunks(
+                chunks: activeChunks, hidden: hin, feats: feats, splitOnehot: true, tokens: tokens)
         }
         let feats = try host.filled(base: basePosition, count: s)
         return try runChunks(
-            chunks: chunks, hidden: hin, feats: feats, splitOnehot: config.usesSplitOnehot)
+            chunks: chunks, hidden: hin, feats: feats, splitOnehot: config.usesSplitOnehot, tokens: tokens)
     }
 
     private func forwardChunksTree(
@@ -563,14 +661,17 @@ final class CoreMLChainV2 {
         }
         let feats = try treeHost.filled(base: basePosition, mainCount: mainCount, altSlot: altSlot)
 
-        return try runChunks(chunks: chunks, hidden: hin, feats: feats, splitOnehot: false)
+        return try runChunks(
+            chunks: chunks, hidden: hin, feats: feats, splitOnehot: false, tokens: mainTokens + [altToken])
     }
 
     private func runChunks(
         chunks activeChunks: [MLModel], hidden hin: MLMultiArray,
-        feats: HostInputsV2.Buffers, splitOnehot: Bool
+        feats: HostInputsV2.Buffers, splitOnehot: Bool, tokens: [Int]
     ) throws -> MLMultiArray {
+        let inputsEmbeds = hin
         var hidden: MLMultiArray = hin
+        var sharedKV: [String: MLMultiArray] = [:]
         for ci in activeChunks.indices {
 
             var dictionary: [String: Any] = [
@@ -585,11 +686,26 @@ final class CoreMLChainV2 {
             } else {
                 dictionary["onehot"] = feats.onehot!
             }
-
-            let output = try activeChunks[ci].prediction(
-                from: MLDictionaryFeatureProvider(dictionary: dictionary),
-                using: states[ci]
-            )
+            if usesPLE {
+                dictionary["inputs_embeds"] = inputsEmbeds
+                dictionary["tokid"] = try fillTokid(chunkIndex: ci, tokens: tokens)
+            }
+            if hasSharedKV && needsSharedKV[ci] {
+                dictionary["sks"] = sharedKV["sks"]
+                dictionary["svs"] = sharedKV["svs"]
+                dictionary["skf"] = sharedKV["skf"]
+                dictionary["svf"] = sharedKV["svf"]
+            }
+            let provider = try MLDictionaryFeatureProvider(dictionary: dictionary)
+            let output = statefulChunk[ci]
+                ? try activeChunks[ci].prediction(from: provider, using: states[ci])
+                : try activeChunks[ci].prediction(from: provider)
+            if hasSharedKV {
+                if let k = output.featureValue(for: storeKName.sliding)?.multiArrayValue { sharedKV["sks"] = k }
+                if let v = output.featureValue(for: storeVName.sliding)?.multiArrayValue { sharedKV["svs"] = v }
+                if let k = output.featureValue(for: storeKName.full)?.multiArrayValue { sharedKV["skf"] = k }
+                if let v = output.featureValue(for: storeVName.full)?.multiArrayValue { sharedKV["svf"] = v }
+            }
             guard let h = output.featureValue(for: "hidden")?.multiArrayValue else {
                 throw LLMEngineError.generationFailed(reason: "v2 chunk \(ci) did not return hidden")
             }
@@ -791,6 +907,32 @@ final class CoreMLChainV2 {
         if let b = hiddenBuffers[s] { return b }
         let b = try MLMultiArray(shape: [NSNumber(value: s), NSNumber(value: config.H)], dataType: .float16)
         hiddenBuffers[s] = b
+        return b
+    }
+
+    private func fillTokid(chunkIndex ci: Int, tokens: [Int]) throws -> MLMultiArray {
+        let a = config.chunkBounds[ci][0]
+        let b = config.chunkBounds[ci][1]
+        let nLayers = b - a
+        let ple = config.pleDim
+        let buf = try tokidBuffer(chunkIndex: ci, s: tokens.count, nLayers: nLayers)
+        buf.withF16 { dst in
+            for (r, tok) in tokens.enumerated() {
+                pleSidecar!.read(
+                    row: tok, offset: a * ple, count: nLayers * ple,
+                    into: dst.baseAddress! + r * nLayers * ple)
+            }
+        }
+        return buf
+    }
+
+    private func tokidBuffer(chunkIndex ci: Int, s: Int, nLayers: Int) throws -> MLMultiArray {
+        let key = "\(ci)_\(s)"
+        if let b = tokidBuffers[key] { return b }
+        let b = try MLMultiArray(
+            shape: [NSNumber(value: s), NSNumber(value: nLayers), NSNumber(value: config.pleDim)],
+            dataType: .float16)
+        tokidBuffers[key] = b
         return b
     }
 

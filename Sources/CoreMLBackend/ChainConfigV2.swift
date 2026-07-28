@@ -7,10 +7,11 @@ struct ChainConfigV2: Codable, Sendable {
     var NH: Int
     var NKV: Int
 
-    var NKV_FULL: Int
+    private var nkvFullStored: Int?
     var NLAYERS: Int
 
     private var ctxStored: Int?
+    private var pleStored: Int?
     var SLIDING: Int
     var SOFTCAP: Double
     var NEG: Double
@@ -78,17 +79,21 @@ struct ChainConfigV2: Codable, Sendable {
 
     struct Sidecars: Codable, Sendable {
         var embed: File
+        var ple: File?
 
         struct File: Codable, Sendable {
             var file: String
             var shape: [Int]
             var dtype: String
+            var scale: String?
         }
     }
 
     enum CodingKeys: String, CodingKey {
-        case H, HD, GHD, NH, NKV, NKV_FULL, NLAYERS, SLIDING, SOFTCAP, NEG
+        case H, HD, GHD, NH, NKV, NLAYERS, SLIDING, SOFTCAP, NEG
+        case nkvFullStored = "NKV_FULL"
         case ctxStored = "CTX"
+        case pleStored = "PLE"
         case sRange = "S_range"
         case chunkBounds = "chunk_bounds"
         case layerTypes = "layer_types"
@@ -105,6 +110,12 @@ struct ChainConfigV2: Codable, Sendable {
     var storeLayers: [String: Int] { storeLayersStored ?? [:] }
 
     var maxS: Int { sRange.upper }
+
+    var NKV_FULL: Int { nkvFullStored ?? NKV }
+
+    var pleDim: Int { pleStored ?? 0 }
+
+    var usesPLE: Bool { sidecars.ple != nil }
 
     var isRing: Bool { ctx32k?.mode == "ctx32k-ring" }
 
@@ -136,6 +147,7 @@ struct ChainConfigV2: Codable, Sendable {
         let fm = FileManager.default
 
         let candidates = [
+            bundleURL.appending(path: "convert_config_v2int4_int8.json"),
             bundleURL.appending(path: "convert_config_v2.json"),
             bundleURL.appending(path: "convert_config_v2int4.json"),
             bundleURL.appending(path: "convert_config_ladder.json"),
