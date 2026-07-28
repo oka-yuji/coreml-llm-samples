@@ -169,3 +169,11 @@ A full record for every message, checkpoint, and launch is appended as JSON line
 `Documents/metrics.jsonl` (identity, token counts, `finishReason`, TTFT / prefill / per-token latencies,
 speculation stats, KV op timings, staged `phys_footprint` and available memory, thermal state, battery).
 Retrieve it with the Files app (*On My iPhone -> DemoApp -> metrics.jsonl*) or `devicectl device copy from`.
+
+## Troubleshooting
+
+**Replies stop mid-sentence and the next send does nothing.** The conversation reached the bundle's
+context window (2,048 tokens — a fixed property of the converted model, not a runtime setting). Multi-turn
+chats reuse the KV cache and grow the context every turn, so a long session eventually fills it. The
+composer then shows a "Context window is full" banner and disables Send; tap **Reset** to start a new
+conversation. Pasting a single prompt longer than the window shows the same message.
