@@ -70,7 +70,8 @@ The app reads bundles from its own **Documents** folder (file sharing is enabled
 
 1. Launch the app. On the **Chat** screen's empty state, any bundle found in Documents is listed
    under **On-device bundles (Documents)** — tap `gemma-4-e2b-speculative-pal6` to load it. The first
-   reply specializes ANE kernels (a one-time cost); later replies are fast.
+   load on this device compiles the ANE kernels — a one-time cost (about 90 s on iPhone 17 Pro, ~120 s
+   on iPhone 15), cached across relaunches so later loads take a few seconds.
 2. **Short chat:** type a prompt and send. Greedy (temperature 0) decoding streams the reply.
 3. **Speculation on / off:** the **Speculation** switch in the status bar toggles prompt-lookup
    speculation. It only changes speed — the text is identical either way (verification makes it
@@ -154,9 +155,11 @@ TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |
   wired by the OS **outside** this number (about 1.5 GB for E2B), so the whole-device memory use is
   higher than the `mem` shown here — **roughly 2 GB total for a short chat, and 3 GB+ while a wide prefill working set is resident**.
 
-The first reply after loading pays a one-time ANE kernel specialization (tens of seconds on the phone);
-later replies are fast, and later turns reuse the KV cache. If replies feel slow "every time", it is
-this one-time specialization per launch, not re-processing the conversation. When speculation is on at
+The one-time cost is paid at **model load**, not on the first reply: loading compiles the ANE kernels
+for this device (about 90 s on iPhone 17 Pro, ~120 s on iPhone 15). That compiled cache persists across
+process restarts and reboots, so later loads of the same bundle take only a few seconds — a warm relaunch
+is not slow. Later turns then reuse the KV cache. Sending your first medium-to-long prompt adds a separate
+one-time, per-width prefill specialization (see Troubleshooting below). When speculation is on at
 model load (the default on 8 GB and larger devices), the verify assets are specialized during that load,
 not mid-reply, so a spec turn does not stall part-way; on a low-memory device that defaults to off, that
 cost is paid the moment you turn speculation on instead.
