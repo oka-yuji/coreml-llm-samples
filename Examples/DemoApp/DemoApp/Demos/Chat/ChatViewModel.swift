@@ -71,6 +71,7 @@ final class ChatViewModel {
     @ObservationIgnored private var presenter = StreamPresenter()
     @ObservationIgnored private var displayTask: Task<Void, Never>?
     @ObservationIgnored private var loadProgressTimer: Task<Void, Never>?
+    @ObservationIgnored private var hasAttemptedAutoLoad = false
 
     @ObservationIgnored var generation: Task<Void, Never>?
 
@@ -167,6 +168,7 @@ final class ChatViewModel {
             loadStatus = loadSeconds >= 30
                 ? "Loaded (compiled for this device — future loads take a few seconds)."
                 : "Loaded."
+            rememberLastLoadedBundle(folderName: url.lastPathComponent)
             phase = .ready
         } catch {
             stopLoadProgressTimer()
@@ -174,6 +176,26 @@ final class ChatViewModel {
             loadedPath = ""
             phase = .failed(String(describing: error))
         }
+    }
+
+    func autoLoadLastBundleOnce() async {
+        guard !hasAttemptedAutoLoad else { return }
+        hasAttemptedAutoLoad = true
+        guard !isModelLoaded, canLoad else { return }
+        let defaults = UserDefaults.standard
+        guard let folderName = defaults.string(forKey: Self.lastLoadedBundleDefaultsKey),
+              !folderName.isEmpty else { return }
+        guard let url = ModelStorage.locateBundle(folderName: folderName) else {
+            defaults.removeObject(forKey: Self.lastLoadedBundleDefaultsKey)
+            return
+        }
+        await loadModel(path: url.path(percentEncoded: false))
+    }
+
+    private static let lastLoadedBundleDefaultsKey = "chat.lastLoadedBundleFolderName"
+
+    private func rememberLastLoadedBundle(folderName: String) {
+        UserDefaults.standard.set(folderName, forKey: Self.lastLoadedBundleDefaultsKey)
     }
 
     private func startLoadProgressTimer() {

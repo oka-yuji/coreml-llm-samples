@@ -106,6 +106,7 @@ struct SplitRootView: View {
         .environment(navigator)
         .environment(chatVM)
         .environment(modelsVM)
+        .task { await chatVM.autoLoadLastBundleOnce() }
     }
 }
 
@@ -128,6 +129,7 @@ struct SingleRootView: View {
         .environment(navigator)
         .environment(chatVM)
         .environment(modelsVM)
+        .task { await chatVM.autoLoadLastBundleOnce() }
     }
 }
 
