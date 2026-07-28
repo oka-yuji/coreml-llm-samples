@@ -43,4 +43,5 @@ public enum LLMEngineError: Error, Sendable, Equatable {
     case incompatibleBundle(reason: String)
     case drafterUnavailable
     case generationFailed(reason: String)
+    case contextOverflow(promptTokens: Int, contextLength: Int)
 }

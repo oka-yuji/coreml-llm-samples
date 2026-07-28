@@ -21,6 +21,10 @@ struct MetricsRecord: Codable {
     var generatedTokens: Int?
     var finishReason: String?
 
+    var errorPhase: String?
+    var errorReason: String?
+    var contextLength: Int?
+
     var modelLoadSeconds: Double?
     var ttftSeconds: Double?
     var prefillSeconds: Double?
@@ -137,6 +141,39 @@ enum MetricsLog {
     }
 
     @MainActor
+    static func error(
+        phase: String, reason: String, modelID: String?, hfRevision: String?,
+        computeUnits: String?, bundleFolder: String?, promptTokens: Int?, contextLength: Int?
+    ) {
+        var record = base(kind: "error")
+        record.modelID = modelID
+        record.hfRevision = hfRevision
+        record.computeUnits = computeUnits
+        record.bundleFolder = bundleFolder
+        record.errorPhase = phase
+        record.errorReason = reason
+        record.promptTokens = promptTokens
+        record.contextLength = contextLength
+        record.finishReason = FinishReason.error.rawValue
+        record.availableMemoryMB = megabytes(availableMemoryBytes())
+        record.thermalStateEnd = thermalName()
+        append(record)
+    }
+
+    @MainActor
+    static func cancelledMessage(
+        modelID: String?, hfRevision: String?, computeUnits: String?, bundleFolder: String?
+    ) {
+        var record = base(kind: "message")
+        record.modelID = modelID
+        record.hfRevision = hfRevision
+        record.computeUnits = computeUnits
+        record.bundleFolder = bundleFolder
+        record.finishReason = FinishReason.cancelled.rawValue
+        append(record)
+    }
+
+    @MainActor
     private static func base(kind: String) -> MetricsRecord {
         let (model, os) = deviceAndOS()
         let (level, state) = battery()
@@ -175,6 +212,14 @@ enum MetricsLog {
     private static func megabytes(_ bytes: Int?) -> Double? {
         guard let bytes else { return nil }
         return Double(bytes) / 1_048_576
+    }
+
+    private static func availableMemoryBytes() -> Int? {
+        #if os(iOS)
+        return Int(os_proc_available_memory())
+        #else
+        return nil
+        #endif
     }
 
     private static func appBuild() -> String {

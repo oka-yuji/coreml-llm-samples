@@ -52,6 +52,10 @@ final class ChatViewModel {
 
     var kvStatus: String = ""
 
+    var isConversationFull: Bool = false
+
+    @ObservationIgnored private var loadedContextLength: Int = 0
+
     @ObservationIgnored private var engine: CoreMLEngine?
     @ObservationIgnored private var history: [ChatTurn] = []
     @ObservationIgnored private var hasWarmedUp = false
@@ -75,9 +79,18 @@ final class ChatViewModel {
     var trimmedInput: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var canSend: Bool {
-        isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation && !trimmedInput.isEmpty
+        isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation
+            && !trimmedInput.isEmpty && !isConversationFull
     }
     var canReset: Bool { isModelLoaded && !isGenerating && !isLoading && !messages.isEmpty }
+
+    var conversationFullMessage: String {
+        if loadedContextLength > 0 {
+            return "Context window is full (\(loadedContextLength.formatted()) tokens). "
+                + "Reset to start a new conversation."
+        }
+        return "Context window is full. Reset to start a new conversation."
+    }
     var canLoad: Bool { !isGenerating && !isLoading }
     var canCheckpoint: Bool { isModelLoaded && !isGenerating && !isLoading }
 
@@ -116,6 +129,7 @@ final class ChatViewModel {
         do {
             let bundle = try ModelBundle(contentsOf: url)
             modelName = bundle.manifest.name
+            loadedContextLength = bundle.manifest.contextLength
             let preference = bundle.manifest.computeUnits
                 .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
             phase = .loading("Compiling / loading Core ML models (\(preference.rawValue))…")
@@ -134,6 +148,7 @@ final class ChatViewModel {
             messages = []
             hasWarmedUp = false
             warming = false
+            isConversationFull = false
             statusLine = ""
             loadStatus = "Loaded. The first reply specializes GPU kernels (~40s)."
             phase = .ready
@@ -159,6 +174,8 @@ final class ChatViewModel {
         loadStatus = ""
         warming = false
         hasWarmedUp = false
+        isConversationFull = false
+        loadedContextLength = 0
         phase = .idle
     }
 
@@ -214,6 +231,7 @@ final class ChatViewModel {
         statusLine = ""
         loadStatus = ""
         kvStatus = ""
+        isConversationFull = false
     }
 
     func saveKV() {
@@ -327,11 +345,30 @@ final class ChatViewModel {
         } catch {
             warming = false
             flushDisplay(id: assistantID)
-            if assistantText.isEmpty {
-                setAssistantText(id: assistantID, "(generation failed)")
+            if case LLMEngineError.contextOverflow(let promptTokens, let contextLength) = error {
+                isConversationFull = true
+                if assistantText.isEmpty {
+                    setAssistantText(id: assistantID, conversationFullMessage)
+                }
+                statusLine = conversationFullMessage
+                phase = .ready
+                MetricsLog.error(
+                    phase: "preflight", reason: "context overflow",
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: promptTokens, contextLength: contextLength)
+            } else {
+                if assistantText.isEmpty {
+                    setAssistantText(id: assistantID, "(generation failed)")
+                }
+                statusLine = "Error: \(error)"
+                phase = .failed(String(describing: error))
+                MetricsLog.error(
+                    phase: "generation", reason: String(describing: error),
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: nil, contextLength: loadedContextLength > 0 ? loadedContextLength : nil)
             }
-            statusLine = "Error: \(error)"
-            phase = .failed(String(describing: error))
             return
         }
 
@@ -350,6 +387,7 @@ final class ChatViewModel {
                 computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
                 modelLoadSeconds: loadedModelLoadSeconds)
             loadedModelLoadSeconds = nil
+            if metrics.finishReason == .contextFull { isConversationFull = true }
         }
         phase = .ready
     }
@@ -359,6 +397,9 @@ final class ChatViewModel {
         history.append(ChatTurn(role: .user, text: userText))
         history.append(ChatTurn(role: .assistant, text: assistantText))
         if let engine { Task { await engine.resetConversation() } }
+        MetricsLog.cancelledMessage(
+            modelID: loadedModelID, hfRevision: loadedRevision,
+            computeUnits: loadedComputeUnits, bundleFolder: loadedFolder)
         statusLine = "Stopped"
         phase = .ready
     }

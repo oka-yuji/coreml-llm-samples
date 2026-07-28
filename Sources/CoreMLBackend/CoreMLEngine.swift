@@ -207,8 +207,8 @@ public actor CoreMLEngine: LLMEngine {
         let promptText = conversationText(history: history, prompt: prompt)
         let promptIDs = try encodeConversation(history: history, prompt: prompt)
         guard promptIDs.count < chain.contextLength else {
-            throw LLMEngineError.generationFailed(
-                reason: "prompt (\(promptIDs.count) tokens) exceeds context length \(chain.contextLength)")
+            throw LLMEngineError.contextOverflow(
+                promptTokens: promptIDs.count, contextLength: chain.contextLength)
         }
         let decoder = try SkeletonJSONDecoder(
             schema: schema, tokenizer: tokenizer,
@@ -285,9 +285,8 @@ public actor CoreMLEngine: LLMEngine {
         let promptIDs = try encodeConversation(history: request.history, prompt: request.prompt)
 
         guard promptIDs.count < chain.contextLength else {
-            throw LLMEngineError.generationFailed(
-                reason: "prompt (\(promptIDs.count) tokens) exceeds context length \(chain.contextLength)"
-            )
+            throw LLMEngineError.contextOverflow(
+                promptTokens: promptIDs.count, contextLength: chain.contextLength)
         }
         let thermalStart = Self.thermalName()
         let margin = 8
