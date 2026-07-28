@@ -15,7 +15,7 @@ verification discipline is the house style — the receipts are in each model ca
 |---|---|---|---|---|---|---|---|
 | [Gemma 4 12B IT — 128K Context Ladder](samples/gemma-4-12b-128k.md) | 6.7 GB (int4) | 131,072 | ~11 tok/s (32K mode, M4 Max) | [okayuji/gemma-4-12b-it-coreml-128k](https://huggingface.co/okayuji/gemma-4-12b-it-coreml-128k) | [article](https://medium.com/@yu.j.0513/running-gemma-4-12b-with-a-128k-context-on-core-ml-23d6918dd370) | [demo](https://x.com/oka_yuuji/status/2080660675333161154/video/1) | Apache-2.0 |
 | [Gemma 4 E2B IT — ANE Speculative (iOS · macOS)](docs/e2b-speculative-device.md) | ~4.9 GB (pal6+int8) | 2,048 | ~12 tok/s (iPhone 15) · ~16 tok/s (17 Pro) | [okayuji/Gemma-4-E2B-it-coreml-speculative](https://huggingface.co/okayuji/Gemma-4-E2B-it-coreml-speculative) | — | — | Apache-2.0 |
-| [Gemma 4 E4B IT — Mac GPU Speculative](docs/e4b-speculative-mac.md) | 6.5 GB (int4+int8) | 2,048 | ~30 tok/s (M4 Max GPU) | [okayuji/Gemma-4-E4B-it-coreml-speculative](https://huggingface.co/okayuji/Gemma-4-E4B-it-coreml-speculative) | — | — | Apache-2.0 |
+| [Gemma 4 E4B IT — Mac GPU Speculative](docs/e4b-speculative-mac.md) | 6.5 GB (int4+int8) | 2,048 | ~31 tok/s (M4 Max GPU) | [okayuji/Gemma-4-E4B-it-coreml-speculative](https://huggingface.co/okayuji/Gemma-4-E4B-it-coreml-speculative) | — | — | Apache-2.0 |
 
 > **Speed** is one representative figure; the full measurement conditions and every number live in
 > each model's card.

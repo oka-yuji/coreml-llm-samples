@@ -28,7 +28,8 @@ CLI and the demo app link, so both run the identical engine.
 - The **model bundle**: the four chunk `.mlmodelc` folders (`chunk_0_12`, `chunk_12_24`, `chunk_24_36`,
   `chunk_36_42`), `lmhead.mlmodelc`, the int8 sidecars (`embed_int8.bin`, `ple_int8.bin`) with their
   `*_scale.bin` files, the tokenizer, `convert_config_v2int4_int8.json`, and a `manifest.json` whose
-  `format` is `coreml-stateful-chain-v2`.
+  `format` is `coreml-stateful-chain-v2` and whose `promptPrefix` / `promptSuffix` carry the
+  canonical Gemma 4 turn markers (`<|turn>` / `<turn|>`, ids 105 / 106) that drive prompt formatting.
 
 This graph is **Mac GPU only**. The `MLState` KV design does not run on the Neural Engine, and
 `cpuOnly` is refused — multiple `MLState` instances loading together segfault natively. For iPhone,
@@ -97,16 +98,23 @@ measuring several conditions in one process contaminates the later ones.
 ## 5. Where speculation pays
 
 Speculation only helps when the continuation can be drafted from the prompt. Measured on an M4 Max
-(128 GB) / macOS 26, GPU, greedy, one process per condition, draft length 6:
+(128 GB) / macOS 26.5.2, GPU, greedy, one process per condition, draft length 6, on the
+canonical-template bundle (2026-07-28):
 
-| Workload | Off | On | Speedup | Acceptance |
+| Workload | Off | On | Speedup (5-round median) | Acceptance |
 |---|---|---|---|---|
-| Verbatim copy (repeat a 10-item list) | 33.2 tok/s | **126.3 tok/s** | **×3.80** | 0.86 |
-| JSON extraction (99 tokens to EOS) | 32.9 tok/s | 32.7 tok/s | ×0.99 | 0.38 |
+| Verbatim copy (repeat a 10-item list) | 32.6 tok/s | **109.2 tok/s** | **×3.49** | 0.86 |
+| JSON extraction (99 tokens to EOS) | 32.0 tok/s | 29.8 tok/s | ×0.94–0.96 | 0.38 |
 
-On copy, quotation, enumeration and literal-span extraction, speculation is worth several times the
-decode rate. On JSON scaffolding and free-form prose it sits around break-even — the braces and key
-names are not in the prompt, so there is nothing to draft from. For chat-style use, leave it off.
+The `Off` and `On` columns are single `--stats` runs. The `Speedup` column is the sturdier figure —
+the per-round pair-ratio median across 5 interleaved off/on rounds, with the JSON range spanning
+draft lengths 4 and 6. Steady-state decode with speculation off is **31.1 tok/s**.
+
+Verbatim copy and quoting are the one clear win. Everything the model has to *compose* sits at or
+below break-even: even a regular-looking ID enumeration measures ×0.77, because the model answers in
+its own format and those tokens are not in the prompt to draft from. The same goes for JSON
+scaffolding — the braces and key names are not in the prompt either — and for free-form prose. For
+chat-style use, leave speculation off.
 
 ## 6. Run it in the demo app (macOS)
 
@@ -148,10 +156,3 @@ runs only on `cpuAndGPU` or `all`.
 **Core ML compile caches grow.** Repeated first-loads populate
 `~/Library/Caches/**/com.apple.e5rt.e5bundlecache`, which reaches tens of GB across models over time.
 It is safe to delete; the next first-load re-specializes.
-
-**A literal `<end_of_turn>` appears at the end of a reply.** The bundle's `manifest.json` does not
-override the chat template, so the runtime falls back to the `<start_of_turn>` / `<end_of_turn>`
-spelling, which Gemma 4 tokenizes as ordinary text rather than as its turn-control tokens (105 / 106).
-Generation still stops on EOS and speculation stays lossless, but the marker is echoed as text and each
-turn spends about 18 extra prompt tokens. Adding `promptPrefix` (`<|turn>user\n`) and `promptSuffix`
-(`<turn|>\n<|turn>model\n`) to `manifest.json` restores the canonical template.

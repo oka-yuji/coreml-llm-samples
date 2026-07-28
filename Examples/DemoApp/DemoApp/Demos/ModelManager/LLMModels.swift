@@ -88,7 +88,7 @@ enum LLMModels {
             displayName: "Gemma 4 E4B Speculative (Mac GPU)",
             source: .huggingFace(
                 repoID: "okayuji/Gemma-4-E4B-it-coreml-speculative",
-                revision: "main",
+                revision: "4ce978f9c5ba47c3c0ffce366d9ef3e73039f96e",
                 folderName: "gemma-4-e4b-speculative"),
             supportedPlatforms: [.macOS],
             verifiedOn: "M4 Max, macOS 26",
