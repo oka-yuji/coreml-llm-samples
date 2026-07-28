@@ -152,7 +152,7 @@ TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |
   `eos` or the context is full, not a fixed token count.
 - **mem** is the app's own `phys_footprint` (its accounting). On the Neural Engine the model weights are
   wired by the OS **outside** this number (about 1.5 GB for E2B), so the whole-device memory use is
-  higher than the `mem` shown here.
+  higher than the `mem` shown here — **roughly 2 GB total for a short chat, and 3 GB+ while a wide prefill working set is resident**.
 
 The first reply after loading pays a one-time ANE kernel specialization (tens of seconds on the phone);
 later replies are fast, and later turns reuse the KV cache. If replies feel slow "every time", it is
