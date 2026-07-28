@@ -36,6 +36,8 @@ final class ChatViewModel {
 
     var loadStatus: String = ""
 
+    var isCompilingLongLoad: Bool = false
+
     var warming: Bool = false
 
     var modelName: String = ""
@@ -68,6 +70,7 @@ final class ChatViewModel {
 
     @ObservationIgnored private var presenter = StreamPresenter()
     @ObservationIgnored private var displayTask: Task<Void, Never>?
+    @ObservationIgnored private var loadProgressTimer: Task<Void, Never>?
 
     @ObservationIgnored var generation: Task<Void, Never>?
 
@@ -111,6 +114,13 @@ final class ChatViewModel {
         }
     }
 
+    var loadingMessage: String {
+        isCompilingLongLoad
+            ? "Compiling for the Neural Engine — one-time on this device (about 90 s). "
+                + "Future loads take a few seconds."
+            : "Loading model…"
+    }
+
     func refreshLocalBundles() {
         localBundles = LLMModels.supported()
             .compactMap { ModelStorage.locateBundle(folderName: $0.bundleFolderName) }
@@ -126,6 +136,8 @@ final class ChatViewModel {
             return
         }
         phase = .loading("Reading manifest…")
+        let startedAt = Date()
+        startLoadProgressTimer()
         do {
             let bundle = try ModelBundle(contentsOf: url)
             modelName = bundle.manifest.name
@@ -150,19 +162,41 @@ final class ChatViewModel {
             warming = false
             isConversationFull = false
             statusLine = ""
-            loadStatus = "Loaded. The first reply specializes GPU kernels (~40s)."
+            stopLoadProgressTimer()
+            let loadSeconds = Date().timeIntervalSince(startedAt)
+            loadStatus = loadSeconds >= 30
+                ? "Loaded (compiled for this device — future loads take a few seconds)."
+                : "Loaded."
             phase = .ready
         } catch {
+            stopLoadProgressTimer()
             engine = nil
             loadedPath = ""
             phase = .failed(String(describing: error))
         }
     }
 
+    private func startLoadProgressTimer() {
+        isCompilingLongLoad = false
+        loadProgressTimer?.cancel()
+        loadProgressTimer = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(10))
+            guard let self, !Task.isCancelled, self.isLoading else { return }
+            self.isCompilingLongLoad = true
+        }
+    }
+
+    private func stopLoadProgressTimer() {
+        loadProgressTimer?.cancel()
+        loadProgressTimer = nil
+        isCompilingLongLoad = false
+    }
+
     func unload() {
         guard canLoad else { return }
         generation?.cancel()
         generation = nil
+        stopLoadProgressTimer()
         stopDisplayLoop()
         presenter.reset()
         engine = nil

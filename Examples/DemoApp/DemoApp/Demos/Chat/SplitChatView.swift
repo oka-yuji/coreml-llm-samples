@@ -172,12 +172,12 @@ struct SplitChatView: View {
         switch vm.phase {
         case .idle:
             return "Idle."
-        case .loading(let s):
-            return s
+        case .loading:
+            return vm.loadingMessage
         case .failed(let s):
             return s
         case .generating:
-            if vm.warming { return "Warming up: the first reply specializes GPU kernels (~40s)…" }
+            if vm.warming { return "Warming up: prefilling your prompt; a long prompt takes longer…" }
             return vm.loadStatus.isEmpty ? "Generating…" : vm.loadStatus
         case .ready:
             if !vm.statusLine.isEmpty { return vm.statusLine }

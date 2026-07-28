@@ -177,3 +177,8 @@ context window (2,048 tokens — a fixed property of the converted model, not a 
 chats reuse the KV cache and grow the context every turn, so a long session eventually fills it. The
 composer then shows a "Context window is full" banner and disables Send; tap **Reset** to start a new
 conversation. Pasting a single prompt longer than the window shows the same message.
+
+**The first reply to a long prompt stalls for tens of seconds, then later replies are fast.** The first
+time you send a medium-to-long prompt, the engine specializes that prefill width on the Neural Engine — a
+one-time cost that is cached and survives relaunches. Short prompts, and later replies at a width already
+seen, do not pay it. This is kernel specialization, not the model re-reading your conversation.
