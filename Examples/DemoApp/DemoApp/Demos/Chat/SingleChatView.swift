@@ -155,24 +155,52 @@ struct SingleChatView: View {
 
     private var composer: some View {
         @Bindable var vm = vm
-        return HStack(alignment: .bottom, spacing: 8) {
-            TextField("Message", text: $vm.input, axis: .vertical)
-                .textFieldStyle(.plain)
-                .lineLimit(1...6)
-                .padding(8)
-                .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
-                .disabled(!vm.isModelLoaded || vm.isLoading)
-                .focused($inputFocused)
-                .onSubmit(sendIfPossible)
+        return VStack(spacing: 8) {
+            if vm.isConversationFull {
+                contextFullBanner
+            }
+            HStack(alignment: .bottom, spacing: 8) {
+                TextField("Message", text: $vm.input, axis: .vertical)
+                    .textFieldStyle(.plain)
+                    .lineLimit(1...6)
+                    .padding(8)
+                    .background(RoundedRectangle(cornerRadius: 8).fill(.quaternary))
+                    .disabled(!vm.isModelLoaded || vm.isLoading)
+                    .focused($inputFocused)
+                    .onSubmit(sendIfPossible)
 
-            if vm.isGenerating {
-                Button("Stop", action: vm.stop)
-            } else {
-                Button("Send", action: sendIfPossible)
+                if vm.isGenerating {
+                    Button(action: vm.stop) {
+                        Image(systemName: "stop.circle.fill")
+                            .font(.system(size: 30))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Stop")
+                } else {
+                    Button(action: sendIfPossible) {
+                        Image(systemName: "arrow.up.circle.fill")
+                            .font(.system(size: 30))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(vm.canSend ? Color.accentColor : Color.secondary)
                     .disabled(!vm.canSend)
+                    .accessibilityLabel("Send")
+                }
             }
         }
         .padding(10)
+    }
+
+    private var contextFullBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "exclamationmark.circle")
+            Text(vm.conversationFullMessage)
+            Spacer(minLength: 0)
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func sendIfPossible() {
