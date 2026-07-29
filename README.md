@@ -52,8 +52,8 @@ list — a sidebar of demos with the selected one shown on the right. It has two
 **Models**, with Chat selected on launch; more models and modalities each add a row and a screen here.
 
 The **Models** screen downloads model bundles in-app from Hugging Face, with progress, cancel, and
-delete, and loads a finished bundle straight into Chat. For a private or gated repo it auto-detects a
-token from `HF_TOKEN` or the `hf` CLI; a public repo needs none.
+delete, and loads a finished bundle straight into Chat. Every catalog model is a public repo, so the
+download runs anonymously — no Hugging Face token or sign-in is needed.
 
 The **Chat** demo is the conversation screen. Select a model in **Models** and press **Load in Chat**
 to switch here and talk. Responses stream as they generate, and the status line reports the last

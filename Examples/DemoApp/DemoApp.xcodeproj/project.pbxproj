@@ -33,7 +33,6 @@
 		B8F35C74F2102797C6B9BF41 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2619A7AFA183FE8490939FDF /* HubDownloader.swift */; };
 		B987F2195569F7499334E13A /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6946403106441AB2ED7A4630 /* DemoRootView.swift */; };
 		BA4B04B85EB25C6D73BE3A8C /* PlatformColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51DDF698F9A3A35A67384C75 /* PlatformColors.swift */; };
-		BAA02C4DAD5623F8E5EE7349 /* HFToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422BFD81DE53F48FD3C73B56 /* HFToken.swift */; };
 		BB2816A50CCFAFAD092794ED /* SplitModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */; };
 		BF18F932B1923EDF3D3AAB41 /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */; };
 		D2A2600481CAA5E4203408D2 /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9765414431F09807B3A394 /* ByteFormatting.swift */; };
@@ -44,7 +43,6 @@
 		EB0CEF1EEDF7B846F6F75962 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = B895059F5EBD906FCB751E1C /* CoreMLBackend */; };
 		EC7EB7E492A6EB8884CF1277 /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
 		F2A166E74426BAAF95F80FF9 /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E551C28EBA72A6BB553D1E /* ModelStorage.swift */; };
-		F6289510C9CD56401512950F /* HFToken.swift in Sources */ = {isa = PBXBuildFile; fileRef = 422BFD81DE53F48FD3C73B56 /* HFToken.swift */; };
 		F7419A36171D9CEF222FE436 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
 		FA7972DCB5F33B4FB4846D95 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2619A7AFA183FE8490939FDF /* HubDownloader.swift */; };
 /* End PBXBuildFile section */
@@ -56,7 +54,6 @@
 		2619A7AFA183FE8490939FDF /* HubDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubDownloader.swift; sourceTree = "<group>"; };
 		2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPresenter.swift; sourceTree = "<group>"; };
 		3986EDEFC61F7234B500496B /* SplitChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitChatView.swift; sourceTree = "<group>"; };
-		422BFD81DE53F48FD3C73B56 /* HFToken.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HFToken.swift; sourceTree = "<group>"; };
 		4257A85A05752939D54D8DD6 /* MetricsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsLog.swift; sourceTree = "<group>"; };
 		50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModels.swift; sourceTree = "<group>"; };
 		51DDF698F9A3A35A67384C75 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
@@ -138,7 +135,6 @@
 			isa = PBXGroup;
 			children = (
 				CF9765414431F09807B3A394 /* ByteFormatting.swift */,
-				422BFD81DE53F48FD3C73B56 /* HFToken.swift */,
 				2619A7AFA183FE8490939FDF /* HubDownloader.swift */,
 				50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */,
 				C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */,
@@ -271,7 +267,6 @@
 				89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */,
 				873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */,
 				DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */,
-				BAA02C4DAD5623F8E5EE7349 /* HFToken.swift in Sources */,
 				FA7972DCB5F33B4FB4846D95 /* HubDownloader.swift in Sources */,
 				BF18F932B1923EDF3D3AAB41 /* LLMModels.swift in Sources */,
 				5FF4C42E6FBA3B39734F975E /* MetricsLog.swift in Sources */,
@@ -296,7 +291,6 @@
 				910DF033B78B0FE570A85DB8 /* ChatViewModel.swift in Sources */,
 				9841C54821A9E069A1BCFC23 /* DemoAppMain.swift in Sources */,
 				B987F2195569F7499334E13A /* DemoRootView.swift in Sources */,
-				F6289510C9CD56401512950F /* HFToken.swift in Sources */,
 				B8F35C74F2102797C6B9BF41 /* HubDownloader.swift in Sources */,
 				967C378D1B52E637CD31D24D /* LLMModels.swift in Sources */,
 				8D555BCF6E073C3C3A198FEC /* MetricsLog.swift in Sources */,

@@ -38,12 +38,6 @@ final class ModelsViewModel {
     var modelsDirectorySize: UInt64 = 0
     var availableDiskSpace: UInt64 = 0
 
-    var hfToken: String = HFToken.stored ?? "" {
-        didSet { HFToken.save(hfToken) }
-    }
-
-    var tokenAvailable: Bool { HFToken.isAvailable }
-
     init() {
         rows = LLMModels.downloadable().map { ModelRowState(model: $0) }
         refresh()

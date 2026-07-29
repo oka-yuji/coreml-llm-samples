@@ -42,7 +42,6 @@ enum HubDownloadError: LocalizedError {
 
 final class HubDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     private let baseURL = "https://huggingface.co"
-    private let token: String?
     private let lock = NSLock()
     private var entries: [Int: Entry] = [:]
     private var liveTasks: [Int: URLSessionDownloadTask] = [:]
@@ -65,17 +64,12 @@ final class HubDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Send
         return URLSession(configuration: config, delegate: self, delegateQueue: nil)
     }()
 
-    init(token: String? = HFToken.detect()) {
-        self.token = token
-        super.init()
-    }
-
     func fileList(repoID: String, revision: String) async throws -> [HubFile] {
         let urlString = "\(baseURL)/api/models/\(repoID)/tree/\(revision)?recursive=true"
         guard let url = URL(string: urlString) else {
             throw HubDownloadError.invalidURL(urlString)
         }
-        let (data, response) = try await session.data(for: authorizedRequest(url: url))
+        let (data, response) = try await session.data(for: URLRequest(url: url))
         guard let http = response as? HTTPURLResponse, (200..<300).contains(http.statusCode) else {
             let code = (response as? HTTPURLResponse)?.statusCode ?? -1
             throw HubDownloadError.httpError(statusCode: code, url: urlString)
@@ -214,7 +208,7 @@ final class HubDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Send
                 continuation.resume(throwing: HubDownloadError.cancelled)
                 return
             }
-            let task = session.downloadTask(with: authorizedRequest(url: url))
+            let task = session.downloadTask(with: URLRequest(url: url))
             let id = task.taskIdentifier
             entries[id] = Entry(
                 destinationFile: destinationFile,
@@ -226,14 +220,6 @@ final class HubDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Send
             lock.unlock()
             task.resume()
         }
-    }
-
-    private func authorizedRequest(url: URL) -> URLRequest {
-        var request = URLRequest(url: url)
-        if let token, !token.isEmpty {
-            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        }
-        return request
     }
 
     private func isCancelled() -> Bool {

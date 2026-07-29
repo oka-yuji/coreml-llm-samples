@@ -1,3 +1,4 @@
+import Foundation
 import SwiftUI
 
 struct DemoApp: App {
@@ -12,6 +13,8 @@ struct DemoApp: App {
 @main
 enum DemoAppMain {
     static func main() {
+        // Credential cleanup for builds that had a token field.
+        UserDefaults.standard.removeObject(forKey: "huggingface_token")
         if CommandLine.arguments.contains("--selftest") {
             SelfTest.run()
         }

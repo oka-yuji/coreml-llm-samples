@@ -9,9 +9,7 @@ struct SplitModelsView: View {
     @State private var showDeleteAll = false
 
     var body: some View {
-        @Bindable var vm = vm
-        return List {
-            tokenSection($vm.hfToken)
+        List {
             Section("Downloadable models") {
                 if vm.rows.isEmpty {
                     Text("No downloadable models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
@@ -73,22 +71,6 @@ struct SplitModelsView: View {
                 Label("Delete All", systemImage: "trash")
             }
             .disabled(vm.modelsDirectorySize == 0 || vm.isBusy)
-        }
-    }
-
-    @ViewBuilder
-    private func tokenSection(_ token: Binding<String>) -> some View {
-        Section("Hugging Face") {
-            SecureField("Access token (for private or gated repos)", text: token)
-            if vm.tokenAvailable {
-                Label("Token available", systemImage: "checkmark.circle")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Paste a read token to download private or gated models.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
         }
     }
 
