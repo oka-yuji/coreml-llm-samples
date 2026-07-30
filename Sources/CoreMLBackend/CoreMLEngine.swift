@@ -170,6 +170,128 @@ public actor CoreMLEngine: LLMEngine {
         processedTokens = []
     }
 
+    public func supportsImageInput() -> Bool {
+        chain is ChunkedSpeculativeChain && visionModelURL() != nil
+    }
+
+    private func visionModelURL() -> URL? {
+        guard let bundleURL = loadedBundleURL else { return nil }
+        let sibling = bundleURL.appending(path: "vision_fp16.mlpackage")
+        return FileManager.default.fileExists(atPath: sibling.path(percentEncoded: false)) ? sibling : nil
+    }
+
+    private func prepareVLMSegments(
+        imageURL: URL, question: String
+    ) async throws -> (segments: [PromptSegment], flatIDs: [Int], imageRows: Int, visionSeconds: Double) {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        guard let visionURL = visionModelURL() else {
+            throw LLMEngineError.modelNotFound(
+                path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
+        }
+        let encoder = VisionEncoder(packageURL: visionURL, computeUnits: loadedUnits)
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let soft = try await encoder.encode(imageAt: imageURL, releaseAfter: true)
+        let visionSeconds = (clock.now - t0) / .seconds(1)
+        let bos = tokenizer.bosTokenID ?? 2
+        let userTokens = try tokenizer.encode("user\n")
+        let questionTokens = try tokenizer.encode(question)
+        let modelTokens = try tokenizer.encode("model\n")
+        let segments = VLMPrompt.segments(
+            bos: bos, userTokens: userTokens, questionTokens: questionTokens,
+            modelTokens: modelTokens, image: soft)
+        let flatIDs = [bos, VLMPrompt.turnStart] + userTokens + [VLMPrompt.boi]
+            + Array(repeating: ChunkedSpeculativeChain.imagePlaceholderID, count: soft.rows)
+            + [VLMPrompt.eoi] + questionTokens
+            + [VLMPrompt.turnEnd, VLMPrompt.newline, VLMPrompt.turnStart] + modelTokens
+        return (segments, flatIDs, soft.rows, visionSeconds)
+    }
+
+    public func generateWithImage(
+        imageURL: URL, question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> VLMGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let prep = try await prepareVLMSegments(imageURL: imageURL, question: question)
+        guard prep.flatIDs.count < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: prep.flatIDs.count, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        try chunked.reset()
+        let p0 = clock.now
+        let seed = try chunked.prefillSegments(prep.segments)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        let cap = Self.tokenBudget(
+            maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        processedTokens = prep.flatIDs + out
+        return VLMGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: prep.flatIDs.count, imageRows: prep.imageRows,
+            visionEncodeSeconds: prep.visionSeconds, prefillSeconds: prefillSeconds,
+            decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public func continueWithImageContext(
+        question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> VLMGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        guard !processedTokens.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "no image context to continue from")
+        }
+        let ids = VLMPrompt.followUpTokens(
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"))
+        let used = chunked.position + ids.count
+        guard used < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: used, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        let p0 = clock.now
+        let seed = try chunked.prefillScheduled(ids)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        var context = processedTokens + ids
+        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        context.append(contentsOf: out)
+        processedTokens = context
+        return VLMGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: ids.count, imageRows: 0,
+            visionEncodeSeconds: 0, prefillSeconds: prefillSeconds, decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    private static func tokenBudget(maxNew: Int, used: Int, contextLength: Int) -> Int {
+        let budget = max(0, contextLength - used - 8)
+        return maxNew > 0 ? min(maxNew, budget) : budget
+    }
+
     func setPromptTemplate(prefix: String, suffix: String) {
         promptPrefix = prefix
         promptSuffix = suffix

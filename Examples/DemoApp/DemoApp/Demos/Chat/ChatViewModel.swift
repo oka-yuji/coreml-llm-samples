@@ -20,11 +20,13 @@ final class ChatViewModel {
         let id: UUID
         let role: Role
         var text: String
+        var attachedImageURL: URL?
 
-        init(id: UUID = UUID(), role: Role, text: String) {
+        init(id: UUID = UUID(), role: Role, text: String, attachedImageURL: URL? = nil) {
             self.id = id
             self.role = role
             self.text = text
+            self.attachedImageURL = attachedImageURL
         }
     }
 
@@ -55,6 +57,12 @@ final class ChatViewModel {
     var kvStatus: String = ""
 
     var isConversationFull: Bool = false
+
+    var supportsImageAttachment: Bool = false
+
+    var attachedImageURL: URL?
+
+    @ObservationIgnored private var imageContextActive = false
 
     @ObservationIgnored private var loadedContextLength: Int = 0
 
@@ -150,6 +158,9 @@ final class ChatViewModel {
             try await newEngine.load(
                 bundle, options: LoadOptions(computeUnits: preference, preloadSpeculation: speculative))
             engine = newEngine
+            supportsImageAttachment = await newEngine.supportsImageInput()
+            attachedImageURL = nil
+            imageContextActive = false
             loadedPath = path
             loadedFolder = url.lastPathComponent
             let catalogModel = LLMModels.all.first { $0.bundleFolderName == url.lastPathComponent }
@@ -173,6 +184,9 @@ final class ChatViewModel {
         } catch {
             stopLoadProgressTimer()
             engine = nil
+            supportsImageAttachment = false
+            attachedImageURL = nil
+            imageContextActive = false
             loadedPath = ""
             phase = .failed(String(describing: error))
         }
@@ -231,16 +245,28 @@ final class ChatViewModel {
         warming = false
         hasWarmedUp = false
         isConversationFull = false
+        supportsImageAttachment = false
+        attachedImageURL = nil
+        imageContextActive = false
         loadedContextLength = 0
         phase = .idle
     }
+
+    func attachImage(_ url: URL) {
+        guard supportsImageAttachment else { return }
+        attachedImageURL = url
+    }
+
+    func clearAttachedImage() { attachedImageURL = nil }
 
     @discardableResult
     func send() -> Bool {
         guard canSend, let engine else { return false }
         let userText = trimmedInput
+        let imageURL = attachedImageURL
         input = ""
-        messages.append(Message(role: .user, text: userText))
+        attachedImageURL = nil
+        messages.append(Message(role: .user, text: userText, attachedImageURL: imageURL))
         let assistantID = UUID()
         messages.append(Message(id: assistantID, role: .assistant, text: ""))
         statusLine = ""
@@ -250,6 +276,17 @@ final class ChatViewModel {
 
         presenter.reset()
         startDisplayLoop(assistantID: assistantID)
+
+        if imageURL != nil || imageContextActive {
+            let useSpeculation = speculative
+            let cap = maxTokens
+            generation = Task { [self] in
+                await consumeImageTurn(
+                    engine: engine, imageURL: imageURL, question: userText, maxNew: cap,
+                    speculative: useSpeculation, userText: userText, assistantID: assistantID)
+            }
+            return true
+        }
 
         let config = GenerationConfig(maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: speculative)
         let request = GenerationRequest(prompt: userText, config: config, history: history, reuseCache: true)
@@ -288,6 +325,8 @@ final class ChatViewModel {
         loadStatus = ""
         kvStatus = ""
         isConversationFull = false
+        attachedImageURL = nil
+        imageContextActive = false
     }
 
     func saveKV() {
@@ -446,6 +485,79 @@ final class ChatViewModel {
             if metrics.finishReason == .contextFull { isConversationFull = true }
         }
         phase = .ready
+    }
+
+    private func consumeImageTurn(
+        engine: CoreMLEngine,
+        imageURL: URL?,
+        question: String,
+        maxNew: Int,
+        speculative useSpeculation: Bool,
+        userText: String,
+        assistantID: UUID
+    ) async {
+        do {
+            let info: VLMGenerationInfo
+            if let imageURL {
+                info = try await engine.generateWithImage(
+                    imageURL: imageURL, question: question, maxNew: maxNew, speculative: useSpeculation)
+            } else {
+                info = try await engine.continueWithImageContext(
+                    question: question, maxNew: maxNew, speculative: useSpeculation)
+            }
+            warming = false
+            hasWarmedUp = true
+            presenter.append(info.text)
+            if Task.isCancelled {
+                imageContextActive = false
+                finishStopped(userText: userText, assistantText: info.text, assistantID: assistantID)
+                return
+            }
+            imageContextActive = true
+            flushDisplay(id: assistantID)
+            history.append(ChatTurn(role: .user, text: userText))
+            history.append(ChatTurn(role: .assistant, text: info.text))
+            statusLine = imageStatsLine(info)
+            phase = .ready
+        } catch {
+            warming = false
+            flushDisplay(id: assistantID)
+            let failed = presenter.displayed.isEmpty
+            if case LLMEngineError.contextOverflow(let promptTokens, let contextLength) = error {
+                isConversationFull = true
+                if failed { setAssistantText(id: assistantID, conversationFullMessage) }
+                statusLine = conversationFullMessage
+                phase = .ready
+                MetricsLog.error(
+                    phase: "preflight", reason: "context overflow",
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: promptTokens, contextLength: contextLength)
+            } else {
+                if failed { setAssistantText(id: assistantID, "(generation failed)") }
+                statusLine = "Error: \(error)"
+                phase = .failed(String(describing: error))
+                MetricsLog.error(
+                    phase: "generation", reason: String(describing: error),
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: nil, contextLength: loadedContextLength > 0 ? loadedContextLength : nil)
+            }
+        }
+    }
+
+    private func imageStatsLine(_ info: VLMGenerationInfo) -> String {
+        var parts: [String] = []
+        if info.visionEncodeSeconds > 0 {
+            parts.append(String(format: "vision %.2fs", info.visionEncodeSeconds))
+        }
+        parts.append(String(format: "TTFT %.2fs", info.visionEncodeSeconds + info.prefillSeconds))
+        parts.append(String(format: "%.1f tok/s", info.decodeTokensPerSecond))
+        parts.append("prompt \(info.promptTokens)")
+        if info.imageRows > 0 { parts.append("image \(info.imageRows) rows") }
+        parts.append("\(info.generatedTokens) tok")
+        if let mb = info.peakMemoryBytes { parts.append(String(format: "mem %.0fMB", Double(mb) / 1_048_576)) }
+        return parts.joined(separator: "  |  ")
     }
 
     private func finishStopped(userText: String, assistantText: String, assistantID: UUID) {

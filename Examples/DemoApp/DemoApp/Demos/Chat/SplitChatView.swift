@@ -1,9 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct SplitChatView: View {
     @Environment(ChatViewModel.self) private var vm
     @Environment(DemoNavigator.self) private var navigator
     @FocusState private var inputFocused: Bool
+    @State private var showImageImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -191,7 +193,21 @@ struct SplitChatView: View {
             if vm.isConversationFull {
                 contextFullBanner
             }
+            if let url = vm.attachedImageURL {
+                attachmentChip(url)
+            }
             HStack(alignment: .bottom, spacing: 8) {
+                if vm.supportsImageAttachment {
+                    Button { showImageImporter = true } label: {
+                        Image(systemName: "photo.on.rectangle")
+                            .font(.system(size: 20))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(Color.secondary)
+                    .disabled(vm.isGenerating || vm.isLoading)
+                    .accessibilityLabel("Attach image")
+                    .padding(.bottom, 4)
+                }
                 TextField("Message", text: $vm.input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...6)
@@ -225,6 +241,28 @@ struct SplitChatView: View {
             }
         }
         .padding(10)
+        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image]) { result in
+            if case .success(let url) = result { vm.attachImage(url) }
+        }
+    }
+
+    private func attachmentChip(_ url: URL) -> some View {
+        HStack(spacing: 8) {
+            ImageThumbnail(url: url, side: 40)
+            Text(url.lastPathComponent)
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+            Spacer(minLength: 0)
+            Button(action: vm.clearAttachedImage) {
+                Image(systemName: "xmark.circle.fill")
+            }
+            .buttonStyle(.plain)
+            .foregroundStyle(.secondary)
+            .accessibilityLabel("Remove image")
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.bubbleBackground))
     }
 
     private var contextFullBanner: some View {
@@ -245,6 +283,21 @@ struct SplitChatView: View {
     }
 }
 
+private struct ImageThumbnail: View {
+    let url: URL
+    let side: CGFloat
+
+    var body: some View {
+        AsyncImage(url: url) { image in
+            image.resizable().scaledToFill()
+        } placeholder: {
+            Color.secondary.opacity(0.15)
+        }
+        .frame(width: side, height: side)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+    }
+}
+
 private struct MessageRow: View {
     let message: ChatViewModel.Message
 
@@ -255,6 +308,9 @@ private struct MessageRow: View {
             Text(isUser ? "You" : "Assistant")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
+            if let url = message.attachedImageURL {
+                ImageThumbnail(url: url, side: 120)
+            }
             Text(message.text.isEmpty && !isUser ? " " : message.text)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
