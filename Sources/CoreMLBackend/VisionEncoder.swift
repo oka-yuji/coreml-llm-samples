@@ -23,7 +23,7 @@ final class VisionEncoder {
 
     func unload() { model = nil }
 
-    func encode(patches: MLMultiArray, releaseAfter: Bool = false) async throws -> ImageSoftTokens {
+    func encode(patches: MLMultiArray, releaseAfter: Bool = false) async throws -> SoftTokenRows {
         try await loadIfNeeded()
         guard let model else {
             throw LLMEngineError.generationFailed(reason: "VisionEncoder: model is not loaded")
@@ -41,10 +41,10 @@ final class VisionEncoder {
         let hidden = soft.shape[1].intValue
         var data = [Float16](repeating: 0, count: rows * hidden)
         Self.copyToF16(soft, into: &data)
-        return ImageSoftTokens(rows: rows, hidden: hidden, data: data)
+        return SoftTokenRows(rows: rows, hidden: hidden, data: data)
     }
 
-    func encode(imageAt url: URL, releaseAfter: Bool = true) async throws -> ImageSoftTokens {
+    func encode(imageAt url: URL, releaseAfter: Bool = true) async throws -> SoftTokenRows {
         let patches = try VisionPreprocess.patches(fromImageAt: url)
         return try await encode(patches: patches, releaseAfter: releaseAfter)
     }
@@ -77,7 +77,7 @@ enum VLMPrompt {
     static let eoi = 258882
 
     static func segments(
-        bos: Int, userTokens: [Int], questionTokens: [Int], modelTokens: [Int], image: ImageSoftTokens
+        bos: Int, userTokens: [Int], questionTokens: [Int], modelTokens: [Int], image: SoftTokenRows
     ) -> [PromptSegment] {
         let pre = [bos, turnStart] + userTokens + [boi]
         let post = [eoi] + questionTokens + [turnEnd, newline, turnStart] + modelTokens

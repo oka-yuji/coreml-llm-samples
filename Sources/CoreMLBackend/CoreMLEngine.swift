@@ -287,6 +287,127 @@ public actor CoreMLEngine: LLMEngine {
             peakMemoryBytes: Self.memoryFootprint())
     }
 
+    public nonisolated static var maxAudioSeconds: Double { AudioPreprocess.maxSeconds }
+
+    public nonisolated static var defaultTranscriptionInstruction: String { ASRPrompt.instruction() }
+
+    public func supportsAudioInput() -> Bool {
+        chain is ChunkedSpeculativeChain && audioModelURL() != nil
+    }
+
+    private func audioModelURL() -> URL? {
+        guard let bundleURL = loadedBundleURL else { return nil }
+        let sibling = bundleURL.appending(path: "audio_fp16.mlpackage")
+        return FileManager.default.fileExists(atPath: sibling.path(percentEncoded: false)) ? sibling : nil
+    }
+
+    private func prepareASRSegments(
+        samples: [Float], instruction: String
+    ) async throws -> (segments: [PromptSegment], flatIDs: [Int], audioRows: Int, encodeSeconds: Double) {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        guard let audioURL = audioModelURL() else {
+            throw LLMEngineError.modelNotFound(
+                path: "audio_fp16.mlpackage (absent next to the loaded bundle)")
+        }
+        let encoder = AudioEncoder(packageURL: audioURL)
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let soft = try await encoder.encode(samples: samples, releaseAfter: true)
+        let encodeSeconds = (clock.now - t0) / .seconds(1)
+        let bos = tokenizer.bosTokenID ?? 2
+        let userTokens = try tokenizer.encode("user\n")
+        let instructionTokens = try tokenizer.encode(instruction)
+        let modelTokens = try tokenizer.encode("model\n")
+        let segments = ASRPrompt.segments(
+            bos: bos, userTokens: userTokens, instructionTokens: instructionTokens,
+            modelTokens: modelTokens, audio: soft)
+        let flatIDs = ASRPrompt.flatIDs(
+            bos: bos, userTokens: userTokens, instructionTokens: instructionTokens,
+            modelTokens: modelTokens, audioRows: soft.rows)
+        return (segments, flatIDs, soft.rows, encodeSeconds)
+    }
+
+    public func generateWithAudio(
+        samples: [Float], instruction: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> ASRGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "audio input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let prep = try await prepareASRSegments(samples: samples, instruction: instruction)
+        guard prep.flatIDs.count < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: prep.flatIDs.count, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        try chunked.reset()
+        let p0 = clock.now
+        let seed = try chunked.prefillSegments(prep.segments)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        let cap = Self.tokenBudget(
+            maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        processedTokens = prep.flatIDs + out
+        return ASRGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: prep.flatIDs.count, audioRows: prep.audioRows,
+            audioSeconds: Double(samples.count) / Double(AudioPreprocess.sampleRate),
+            audioEncodeSeconds: prep.encodeSeconds, prefillSeconds: prefillSeconds,
+            decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public func continueWithAudioContext(
+        question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> ASRGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "audio input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        guard !processedTokens.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "no audio context to continue from")
+        }
+        let ids = ASRPrompt.followUpTokens(
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"))
+        let used = chunked.position + ids.count
+        guard used < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: used, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        let p0 = clock.now
+        let seed = try chunked.prefillScheduled(ids)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        var context = processedTokens + ids
+        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        context.append(contentsOf: out)
+        processedTokens = context
+        return ASRGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: ids.count, audioRows: 0, audioSeconds: 0, audioEncodeSeconds: 0,
+            prefillSeconds: prefillSeconds, decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
     private static func tokenBudget(maxNew: Int, used: Int, contextLength: Int) -> Int {
         let budget = max(0, contextLength - used - 8)
         return maxNew > 0 ? min(maxNew, budget) : budget

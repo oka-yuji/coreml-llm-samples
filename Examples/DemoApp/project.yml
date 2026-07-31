@@ -43,6 +43,7 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: Core ML Demos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Records a short clip so the on-device model can transcribe it.
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"

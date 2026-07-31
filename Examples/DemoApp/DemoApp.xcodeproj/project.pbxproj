@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0AFB484A7C94064D8093260B /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55846AC1C62B384C5E553651 /* AudioRecorder.swift */; };
 		12EB880E73AA2A911E2DE81C /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
 		13DB13CF42A65B48E7F78B85 /* SingleModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */; };
 		1CB862214A5CBE682C98D3A2 /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */; };
@@ -26,6 +27,7 @@
 		8A80C55FCFB485CFDE43E02D /* ModelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9FDDE78A1F2C3AA789F5EBBF /* ModelsViewModel.swift */; };
 		8D555BCF6E073C3C3A198FEC /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4257A85A05752939D54D8DD6 /* MetricsLog.swift */; };
 		910DF033B78B0FE570A85DB8 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */; };
+		9575500AB897BD292581F0FD /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55846AC1C62B384C5E553651 /* AudioRecorder.swift */; };
 		967C378D1B52E637CD31D24D /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */; };
 		9841C54821A9E069A1BCFC23 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */; };
 		9C117D56804C262B968AB12F /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9765414431F09807B3A394 /* ByteFormatting.swift */; };
@@ -57,6 +59,7 @@
 		4257A85A05752939D54D8DD6 /* MetricsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsLog.swift; sourceTree = "<group>"; };
 		50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModels.swift; sourceTree = "<group>"; };
 		51DDF698F9A3A35A67384C75 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
+		55846AC1C62B384C5E553651 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		6946403106441AB2ED7A4630 /* DemoRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRootView.swift; sourceTree = "<group>"; };
 		96BE74A7623526708986F062 /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		9FDDE78A1F2C3AA789F5EBBF /* ModelsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsViewModel.swift; sourceTree = "<group>"; };
@@ -68,7 +71,7 @@
 		ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleModelsView.swift; sourceTree = "<group>"; };
 		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
-		"TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_56AAE8E6-D6C9-4D75-91A5-7D1CA943916B" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -105,6 +108,7 @@
 		5138FDD1E4F08E501221B1DB /* Chat */ = {
 			isa = PBXGroup;
 			children = (
+				55846AC1C62B384C5E553651 /* AudioRecorder.swift */,
 				E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */,
 				96BE74A7623526708986F062 /* SelfTest.swift */,
 				F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */,
@@ -167,10 +171,10 @@
 			path = DemoApp;
 			sourceTree = "<group>";
 		};
-		"TEMP_B5F753B0-AC32-4C09-B9EA-1279C832897D" /* DemoApp */ = {
+		"TEMP_DD28F064-971A-43D3-8C92-BB16D8DA6DF5" /* DemoApp */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */,
+				"TEMP_56AAE8E6-D6C9-4D75-91A5-7D1CA943916B" /* Signing.xcconfig */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -263,6 +267,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				0AFB484A7C94064D8093260B /* AudioRecorder.swift in Sources */,
 				D2A2600481CAA5E4203408D2 /* ByteFormatting.swift in Sources */,
 				89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */,
 				873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */,
@@ -287,6 +292,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9575500AB897BD292581F0FD /* AudioRecorder.swift in Sources */,
 				9C117D56804C262B968AB12F /* ByteFormatting.swift in Sources */,
 				910DF033B78B0FE570A85DB8 /* ChatViewModel.swift in Sources */,
 				9841C54821A9E069A1BCFC23 /* DemoAppMain.swift in Sources */,
@@ -312,7 +318,7 @@
 /* Begin XCBuildConfiguration section */
 		041C67ECF87CA2F42B2A6BA2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_56AAE8E6-D6C9-4D75-91A5-7D1CA943916B" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -370,7 +376,7 @@
 		};
 		17707D7259CA9368A4B03200 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_549FBC0E-33BB-4998-8AEA-40F60B215649" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_56AAE8E6-D6C9-4D75-91A5-7D1CA943916B" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -447,6 +453,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -532,6 +539,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.developer-tools";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

@@ -196,6 +196,9 @@ struct SplitChatView: View {
             if let url = vm.attachedImageURL {
                 attachmentChip(url)
             }
+            if vm.isRecording || vm.attachedAudio != nil {
+                audioChip
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 if vm.supportsImageAttachment {
                     Button { showImageImporter = true } label: {
@@ -204,10 +207,23 @@ struct SplitChatView: View {
                     }
                     .buttonStyle(.plain)
                     .foregroundStyle(Color.secondary)
-                    .disabled(vm.isGenerating || vm.isLoading)
+                    .disabled(vm.isGenerating || vm.isLoading || vm.isRecording)
                     .accessibilityLabel("Attach image")
                     .padding(.bottom, 4)
                 }
+                #if os(macOS)
+                if vm.supportsAudioAttachment {
+                    Button(action: vm.toggleRecording) {
+                        Image(systemName: vm.isRecording ? "stop.circle" : "mic")
+                            .font(.system(size: 20))
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(vm.isRecording ? Color.red : Color.secondary)
+                    .disabled(vm.isGenerating || vm.isLoading)
+                    .accessibilityLabel(vm.isRecording ? "Stop recording" : "Record audio")
+                    .padding(.bottom, 4)
+                }
+                #endif
                 TextField("Message", text: $vm.input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...6)
@@ -244,6 +260,32 @@ struct SplitChatView: View {
         .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image]) { result in
             if case .success(let url) = result { vm.attachImage(url) }
         }
+    }
+
+    @ViewBuilder private var audioChip: some View {
+        HStack(spacing: 8) {
+            Image(systemName: vm.isRecording ? "record.circle" : "waveform")
+                .foregroundStyle(vm.isRecording ? .red : .secondary)
+            if vm.isRecording {
+                Text("Recording \(vm.recordingLabel)")
+                    .font(.caption)
+                    .monospacedDigit()
+            } else if let audio = vm.attachedAudio {
+                Text(String(format: "Audio %.1fs ready. Send transcribes it.", audio.seconds))
+                    .font(.caption)
+            }
+            Spacer(minLength: 0)
+            if !vm.isRecording {
+                Button(action: vm.clearAttachedAudio) {
+                    Image(systemName: "xmark.circle.fill")
+                }
+                .buttonStyle(.plain)
+                .foregroundStyle(.secondary)
+                .accessibilityLabel("Remove audio")
+            }
+        }
+        .padding(6)
+        .background(RoundedRectangle(cornerRadius: 8).fill(Color.bubbleBackground))
     }
 
     private func attachmentChip(_ url: URL) -> some View {
@@ -311,7 +353,12 @@ private struct MessageRow: View {
             if let url = message.attachedImageURL {
                 ImageThumbnail(url: url, side: 120)
             }
-            Text(message.text.isEmpty && !isUser ? " " : message.text)
+            if let seconds = message.attachedAudioSeconds {
+                Label(String(format: "Audio %.1fs", seconds), systemImage: "waveform")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(message.text.isEmpty ? " " : message.text)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)

@@ -21,13 +21,23 @@ final class ChatViewModel {
         let role: Role
         var text: String
         var attachedImageURL: URL?
+        var attachedAudioSeconds: Double?
 
-        init(id: UUID = UUID(), role: Role, text: String, attachedImageURL: URL? = nil) {
+        init(
+            id: UUID = UUID(), role: Role, text: String, attachedImageURL: URL? = nil,
+            attachedAudioSeconds: Double? = nil
+        ) {
             self.id = id
             self.role = role
             self.text = text
             self.attachedImageURL = attachedImageURL
+            self.attachedAudioSeconds = attachedAudioSeconds
         }
+    }
+
+    struct AttachedAudio: Equatable {
+        var samples: [Float]
+        var seconds: Double
     }
 
     var messages: [Message] = []
@@ -62,7 +72,24 @@ final class ChatViewModel {
 
     var attachedImageURL: URL?
 
+    var supportsAudioAttachment: Bool = false
+
+    var attachedAudio: AttachedAudio?
+
+    var isRecording: Bool = false
+
+    var recordingSeconds: Double = 0
+
+    let maxRecordingSeconds: Double = CoreMLEngine.maxAudioSeconds
+
     @ObservationIgnored private var imageContextActive = false
+
+    @ObservationIgnored private var audioContextActive = false
+
+    #if os(macOS)
+    @ObservationIgnored private lazy var recorder = AudioRecorder(maxSeconds: maxRecordingSeconds)
+    @ObservationIgnored private var recordingTimer: Task<Void, Never>?
+    #endif
 
     @ObservationIgnored private var loadedContextLength: Int = 0
 
@@ -91,8 +118,8 @@ final class ChatViewModel {
     var trimmedInput: String { input.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var canSend: Bool {
-        isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation
-            && !trimmedInput.isEmpty && !isConversationFull
+        isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation && !isRecording
+            && (!trimmedInput.isEmpty || attachedAudio != nil) && !isConversationFull
     }
     var canReset: Bool { isModelLoaded && !isGenerating && !isLoading && !messages.isEmpty }
 
@@ -159,8 +186,10 @@ final class ChatViewModel {
                 bundle, options: LoadOptions(computeUnits: preference, preloadSpeculation: speculative))
             engine = newEngine
             supportsImageAttachment = await newEngine.supportsImageInput()
+            supportsAudioAttachment = await newEngine.supportsAudioInput()
             attachedImageURL = nil
             imageContextActive = false
+            discardRecording()
             loadedPath = path
             loadedFolder = url.lastPathComponent
             let catalogModel = LLMModels.all.first { $0.bundleFolderName == url.lastPathComponent }
@@ -185,8 +214,10 @@ final class ChatViewModel {
             stopLoadProgressTimer()
             engine = nil
             supportsImageAttachment = false
+            supportsAudioAttachment = false
             attachedImageURL = nil
             imageContextActive = false
+            discardRecording()
             loadedPath = ""
             phase = .failed(String(describing: error))
         }
@@ -246,8 +277,10 @@ final class ChatViewModel {
         hasWarmedUp = false
         isConversationFull = false
         supportsImageAttachment = false
+        supportsAudioAttachment = false
         attachedImageURL = nil
         imageContextActive = false
+        discardRecording()
         loadedContextLength = 0
         phase = .idle
     }
@@ -259,14 +292,96 @@ final class ChatViewModel {
 
     func clearAttachedImage() { attachedImageURL = nil }
 
+    func attachAudio(samples: [Float]) {
+        guard supportsAudioAttachment, !samples.isEmpty else { return }
+        attachedAudio = AttachedAudio(
+            samples: samples, seconds: AudioFileLoader.seconds(sampleCount: samples.count))
+    }
+
+    func clearAttachedAudio() { attachedAudio = nil }
+
+    var recordingLabel: String {
+        String(format: "%.0f / %.0f s", recordingSeconds, maxRecordingSeconds)
+    }
+
+    #if os(macOS)
+    func toggleRecording() {
+        if isRecording {
+            finishRecording()
+            return
+        }
+        guard supportsAudioAttachment, !isGenerating, !isLoading else { return }
+        statusLine = "Waiting for microphone permission…"
+        Task { [self] in
+            guard await AudioRecorder.requestPermission() else {
+                statusLine = "Microphone access is off. Turn it on in System Settings > "
+                    + "Privacy & Security > Microphone, then try again."
+                return
+            }
+            do {
+                try recorder.start()
+            } catch {
+                statusLine = "Recording failed: \(error)"
+                return
+            }
+            attachedAudio = nil
+            recordingSeconds = 0
+            isRecording = true
+            statusLine = "Recording. Press the microphone again to stop."
+            recordingTimer = Task { [weak self] in
+                while !Task.isCancelled {
+                    try? await Task.sleep(for: .milliseconds(100))
+                    guard let self, !Task.isCancelled, self.isRecording else { return }
+                    self.recordingSeconds = AudioFileLoader.seconds(
+                        sampleCount: self.recorder.sampleCount)
+                    if self.recorder.isFull {
+                        self.finishRecording()
+                        return
+                    }
+                }
+            }
+        }
+    }
+
+    private func finishRecording() {
+        recordingTimer?.cancel()
+        recordingTimer = nil
+        let samples = recorder.stop()
+        isRecording = false
+        recordingSeconds = AudioFileLoader.seconds(sampleCount: samples.count)
+        if samples.isEmpty {
+            statusLine = "Nothing was recorded."
+        } else {
+            attachedAudio = AttachedAudio(samples: samples, seconds: recordingSeconds)
+            statusLine = ""
+        }
+    }
+    #endif
+
+    private func discardRecording() {
+        #if os(macOS)
+        recordingTimer?.cancel()
+        recordingTimer = nil
+        if isRecording { recorder.stop() }
+        #endif
+        isRecording = false
+        recordingSeconds = 0
+        attachedAudio = nil
+        audioContextActive = false
+    }
+
     @discardableResult
     func send() -> Bool {
         guard canSend, let engine else { return false }
         let userText = trimmedInput
         let imageURL = attachedImageURL
+        let audio = attachedAudio
         input = ""
         attachedImageURL = nil
-        messages.append(Message(role: .user, text: userText, attachedImageURL: imageURL))
+        attachedAudio = nil
+        messages.append(Message(
+            role: .user, text: userText, attachedImageURL: imageURL,
+            attachedAudioSeconds: audio?.seconds))
         let assistantID = UUID()
         messages.append(Message(id: assistantID, role: .assistant, text: ""))
         statusLine = ""
@@ -276,6 +391,22 @@ final class ChatViewModel {
 
         presenter.reset()
         startDisplayLoop(assistantID: assistantID)
+
+        if audio != nil { imageContextActive = false }
+        if imageURL != nil { audioContextActive = false }
+
+        if audio != nil || (audioContextActive && imageURL == nil) {
+            let instruction = userText.isEmpty
+                ? CoreMLEngine.defaultTranscriptionInstruction : userText
+            let useSpeculation = speculative
+            let cap = maxTokens
+            generation = Task { [self] in
+                await consumeAudioTurn(
+                    engine: engine, audio: audio, instruction: instruction, maxNew: cap,
+                    speculative: useSpeculation, userText: userText, assistantID: assistantID)
+            }
+            return true
+        }
 
         if imageURL != nil || imageContextActive {
             let useSpeculation = speculative
@@ -327,6 +458,7 @@ final class ChatViewModel {
         isConversationFull = false
         attachedImageURL = nil
         imageContextActive = false
+        discardRecording()
     }
 
     func saveKV() {
@@ -544,6 +676,81 @@ final class ChatViewModel {
                     promptTokens: nil, contextLength: loadedContextLength > 0 ? loadedContextLength : nil)
             }
         }
+    }
+
+    private func consumeAudioTurn(
+        engine: CoreMLEngine,
+        audio: AttachedAudio?,
+        instruction: String,
+        maxNew: Int,
+        speculative useSpeculation: Bool,
+        userText: String,
+        assistantID: UUID
+    ) async {
+        do {
+            let info: ASRGenerationInfo
+            if let audio {
+                info = try await engine.generateWithAudio(
+                    samples: audio.samples, instruction: instruction, maxNew: maxNew,
+                    speculative: useSpeculation)
+            } else {
+                info = try await engine.continueWithAudioContext(
+                    question: instruction, maxNew: maxNew, speculative: useSpeculation)
+            }
+            warming = false
+            hasWarmedUp = true
+            presenter.append(info.text)
+            if Task.isCancelled {
+                audioContextActive = false
+                finishStopped(userText: userText, assistantText: info.text, assistantID: assistantID)
+                return
+            }
+            audioContextActive = true
+            flushDisplay(id: assistantID)
+            history.append(ChatTurn(role: .user, text: instruction))
+            history.append(ChatTurn(role: .assistant, text: info.text))
+            statusLine = audioStatsLine(info)
+            phase = .ready
+        } catch {
+            warming = false
+            flushDisplay(id: assistantID)
+            let failed = presenter.displayed.isEmpty
+            if case LLMEngineError.contextOverflow(let promptTokens, let contextLength) = error {
+                isConversationFull = true
+                if failed { setAssistantText(id: assistantID, conversationFullMessage) }
+                statusLine = conversationFullMessage
+                phase = .ready
+                MetricsLog.error(
+                    phase: "preflight", reason: "context overflow",
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: promptTokens, contextLength: contextLength)
+            } else {
+                if failed { setAssistantText(id: assistantID, "(generation failed)") }
+                statusLine = "Error: \(error)"
+                phase = .failed(String(describing: error))
+                MetricsLog.error(
+                    phase: "generation", reason: String(describing: error),
+                    modelID: loadedModelID, hfRevision: loadedRevision,
+                    computeUnits: loadedComputeUnits, bundleFolder: loadedFolder,
+                    promptTokens: nil, contextLength: loadedContextLength > 0 ? loadedContextLength : nil)
+            }
+        }
+    }
+
+    private func audioStatsLine(_ info: ASRGenerationInfo) -> String {
+        var parts: [String] = []
+        if info.audioSeconds > 0 { parts.append(String(format: "audio %.1fs", info.audioSeconds)) }
+        if info.audioEncodeSeconds > 0 {
+            parts.append(String(format: "encode %.2fs", info.audioEncodeSeconds))
+        }
+        parts.append(String(format: "TTFT %.2fs", info.audioEncodeSeconds + info.prefillSeconds))
+        parts.append(String(format: "%.1f tok/s", info.decodeTokensPerSecond))
+        parts.append("prompt \(info.promptTokens)")
+        if info.audioRows > 0 { parts.append("audio \(info.audioRows) rows") }
+        parts.append("\(info.generatedTokens) tok")
+        if let mb = info.peakMemoryBytes { parts.append(String(format: "mem %.0fMB", Double(mb) / 1_048_576)) }
+        return parts.joined(separator: "  |  ")
     }
 
     private func imageStatsLine(_ info: VLMGenerationInfo) -> String {

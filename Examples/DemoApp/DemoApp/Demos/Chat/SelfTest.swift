@@ -1,3 +1,4 @@
+import CoreMLBackend
 import Foundation
 
 enum SelfTest {
@@ -10,23 +11,26 @@ enum SelfTest {
         let model = value("--model")
         let prompt = value("--prompt")
         let image = value("--image")
+        let audio = value("--audio")
         let followUp = value("--followup")
         let maxTokens = value("--max-tokens").flatMap { Int($0) } ?? 128
 
         Task { @MainActor in
             exit(await execute(
-                model: model, prompt: prompt, image: image, followUp: followUp, maxTokens: maxTokens))
+                model: model, prompt: prompt, image: image, audio: audio, followUp: followUp,
+                maxTokens: maxTokens))
         }
         dispatchMain()
     }
 
     @MainActor
     private static func execute(
-        model: String?, prompt: String?, image: String?, followUp: String?, maxTokens: Int
+        model: String?, prompt: String?, image: String?, audio: String?, followUp: String?,
+        maxTokens: Int
     ) async -> Int32 {
         func errln(_ s: String) { FileHandle.standardError.write(Data((s + "\n").utf8)) }
-        guard let model, let prompt else {
-            errln("selftest: --model and --prompt are required")
+        guard let model, prompt != nil || audio != nil else {
+            errln("selftest: --model plus --prompt (or --audio) are required")
             return 2
         }
         let vm = ChatViewModel()
@@ -36,7 +40,8 @@ enum SelfTest {
             errln("selftest: load failed (\(vm.phaseDescription))")
             return 1
         }
-        errln("[selftest] imageAttachment=\(vm.supportsImageAttachment)")
+        errln("[selftest] imageAttachment=\(vm.supportsImageAttachment) "
+            + "audioAttachment=\(vm.supportsAudioAttachment)")
         if let image {
             vm.attachImage(URL(fileURLWithPath: image))
             guard vm.attachedImageURL != nil else {
@@ -44,8 +49,23 @@ enum SelfTest {
                 return 1
             }
         }
+        if let audio {
+            do {
+                let samples = try AudioFileLoader.monoSamples(at: URL(fileURLWithPath: audio))
+                vm.attachAudio(samples: samples)
+            } catch {
+                errln("selftest: cannot read \(audio) (\(error))")
+                return 1
+            }
+            guard let attached = vm.attachedAudio else {
+                errln("selftest: this bundle does not take audio input")
+                return 1
+            }
+            errln(String(format: "[selftest] audio %.2fs (%d samples)",
+                         attached.seconds, attached.samples.count))
+        }
         var reply = ""
-        for turn in [prompt] + (followUp.map { [$0] } ?? []) {
+        for turn in [prompt ?? ""] + (followUp.map { [$0] } ?? []) {
             vm.input = turn
             guard vm.send() else {
                 errln("selftest: send rejected (\(vm.phaseDescription))")
