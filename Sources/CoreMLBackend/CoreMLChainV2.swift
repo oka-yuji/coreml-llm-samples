@@ -227,8 +227,10 @@ final class CoreMLChainV2 {
 
     private var ladderStoreSyncedRows = 0
 
-    init(bundleURL: URL, computeUnits: MLComputeUnits) async throws {
-        guard computeUnits == .cpuAndGPU || computeUnits == .all else {
+    init(
+        bundleURL: URL, computeUnits: MLComputeUnits, allowUnsafeComputeUnits: Bool = false
+    ) async throws {
+        guard computeUnits == .cpuAndGPU || computeUnits == .all || allowUnsafeComputeUnits else {
             throw LLMEngineError.incompatibleBundle(
                 reason: "v2 stateful requires the GPU (computeUnits=\(computeUnits.rawValue)). "
                     + "CPU_ONLY / ANE crash with a native segfault when multiple MLState instances load together. "

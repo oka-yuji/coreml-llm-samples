@@ -1,5 +1,6 @@
 import CoreMLBackend
 import Foundation
+import LLMCore
 
 enum SelfTest {
 
@@ -10,6 +11,7 @@ enum SelfTest {
         var audio: String?
         var followUp: String?
         var maxTokens: Int
+        var computeUnits: String?
     }
 
     struct Sink {
@@ -30,7 +32,18 @@ enum SelfTest {
             image: value("--image"),
             audio: value("--audio"),
             followUp: value("--followup"),
-            maxTokens: value("--max-tokens").flatMap { Int($0) } ?? 128)
+            maxTokens: value("--max-tokens").flatMap { Int($0) } ?? 128,
+            computeUnits: value("--cu"))
+    }
+
+    static func thermalName() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 
     static func run() -> Never {
@@ -61,13 +74,28 @@ enum SelfTest {
             errln("selftest: --model plus --prompt (or --audio) are required")
             return 2
         }
+        var override: ComputeUnitPreference?
+        if let requested = opts.computeUnits {
+            guard let parsed = ComputeUnitPreference(rawValue: requested) else {
+                errln("selftest: unknown --cu \(requested) (expected one of "
+                    + ComputeUnitPreference.allCases.map(\.rawValue).joined(separator: ", ") + ")")
+                return 2
+            }
+            override = parsed
+        }
+        let freeGB = Double(ModelStorage.availableDiskSpace()) / 1e9
+        errln(String(format: "[selftest] free %.2f GB  |  thermal %@  |  cu %@",
+                     freeGB, thermalName(), override?.rawValue ?? "(manifest)"))
         let vm = ChatViewModel()
         vm.maxTokens = opts.maxTokens
-        await vm.loadModel(path: model)
+        let loadStartedAt = Date()
+        await vm.loadModel(path: model, computeUnitsOverride: override)
+        let loadSeconds = Date().timeIntervalSince(loadStartedAt)
         guard vm.isModelLoaded, case .ready = vm.phase else {
             errln("selftest: load failed (\(vm.phaseDescription))")
             return 1
         }
+        errln(String(format: "[selftest] load %.2fs", loadSeconds))
         errln("[selftest] imageAttachment=\(vm.supportsImageAttachment) "
             + "audioAttachment=\(vm.supportsAudioAttachment)")
         if let image = opts.image.map(resolve) {
