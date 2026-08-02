@@ -1,11 +1,9 @@
 import SwiftUI
-import UniformTypeIdentifiers
 
 struct SplitChatView: View {
     @Environment(ChatViewModel.self) private var vm
     @Environment(DemoNavigator.self) private var navigator
     @FocusState private var inputFocused: Bool
-    @State private var showImageImporter = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -194,36 +192,20 @@ struct SplitChatView: View {
                 contextFullBanner
             }
             if let url = vm.attachedImageURL {
-                attachmentChip(url)
+                ImageAttachmentChip(url: url)
             }
             if vm.isRecording || vm.attachedAudio != nil {
-                audioChip
+                AudioAttachmentChip()
             }
             HStack(alignment: .bottom, spacing: 8) {
                 if vm.supportsImageAttachment {
-                    Button { showImageImporter = true } label: {
-                        Image(systemName: "photo.on.rectangle")
-                            .font(.system(size: 20))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(Color.secondary)
-                    .disabled(vm.isGenerating || vm.isLoading || vm.isRecording)
-                    .accessibilityLabel("Attach image")
-                    .padding(.bottom, 4)
+                    AttachImageButton()
+                        .padding(.bottom, 4)
                 }
-                #if os(macOS)
                 if vm.supportsAudioAttachment {
-                    Button(action: vm.toggleRecording) {
-                        Image(systemName: vm.isRecording ? "stop.circle" : "mic")
-                            .font(.system(size: 20))
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(vm.isRecording ? Color.red : Color.secondary)
-                    .disabled(vm.isGenerating || vm.isLoading)
-                    .accessibilityLabel(vm.isRecording ? "Stop recording" : "Record audio")
-                    .padding(.bottom, 4)
+                    RecordAudioButton()
+                        .padding(.bottom, 4)
                 }
-                #endif
                 TextField("Message", text: $vm.input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...6)
@@ -257,54 +239,6 @@ struct SplitChatView: View {
             }
         }
         .padding(10)
-        .fileImporter(isPresented: $showImageImporter, allowedContentTypes: [.image]) { result in
-            if case .success(let url) = result { vm.attachImage(url) }
-        }
-    }
-
-    @ViewBuilder private var audioChip: some View {
-        HStack(spacing: 8) {
-            Image(systemName: vm.isRecording ? "record.circle" : "waveform")
-                .foregroundStyle(vm.isRecording ? .red : .secondary)
-            if vm.isRecording {
-                Text("Recording \(vm.recordingLabel)")
-                    .font(.caption)
-                    .monospacedDigit()
-            } else if let audio = vm.attachedAudio {
-                Text(String(format: "Audio %.1fs ready. Send transcribes it.", audio.seconds))
-                    .font(.caption)
-            }
-            Spacer(minLength: 0)
-            if !vm.isRecording {
-                Button(action: vm.clearAttachedAudio) {
-                    Image(systemName: "xmark.circle.fill")
-                }
-                .buttonStyle(.plain)
-                .foregroundStyle(.secondary)
-                .accessibilityLabel("Remove audio")
-            }
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.bubbleBackground))
-    }
-
-    private func attachmentChip(_ url: URL) -> some View {
-        HStack(spacing: 8) {
-            ImageThumbnail(url: url, side: 40)
-            Text(url.lastPathComponent)
-                .font(.caption)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 0)
-            Button(action: vm.clearAttachedImage) {
-                Image(systemName: "xmark.circle.fill")
-            }
-            .buttonStyle(.plain)
-            .foregroundStyle(.secondary)
-            .accessibilityLabel("Remove image")
-        }
-        .padding(6)
-        .background(RoundedRectangle(cornerRadius: 8).fill(Color.bubbleBackground))
     }
 
     private var contextFullBanner: some View {
@@ -322,21 +256,6 @@ struct SplitChatView: View {
         guard vm.canSend else { return }
         inputFocused = false
         vm.send()
-    }
-}
-
-private struct ImageThumbnail: View {
-    let url: URL
-    let side: CGFloat
-
-    var body: some View {
-        AsyncImage(url: url) { image in
-            image.resizable().scaledToFill()
-        } placeholder: {
-            Color.secondary.opacity(0.15)
-        }
-        .frame(width: side, height: side)
-        .clipShape(RoundedRectangle(cornerRadius: 6))
     }
 }
 

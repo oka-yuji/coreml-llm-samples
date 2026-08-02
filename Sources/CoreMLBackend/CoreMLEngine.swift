@@ -175,9 +175,7 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     private func visionModelURL() -> URL? {
-        guard let bundleURL = loadedBundleURL else { return nil }
-        let sibling = bundleURL.appending(path: "vision_fp16.mlpackage")
-        return FileManager.default.fileExists(atPath: sibling.path(percentEncoded: false)) ? sibling : nil
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "vision_fp16")
     }
 
     private func prepareVLMSegments(
@@ -296,9 +294,17 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     private func audioModelURL() -> URL? {
-        guard let bundleURL = loadedBundleURL else { return nil }
-        let sibling = bundleURL.appending(path: "audio_fp16.mlpackage")
-        return FileManager.default.fileExists(atPath: sibling.path(percentEncoded: false)) ? sibling : nil
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "audio_fp16")
+    }
+
+    private static func sidecarModelURL(bundleURL: URL?, name: String) -> URL? {
+        guard let bundleURL else { return nil }
+        let fileManager = FileManager.default
+        let package = bundleURL.appending(path: "\(name).mlpackage")
+        let compiled = bundleURL.appending(path: "\(name).mlmodelc")
+        let hasPackage = fileManager.fileExists(atPath: package.path(percentEncoded: false))
+        let hasCompiled = fileManager.fileExists(atPath: compiled.path(percentEncoded: false))
+        return hasPackage || hasCompiled ? package : nil
     }
 
     private func prepareASRSegments(

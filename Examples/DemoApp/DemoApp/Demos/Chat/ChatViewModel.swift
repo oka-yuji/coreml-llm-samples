@@ -86,10 +86,8 @@ final class ChatViewModel {
 
     @ObservationIgnored private var audioContextActive = false
 
-    #if os(macOS)
     @ObservationIgnored private lazy var recorder = AudioRecorder(maxSeconds: maxRecordingSeconds)
     @ObservationIgnored private var recordingTimer: Task<Void, Never>?
-    #endif
 
     @ObservationIgnored private var loadedContextLength: Int = 0
 
@@ -290,6 +288,19 @@ final class ChatViewModel {
         attachedImageURL = url
     }
 
+    func attachImage(data: Data, fileExtension: String) {
+        guard supportsImageAttachment, !data.isEmpty else { return }
+        let name = "picked-\(UUID().uuidString).\(fileExtension)"
+        let url = FileManager.default.temporaryDirectory.appending(path: name)
+        do {
+            try data.write(to: url, options: .atomic)
+        } catch {
+            statusLine = "Cannot stage the picked image: \(error)"
+            return
+        }
+        attachedImageURL = url
+    }
+
     func clearAttachedImage() { attachedImageURL = nil }
 
     func attachAudio(samples: [Float]) {
@@ -304,7 +315,6 @@ final class ChatViewModel {
         String(format: "%.0f / %.0f s", recordingSeconds, maxRecordingSeconds)
     }
 
-    #if os(macOS)
     func toggleRecording() {
         if isRecording {
             finishRecording()
@@ -314,8 +324,7 @@ final class ChatViewModel {
         statusLine = "Waiting for microphone permission…"
         Task { [self] in
             guard await AudioRecorder.requestPermission() else {
-                statusLine = "Microphone access is off. Turn it on in System Settings > "
-                    + "Privacy & Security > Microphone, then try again."
+                statusLine = AudioRecorder.permissionDeniedMessage
                 return
             }
             do {
@@ -356,14 +365,11 @@ final class ChatViewModel {
             statusLine = ""
         }
     }
-    #endif
 
     private func discardRecording() {
-        #if os(macOS)
         recordingTimer?.cancel()
         recordingTimer = nil
         if isRecording { recorder.stop() }
-        #endif
         isRecording = false
         recordingSeconds = 0
         attachedAudio = nil

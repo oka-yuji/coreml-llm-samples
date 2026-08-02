@@ -1,4 +1,3 @@
-#if os(macOS)
 import AVFoundation
 import CoreMLBackend
 import Foundation
@@ -53,11 +52,29 @@ final class AudioRecorder: @unchecked Sendable {
     var isFull: Bool { sampleCount >= capacity }
 
     static func requestPermission() async -> Bool {
+        #if os(iOS)
+        switch AVAudioApplication.shared.recordPermission {
+        case .granted: return true
+        case .undetermined: return await AVAudioApplication.requestRecordPermission()
+        default: return false
+        }
+        #else
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized: return true
         case .notDetermined: return await AVCaptureDevice.requestAccess(for: .audio)
         default: return false
         }
+        #endif
+    }
+
+    static var permissionDeniedMessage: String {
+        #if os(iOS)
+        return "Microphone access is off. Turn it on in Settings > Privacy & Security > "
+            + "Microphone, then try again."
+        #else
+        return "Microphone access is off. Turn it on in System Settings > "
+            + "Privacy & Security > Microphone, then try again."
+        #endif
     }
 
     func start() throws {
@@ -67,9 +84,15 @@ final class AudioRecorder: @unchecked Sendable {
             channels: 1, interleaved: false) else {
             throw RecorderError.cannotMakeTargetFormat
         }
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        try session.setCategory(.record, mode: .default)
+        try session.setActive(true)
+        #endif
         let input = engine.inputNode
         let source = input.outputFormat(forBus: 0)
         guard let converter = AVAudioConverter(from: source, to: target) else {
+            Self.deactivateSession()
             throw RecorderError.cannotMakeConverter
         }
         self.target = target
@@ -88,9 +111,16 @@ final class AudioRecorder: @unchecked Sendable {
         } catch {
             input.removeTap(onBus: 0)
             self.converter = nil
+            Self.deactivateSession()
             throw error
         }
         running = true
+    }
+
+    private static func deactivateSession() {
+        #if os(iOS)
+        try? AVAudioSession.sharedInstance().setActive(false, options: [.notifyOthersOnDeactivation])
+        #endif
     }
 
     @discardableResult
@@ -99,6 +129,7 @@ final class AudioRecorder: @unchecked Sendable {
             engine.stop()
             engine.inputNode.removeTap(onBus: 0)
             running = false
+            Self.deactivateSession()
         }
         converter = nil
         target = nil
@@ -128,4 +159,3 @@ final class AudioRecorder: @unchecked Sendable {
         lock.unlock()
     }
 }
-#endif
