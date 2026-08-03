@@ -9,15 +9,11 @@ struct LiveCameraView: View {
     @State private var camera = CameraCapture()
     @State private var cameraReady = false
     @State private var cameraError = ""
+    @State private var starting = false
+    @State private var offerModels = false
 
     var body: some View {
-        Group {
-            if chat.supportsImageAttachment {
-                liveScreen
-            } else {
-                unavailableState
-            }
-        }
+        liveScreen
         .navigationTitle("Live Camera")
         #if os(iOS)
         .navigationBarTitleDisplayMode(.inline)
@@ -65,11 +61,11 @@ struct LiveCameraView: View {
 
     private var captionOverlay: some View {
         VStack(alignment: .leading, spacing: 4) {
-            Text(live.caption.isEmpty ? placeholderCaption : live.caption)
+            Text(overlayText)
                 .font(.headline)
-                .foregroundStyle(.white)
+                .foregroundStyle(live.errorText.isEmpty ? Color.white : Color.orange)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if !live.breakdown.isEmpty {
+            if live.errorText.isEmpty, !live.breakdown.isEmpty {
                 Text(live.breakdown)
                     .font(.caption2)
                     .monospacedDigit()
@@ -81,8 +77,14 @@ struct LiveCameraView: View {
         .padding(12)
     }
 
+    private var overlayText: String {
+        if !live.errorText.isEmpty { return live.errorText }
+        return live.caption.isEmpty ? placeholderCaption : live.caption
+    }
+
     private var placeholderCaption: String {
         if live.isPausedByThermal { return "Paused while the device cools down." }
+        if starting { return "Preparing the model…" }
         return live.isRunning ? "Reading the first frame…" : "Press Start to describe what the camera sees."
     }
 
@@ -90,7 +92,7 @@ struct LiveCameraView: View {
         VStack(spacing: 6) {
             HStack(spacing: 12) {
                 Button(live.isRunning ? "Stop" : "Start") {
-                    live.isRunning ? live.stop() : startLoop()
+                    if live.isRunning { live.stop() } else { Task { await startLoop() } }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!canToggle)
@@ -110,8 +112,14 @@ struct LiveCameraView: View {
             Text(live.statusLine.isEmpty ? "Ready." : live.statusLine)
                 .font(.caption)
                 .foregroundStyle(live.errorText.isEmpty ? Color.secondary : Color.orange)
-                .lineLimit(2)
+                .lineLimit(3)
                 .frame(maxWidth: .infinity, alignment: .leading)
+
+            if offerModels {
+                Button("Open Models") { navigator.selection = .models }
+                    .font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
         }
         .padding(12)
     }
@@ -122,24 +130,7 @@ struct LiveCameraView: View {
 
     private var canToggle: Bool {
         if live.isRunning { return true }
-        return cameraReady && chat.engineHandle != nil && !chat.isGenerating && !chat.isLoading
-    }
-
-    private var unavailableState: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "camera.metering.unknown")
-                .font(.largeTitle)
-                .foregroundStyle(.secondary)
-            Text("No image-capable model loaded").font(.headline)
-            Text("This demo needs a loaded bundle that has a vision encoder next to it. "
-                + "Load one from Models, then come back.")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-            Button("Open Models") { navigator.selection = .models }
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .padding()
+        return !starting && !chat.isGenerating && !chat.isLoading
     }
 
     private func prepareCamera() async {
@@ -159,12 +150,42 @@ struct LiveCameraView: View {
         cameraReady = true
     }
 
-    private func startLoop() {
-        guard let handle = chat.engineHandle else { return }
-        live.start(
-            engine: handle.engine, source: camera, speculative: handle.speculative,
-            modelID: handle.modelID, hfRevision: handle.hfRevision,
-            computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
+    private func startLoop() async {
+        guard !starting, !live.isRunning else { return }
+        starting = true
+        offerModels = false
+        live.errorText = ""
+        live.statusLine = "Preparing…"
+        defer { starting = false }
+
+        if !cameraReady {
+            await prepareCamera()
+            guard cameraReady else {
+                let message = cameraError.isEmpty ? CameraError.noCamera.description : cameraError
+                live.errorText = message
+                live.statusLine = message
+                return
+            }
+        }
+
+        live.statusLine = "Checking the loaded model…"
+        switch await LiveEngineProvision.ensureVisionEngine(
+            chat: chat, status: { live.statusLine = $0 })
+        {
+        case .unavailable(let message):
+            live.errorText = message
+            live.statusLine = message
+            offerModels = true
+        case .ready(let handle):
+            guard cameraReady else {
+                live.statusLine = "The camera stopped while the model was loading. Press Start again."
+                return
+            }
+            live.start(
+                engine: handle.engine, source: camera, speculative: handle.speculative,
+                modelID: handle.modelID, hfRevision: handle.hfRevision,
+                computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
+        }
     }
 
     private func teardown() {

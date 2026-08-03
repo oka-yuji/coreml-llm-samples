@@ -10,6 +10,8 @@ enum LiveCameraSelfTest {
         var useCamera: Bool
     }
 
+    static let frameSampleName = "live-frame-sample.jpg"
+
     static var isRequested: Bool { CommandLine.arguments.contains("--live-selftest") }
 
     static func options(arguments args: [String] = CommandLine.arguments) -> Options {
@@ -42,8 +44,8 @@ enum LiveCameraSelfTest {
     @MainActor
     static func execute(_ opts: Options, sink: SelfTest.Sink) async -> Int32 {
         let errln = sink.err
-        guard let model = opts.model.map(SelfTest.resolve), opts.useCamera || !opts.images.isEmpty else {
-            errln("live-selftest: --model plus either --images a.jpg,b.jpg,c.jpg or --camera are required")
+        guard opts.useCamera || !opts.images.isEmpty else {
+            errln("live-selftest: either --images a.jpg,b.jpg,c.jpg or --camera is required")
             return 2
         }
         let urls = opts.images
@@ -56,15 +58,24 @@ enum LiveCameraSelfTest {
 
         let chat = ChatViewModel()
         chat.maxTokens = LiveCameraViewModel.maxNewTokens
-        await chat.loadModel(path: model)
-        guard chat.isModelLoaded, case .ready = chat.phase else {
-            errln("live-selftest: load failed (\(chat.phaseDescription))")
-            return 1
+        if let model = opts.model.map(SelfTest.resolve) {
+            errln("[live] preloading \(model)")
+            await chat.loadModel(path: model)
+            errln("[live] preloaded phase=\(chat.phaseDescription) image=\(chat.supportsImageAttachment)")
+        } else {
+            errln("[live] no --model given: starting from an unloaded engine")
         }
-        guard chat.supportsImageAttachment, let handle = chat.engineHandle else {
-            errln("live-selftest: this bundle does not take image input")
+        let handle: ChatViewModel.EngineHandle
+        switch await LiveEngineProvision.ensureVisionEngine(
+            chat: chat, status: { errln("[live] \($0)") })
+        {
+        case .unavailable(let message):
+            errln("live-selftest: \(message)")
             return 1
+        case .ready(let ready):
+            handle = ready
         }
+        errln("[live] engine bundle=\(handle.bundleFolder ?? "?") path=\(chat.loadedPath)")
         errln("[live] model=\(chat.modelName) speculative=\(handle.speculative) cycles=\(opts.cycles) "
             + "source=\(opts.useCamera ? "camera" : "\(urls.count) images") "
             + "thermal=\(LiveCameraViewModel.thermalName())")
@@ -94,6 +105,13 @@ enum LiveCameraSelfTest {
                 return 1
             }
             errln(String(format: "[live] camera ready after %.1fs", waited))
+            let sample = ModelStorage.documentsDirectory().appending(path: Self.frameSampleName)
+            do {
+                let label = try capture.stageFrame(to: sample)
+                errln("[live] orientation sample \(Self.frameSampleName) (\(label))")
+            } catch {
+                errln("[live] could not save an orientation sample: \(error)")
+            }
             source = capture
         } else {
             source = FileSequenceFrameSource(urls: urls)

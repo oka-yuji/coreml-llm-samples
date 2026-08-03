@@ -3,6 +3,86 @@ import Foundation
 import LLMCore
 import Observation
 
+enum LiveCycleError: Error, CustomStringConvertible {
+    case emptyResponse
+
+    var description: String {
+        switch self {
+        case .emptyResponse: return "the model returned no text for this frame"
+        }
+    }
+}
+
+enum LiveEngineProvision {
+
+    enum Outcome {
+        case ready(ChatViewModel.EngineHandle)
+        case unavailable(String)
+    }
+
+    static let noBundleMessage =
+        "No vision-capable bundle. Load Gemma 4 E2B (pal6) and add vision assets."
+
+    static func hasVisionSidecar(_ bundle: URL) -> Bool {
+        let fileManager = FileManager.default
+        return ["vision_fp16.mlmodelc", "vision_fp16.mlpackage"].contains {
+            fileManager.fileExists(atPath: bundle.appending(path: $0).path(percentEncoded: false))
+        }
+    }
+
+    static func visionCapableBundles() -> [URL] {
+        let fileManager = FileManager.default
+        var seen = Set<String>()
+        var found: [URL] = []
+
+        func consider(_ url: URL) {
+            let path = url.path(percentEncoded: false)
+            guard !seen.contains(path) else { return }
+            seen.insert(path)
+            let manifest = url.appending(path: "manifest.json")
+            guard fileManager.fileExists(atPath: manifest.path(percentEncoded: false)) else { return }
+            guard hasVisionSidecar(url) else { return }
+            found.append(url)
+        }
+
+        for model in LLMModels.supported() {
+            if let url = ModelStorage.locateBundle(folderName: model.bundleFolderName) {
+                consider(url)
+            }
+        }
+        for root in [ModelStorage.modelsRoot(), ModelStorage.documentsDirectory()] {
+            let children = (try? fileManager.contentsOfDirectory(
+                at: root, includingPropertiesForKeys: nil)) ?? []
+            for child in children { consider(child) }
+        }
+        return found
+    }
+
+    static func displayName(_ url: URL) -> String {
+        (try? ModelBundle(contentsOf: url).manifest.name) ?? url.lastPathComponent
+    }
+
+    @MainActor
+    static func ensureVisionEngine(
+        chat: ChatViewModel, status: @MainActor (String) -> Void
+    ) async -> Outcome {
+        if chat.supportsImageAttachment, let handle = chat.engineHandle { return .ready(handle) }
+        let candidates = visionCapableBundles()
+        guard !candidates.isEmpty else { return .unavailable(noBundleMessage) }
+        var lastFailure: String?
+        for url in candidates {
+            status("Loading \(displayName(url))…")
+            await chat.loadModel(path: url.path(percentEncoded: false))
+            if chat.supportsImageAttachment, let handle = chat.engineHandle { return .ready(handle) }
+            if case .failed(let reason) = chat.phase { lastFailure = reason }
+        }
+        if let lastFailure {
+            return .unavailable("Loading a vision-capable bundle failed: \(lastFailure)")
+        }
+        return .unavailable(noBundleMessage)
+    }
+}
+
 struct LiveCycleReport: Sendable {
     var index: Int
     var frameLabel: String
@@ -45,6 +125,7 @@ final class LiveCameraViewModel {
 
     static let question = "In one short sentence, what is visible in this image?"
     static let maxNewTokens = 24
+    static let maxConsecutiveFailures = 3
 
     var caption: String = ""
     var statusLine: String = ""
@@ -123,6 +204,7 @@ final class LiveCameraViewModel {
         loop = Task { [weak self] in
             guard let self else { return }
             var index = 0
+            var failures = 0
             let clock = ContinuousClock()
             while !Task.isCancelled, !self.stopRequested {
                 if let cycleLimit, index >= cycleLimit { break }
@@ -156,8 +238,11 @@ final class LiveCameraViewModel {
                     guard !Task.isCancelled else { break }
 
                     let cycleSeconds = (clock.now - cycleStart) / .seconds(1)
-                    index += 1
                     let text = info.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                    guard !text.isEmpty else { throw LiveCycleError.emptyResponse }
+                    index += 1
+                    failures = 0
+                    self.errorText = ""
                     let report = LiveCycleReport(
                         index: index,
                         frameLabel: label,
@@ -187,9 +272,21 @@ final class LiveCameraViewModel {
                 } catch is CancellationError {
                     break
                 } catch {
-                    self.errorText = String(describing: error)
-                    self.statusLine = "Stopped after an error: \(error)"
-                    break
+                    failures += 1
+                    let reason = String(describing: error)
+                    self.errorText = reason
+                    MetricsLog.error(
+                        phase: "live-cycle", reason: reason, modelID: modelID,
+                        hfRevision: hfRevision, computeUnits: computeUnits,
+                        bundleFolder: bundleFolder, promptTokens: nil, contextLength: nil)
+                    if failures >= Self.maxConsecutiveFailures {
+                        self.statusLine =
+                            "Stopped after \(failures) failed cycles in a row: \(reason)"
+                        break
+                    }
+                    self.statusLine =
+                        "Cycle failed (\(failures)/\(Self.maxConsecutiveFailures)): \(reason)"
+                    try? await Task.sleep(for: .seconds(1))
                 }
             }
             self.isRunning = false
