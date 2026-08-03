@@ -37,7 +37,7 @@ enum LiveCaptionLanguage: String, CaseIterable, Identifiable, Sendable {
 
     var maxNewTokens: Int {
         switch self {
-        case .english: return 24
+        case .english: return 32
         case .japanese: return 40
         }
     }
