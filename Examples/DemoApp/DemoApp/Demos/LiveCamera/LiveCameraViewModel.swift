@@ -119,6 +119,39 @@ struct LiveCycleReport: Sendable {
     }
 }
 
+enum LiveCyclePhase: String {
+    case idle
+    case encode
+    case feed
+    case generate
+
+    init(_ phase: VLMPhase) {
+        switch phase {
+        case .encode: self = .encode
+        case .feed: self = .feed
+        case .generate: self = .generate
+        }
+    }
+
+    var label: String {
+        switch self {
+        case .idle: return "idle"
+        case .encode: return "encode"
+        case .feed: return "feed"
+        case .generate: return "generate"
+        }
+    }
+
+    var glyph: String {
+        switch self {
+        case .idle: return "pause.circle"
+        case .encode: return "camera.metering.matrix"
+        case .feed: return "arrow.right.to.line"
+        case .generate: return "text.bubble"
+        }
+    }
+}
+
 @MainActor
 @Observable
 final class LiveCameraViewModel {
@@ -136,11 +169,13 @@ final class LiveCameraViewModel {
     var isPausedByThermal: Bool = false
     var thermalState: String = LiveCameraViewModel.thermalName()
     var errorText: String = ""
+    var cyclePhase: LiveCyclePhase = .idle
 
     @ObservationIgnored var onCycle: (@MainActor (LiveCycleReport) -> Void)?
     @ObservationIgnored private(set) var loop: Task<Void, Never>?
     @ObservationIgnored private var stopRequested = false
     @ObservationIgnored private var thermalWatcher: Task<Void, Never>?
+    @ObservationIgnored private var runID = 0
 
     var canStart: Bool { !isRunning }
 
@@ -158,10 +193,6 @@ final class LiveCameraViewModel {
     func stopThermalWatch() {
         thermalWatcher?.cancel()
         thermalWatcher = nil
-    }
-
-    static var stagingURL: URL {
-        FileManager.default.temporaryDirectory.appending(path: "live-camera-frame.jpg")
     }
 
     static func thermalName() -> String {
@@ -196,8 +227,10 @@ final class LiveCameraViewModel {
         isRunning = true
         errorText = ""
         cycleCount = 0
+        cyclePhase = .idle
+        runID += 1
+        let myRunID = runID
         statusLine = "Starting…"
-        let staging = Self.stagingURL
         let question = Self.question
         let maxNew = Self.maxNewTokens
 
@@ -227,15 +260,24 @@ final class LiveCameraViewModel {
                 let cycleStart = clock.now
                 do {
                     let captureStart = clock.now
-                    let label = try await Task.detached(priority: .userInitiated) {
-                        try source.stageFrame(to: staging)
+                    let frame = try await Task.detached(priority: .userInitiated) {
+                        try source.nextFrame()
                     }.value
                     let captureSeconds = (clock.now - captureStart) / .seconds(1)
+                    let label = frame.label
 
+                    self.cyclePhase = .encode
                     let info = try await engine.generateWithImage(
-                        imageURL: staging, question: question, maxNew: maxNew,
-                        speculative: speculative)
+                        frame: frame.image, question: question, maxNew: maxNew,
+                        speculative: speculative,
+                        onPhase: { phase in
+                            Task { @MainActor [weak self] in
+                                guard let self, self.runID == myRunID, self.isRunning else { return }
+                                self.cyclePhase = LiveCyclePhase(phase)
+                            }
+                        })
                     guard !Task.isCancelled else { break }
+                    self.cyclePhase = .idle
 
                     let cycleSeconds = (clock.now - cycleStart) / .seconds(1)
                     let text = info.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -289,8 +331,10 @@ final class LiveCameraViewModel {
                     try? await Task.sleep(for: .seconds(1))
                 }
             }
+            guard self.runID == myRunID else { return }
             self.isRunning = false
             self.isPausedByThermal = false
+            self.cyclePhase = .idle
             if self.errorText.isEmpty {
                 self.statusLine = self.cycleCount > 0
                     ? "Stopped after \(self.cycleCount) cycles. \(self.breakdown)"
@@ -302,7 +346,13 @@ final class LiveCameraViewModel {
     func stop() {
         guard isRunning else { return }
         stopRequested = true
-        statusLine = "Stopping after the current frame…"
+        loop?.cancel()
+        isRunning = false
+        isPausedByThermal = false
+        cyclePhase = .idle
+        statusLine = cycleCount > 0
+            ? "Stopped after \(cycleCount) cycles. \(breakdown)"
+            : "Stopped."
     }
 
     func cancel() {
@@ -310,6 +360,8 @@ final class LiveCameraViewModel {
         loop?.cancel()
         loop = nil
         isRunning = false
+        isPausedByThermal = false
+        cyclePhase = .idle
         stopThermalWatch()
     }
 }

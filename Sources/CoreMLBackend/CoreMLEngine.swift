@@ -23,6 +23,7 @@ public actor CoreMLEngine: LLMEngine {
     private var processedTokens: [Int] = []
     private var loadedBundleURL: URL?
     private var loadedUnits: MLComputeUnits = .cpuOnly
+    private var liveVisionEncoder: VisionEncoder?
 
     public init() {}
 
@@ -101,6 +102,7 @@ public actor CoreMLEngine: LLMEngine {
         tokenizer = nil
         pendingLoadMetrics = nil
         processedTokens = []
+        liveVisionEncoder = nil
     }
 
     public func kvSave(to url: URL, prompt: String, warmupDecodes: Int = 0) async throws -> KVCheckpointInfo {
@@ -178,18 +180,27 @@ public actor CoreMLEngine: LLMEngine {
         Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "vision_fp16")
     }
 
+    private enum VLMImageSource {
+        case url(URL)
+        case frame(LiveFrameImage)
+    }
+
     private func prepareVLMSegments(
-        imageURL: URL, question: String
+        image: VLMImageSource, question: String
     ) async throws -> (segments: [PromptSegment], flatIDs: [Int], imageRows: Int, visionSeconds: Double) {
         guard let tokenizer else { throw LLMEngineError.notLoaded }
-        guard let visionURL = visionModelURL() else {
-            throw LLMEngineError.modelNotFound(
-                path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
-        }
-        let encoder = VisionEncoder(packageURL: visionURL, computeUnits: loadedUnits)
+        let held = liveVisionEncoder
+        let encoder = try held ?? makeVisionEncoder()
         let clock = ContinuousClock()
         let t0 = clock.now
-        let soft = try await encoder.encode(imageAt: imageURL, releaseAfter: true)
+        let release = held == nil
+        let soft: SoftTokenRows
+        switch image {
+        case .url(let url):
+            soft = try await encoder.encode(imageAt: url, releaseAfter: release)
+        case .frame(let frame):
+            soft = try await encoder.encode(image: frame.cgImage, releaseAfter: release)
+        }
         let visionSeconds = (clock.now - t0) / .seconds(1)
         let bos = tokenizer.bosTokenID ?? 2
         let userTokens = try tokenizer.encode("user\n")
@@ -198,21 +209,105 @@ public actor CoreMLEngine: LLMEngine {
         let segments = VLMPrompt.segments(
             bos: bos, userTokens: userTokens, questionTokens: questionTokens,
             modelTokens: modelTokens, image: soft)
-        let flatIDs = [bos, VLMPrompt.turnStart] + userTokens + [VLMPrompt.boi]
-            + Array(repeating: ChunkedSpeculativeChain.imagePlaceholderID, count: soft.rows)
-            + [VLMPrompt.eoi] + questionTokens
-            + [VLMPrompt.turnEnd, VLMPrompt.newline, VLMPrompt.turnStart] + modelTokens
+        let flatIDs = VLMPrompt.flatIDs(
+            bos: bos, userTokens: userTokens, questionTokens: questionTokens,
+            modelTokens: modelTokens, imageRows: soft.rows)
         return (segments, flatIDs, soft.rows, visionSeconds)
+    }
+
+    private func makeVisionEncoder() throws -> VisionEncoder {
+        guard let visionURL = visionModelURL() else {
+            throw LLMEngineError.modelNotFound(
+                path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
+        }
+        return VisionEncoder(packageURL: visionURL, computeUnits: loadedUnits)
+    }
+
+    public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
+        guard chain is ChunkedSpeculativeChain else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let encoder = try liveVisionEncoder ?? makeVisionEncoder()
+        try await encoder.loadIfNeeded()
+        liveVisionEncoder = encoder
+        guard let rows = await encoder.softTokenRowCount() else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "the vision encoder does not declare a fixed soft_tokens row count")
+        }
+        return LiveVisionEncoderInfo(imageRows: rows, seconds: (clock.now - t0) / .seconds(1))
+    }
+
+    public func prepareLivePrefill(
+        question: String, imageRows: Int
+    ) throws -> LiveVisionPrefillInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let flatIDs = VLMPrompt.flatIDs(
+            bos: tokenizer.bosTokenID ?? 2,
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"),
+            imageRows: imageRows)
+        guard flatIDs.count < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: flatIDs.count, contextLength: chunked.contextLength)
+        }
+        let widths = chunked.plannedPrefillWidths(promptLength: flatIDs.count)
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        try chunked.materializePrefill(widths: widths)
+        return LiveVisionPrefillInfo(
+            promptTokens: flatIDs.count, prefillWidths: widths,
+            seconds: (clock.now - t0) / .seconds(1))
+    }
+
+    public func beginLiveVisionSession(question: String) async throws -> LiveVisionPrewarm {
+        let encoder = try await loadLiveVisionEncoder()
+        let prefill = try prepareLivePrefill(question: question, imageRows: encoder.imageRows)
+        return LiveVisionPrewarm(encoder: encoder, prefill: prefill)
+    }
+
+    public func endLiveVisionSession() async {
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
+
+    public func residentPrefillWidths() -> [Int] {
+        (chain as? ChunkedSpeculativeChain)?.residentPrefillWidths() ?? []
     }
 
     public func generateWithImage(
         imageURL: URL, question: String, maxNew: Int, speculative useSpec: Bool
     ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .url(imageURL), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: nil)
+    }
+
+    public func generateWithImage(
+        frame: LiveFrameImage, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)? = nil
+    ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .frame(frame), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: onPhase)
+    }
+
+    private func runImageTurn(
+        image: VLMImageSource, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)?
+    ) async throws -> VLMGenerationInfo {
         guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
             throw LLMEngineError.incompatibleBundle(
                 reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
         }
-        let prep = try await prepareVLMSegments(imageURL: imageURL, question: question)
+        onPhase?(.encode)
+        let prep = try await prepareVLMSegments(image: image, question: question)
         guard prep.flatIDs.count < chunked.contextLength else {
             throw LLMEngineError.contextOverflow(
                 promptTokens: prep.flatIDs.count, contextLength: chunked.contextLength)
@@ -222,11 +317,13 @@ public actor CoreMLEngine: LLMEngine {
         let eos = Set(tokenizer.eosTokenIDs)
         let clock = ContinuousClock()
         try chunked.reset()
+        onPhase?(.feed)
         let p0 = clock.now
         let seed = try chunked.prefillSegments(prep.segments)
         let prefillSeconds = (clock.now - p0) / .seconds(1)
         let cap = Self.tokenBudget(
             maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
+        onPhase?(.generate)
         let d0 = clock.now
         let out = spec
             ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)

@@ -673,6 +673,11 @@ final class ChatViewModel {
             history.append(ChatTurn(role: .assistant, text: info.text))
             statusLine = imageStatsLine(info)
             phase = .ready
+        } catch is CancellationError {
+            warming = false
+            imageContextActive = false
+            finishStopped(
+                userText: userText, assistantText: presenter.displayed, assistantID: assistantID)
         } catch {
             warming = false
             flushDisplay(id: assistantID)
@@ -733,6 +738,11 @@ final class ChatViewModel {
             history.append(ChatTurn(role: .assistant, text: info.text))
             statusLine = audioStatsLine(info)
             phase = .ready
+        } catch is CancellationError {
+            warming = false
+            audioContextActive = false
+            finishStopped(
+                userText: userText, assistantText: presenter.displayed, assistantID: assistantID)
         } catch {
             warming = false
             flushDisplay(id: assistantID)

@@ -1,0 +1,44 @@
+import CoreGraphics
+import Foundation
+
+public struct LiveFrameImage: @unchecked Sendable {
+    public let cgImage: CGImage
+
+    public init(_ cgImage: CGImage) { self.cgImage = cgImage }
+
+    public var width: Int { cgImage.width }
+    public var height: Int { cgImage.height }
+}
+
+public enum VLMPhase: String, Sendable {
+    case encode
+    case feed
+    case generate
+}
+
+public struct LiveVisionEncoderInfo: Sendable {
+    public let imageRows: Int
+    public let seconds: Double
+}
+
+public struct LiveVisionPrefillInfo: Sendable {
+    public let promptTokens: Int
+    public let prefillWidths: [Int]
+    public let seconds: Double
+}
+
+public struct LiveVisionPrewarm: Sendable {
+    public let encoder: LiveVisionEncoderInfo
+    public let prefill: LiveVisionPrefillInfo
+
+    public var imageRows: Int { encoder.imageRows }
+    public var promptTokens: Int { prefill.promptTokens }
+    public var prefillWidths: [Int] { prefill.prefillWidths }
+
+    public var summary: String {
+        String(
+            format: "vision encoder %.2fs, prefill widths %@ %.2fs, prompt %d tokens (%d image rows)",
+            encoder.seconds, "\(prefill.prefillWidths)", prefill.seconds,
+            prefill.promptTokens, encoder.imageRows)
+    }
+}

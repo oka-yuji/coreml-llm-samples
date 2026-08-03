@@ -305,6 +305,7 @@ final class ChunkedSpeculativeChain {
         var idx = 0
         var last = 0
         while idx < ids.count {
+            try Task.checkCancellation()
             let remaining = ids.count - idx
             if position == 0 && idx == 0 && remaining >= config.plainN {
                 let block = Array(ids[idx..<(idx + config.plainN)])
@@ -320,6 +321,7 @@ final class ChunkedSpeculativeChain {
                 idx += N
             } else {
                 for i in idx..<ids.count {
+                    try Task.checkCancellation()
                     try runDecodeChunks(tokenID: ids[i], softRow: rowRefs[i])
                     last = try lmhead(hiddenBuffer)
                 }
@@ -327,6 +329,35 @@ final class ChunkedSpeculativeChain {
             }
         }
         return last
+    }
+
+    func plannedPrefillWidths(promptLength: Int, from startPosition: Int = 0) -> [Int] {
+        let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
+        var widths: Set<Int> = []
+        var pos = startPosition
+        var idx = 0
+        while idx < promptLength {
+            let remaining = promptLength - idx
+            if pos == 0 && idx == 0 && remaining >= config.plainN {
+                widths.insert(config.plainN)
+                idx += config.plainN
+                pos = config.plainN
+            } else if let N = offsetNs.first(where: { remaining >= $0 && pos + $0 <= CTX }) {
+                widths.insert(N)
+                idx += N
+                pos += N
+            } else {
+                break
+            }
+        }
+        return widths.sorted(by: >)
+    }
+
+    func materializePrefill(widths: [Int]) throws {
+        for n in widths {
+            _ = try prefillChain(N: n)
+            _ = try prefillBuffers(N: n)
+        }
     }
 
     private func softSlice(_ rowRefs: [SoftRowRef?], _ lo: Int, _ hi: Int) -> [SoftRowRef?]? {
@@ -645,6 +676,7 @@ extension ChunkedSpeculativeChain {
         var out: [Int] = []
         var next = seed
         while out.count < maxNew {
+            try Task.checkCancellation()
             if eos.contains(next) { break }
             out.append(next)
             if out.count >= maxNew { break }
@@ -658,6 +690,7 @@ extension ChunkedSpeculativeChain {
         var next = seed
         var out: [Int] = []
         loop: while out.count < maxNew {
+            try Task.checkCancellation()
             if eos.contains(next) { break }
             let round = try mtpRound(prediction: next, context: processed)
             processed.append(contentsOf: round.emitted)
@@ -672,7 +705,7 @@ extension ChunkedSpeculativeChain {
     }
 }
 
-final class SoftTokenRows {
+final class SoftTokenRows: Sendable {
     let rows: Int
     let hidden: Int
     private let data: [Float16]

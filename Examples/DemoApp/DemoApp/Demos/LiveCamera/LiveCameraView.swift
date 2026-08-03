@@ -1,3 +1,4 @@
+import CoreMLBackend
 import SwiftUI
 
 struct LiveCameraView: View {
@@ -10,6 +11,7 @@ struct LiveCameraView: View {
     @State private var cameraReady = false
     @State private var cameraError = ""
     @State private var starting = false
+    @State private var loadingStage = ""
     @State private var offerModels = false
 
     var body: some View {
@@ -47,6 +49,7 @@ struct LiveCameraView: View {
                         .foregroundStyle(.white)
                     }
                 }
+                if starting { loadingGate }
                 captionOverlay
             }
             .clipped()
@@ -57,6 +60,25 @@ struct LiveCameraView: View {
             live.startThermalWatch()
             await prepareCamera()
         }
+    }
+
+    private var loadingGate: some View {
+        VStack(spacing: 10) {
+            ProgressView()
+                .controlSize(.large)
+                .tint(.white)
+            Text(loadingStage.isEmpty ? "Preparing…" : loadingStage)
+                .font(.callout)
+                .foregroundStyle(.white)
+                .multilineTextAlignment(.center)
+            Text("One-time setup for this model. The camera stays live.")
+                .font(.caption2)
+                .foregroundStyle(.white.opacity(0.7))
+                .multilineTextAlignment(.center)
+        }
+        .padding(20)
+        .background(.black.opacity(0.65), in: RoundedRectangle(cornerRadius: 16))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
     private var captionOverlay: some View {
@@ -77,6 +99,17 @@ struct LiveCameraView: View {
         .padding(12)
     }
 
+    private var phaseCapsule: some View {
+        Label(live.cyclePhase.label, systemImage: live.cyclePhase.glyph)
+            .font(.caption2)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(
+                live.cyclePhase == .idle ? Color.secondary.opacity(0.15) : Color.accentColor.opacity(0.2),
+                in: Capsule())
+            .foregroundStyle(live.cyclePhase == .idle ? Color.secondary : Color.accentColor)
+    }
+
     private var overlayText: String {
         if !live.errorText.isEmpty { return live.errorText }
         return live.caption.isEmpty ? placeholderCaption : live.caption
@@ -84,18 +117,20 @@ struct LiveCameraView: View {
 
     private var placeholderCaption: String {
         if live.isPausedByThermal { return "Paused while the device cools down." }
-        if starting { return "Preparing the model…" }
+        if starting { return loadingStage.isEmpty ? "Preparing the model…" : loadingStage }
         return live.isRunning ? "Reading the first frame…" : "Press Start to describe what the camera sees."
     }
 
     private var controlBar: some View {
         VStack(spacing: 6) {
             HStack(spacing: 12) {
-                Button(live.isRunning ? "Stop" : "Start") {
+                Button(startStopTitle) {
                     if live.isRunning { live.stop() } else { Task { await startLoop() } }
                 }
                 .buttonStyle(.borderedProminent)
                 .disabled(!canToggle)
+
+                if live.isRunning { phaseCapsule }
 
                 Spacer()
 
@@ -122,6 +157,11 @@ struct LiveCameraView: View {
             }
         }
         .padding(12)
+    }
+
+    private var startStopTitle: String {
+        if live.isRunning { return "Stop" }
+        return starting ? "Loading…" : "Start"
     }
 
     private var thermalGlyph: String {
@@ -165,8 +205,8 @@ struct LiveCameraView: View {
         starting = true
         offerModels = false
         live.errorText = ""
-        live.statusLine = "Preparing…"
-        defer { starting = false }
+        stage("Starting the camera…")
+        defer { starting = false; loadingStage = "" }
 
         if !cameraReady {
             await prepareCamera()
@@ -178,9 +218,9 @@ struct LiveCameraView: View {
             }
         }
 
-        live.statusLine = "Checking the loaded model…"
+        stage("Checking the loaded model…")
         switch await LiveEngineProvision.ensureVisionEngine(
-            chat: chat, status: { live.statusLine = $0 })
+            chat: chat, status: { stage($0) })
         {
         case .unavailable(let message):
             live.errorText = message
@@ -191,6 +231,18 @@ struct LiveCameraView: View {
                 live.statusLine = "The camera stopped while the model was loading. Press Start again."
                 return
             }
+            stage("Loading the vision encoder…")
+            do {
+                let encoder = try await handle.engine.loadLiveVisionEncoder()
+                stage("Preparing the prompt pipeline…")
+                _ = try await handle.engine.prepareLivePrefill(
+                    question: LiveCameraViewModel.question, imageRows: encoder.imageRows)
+            } catch {
+                let message = "Preparing the vision pipeline failed: \(error)"
+                live.errorText = message
+                live.statusLine = message
+                return
+            }
             live.start(
                 engine: handle.engine, source: camera, speculative: handle.speculative,
                 modelID: handle.modelID, hfRevision: handle.hfRevision,
@@ -198,10 +250,17 @@ struct LiveCameraView: View {
         }
     }
 
+    private func stage(_ text: String) {
+        loadingStage = text
+        live.statusLine = text
+    }
+
     private func teardown() {
-        live.stop()
-        live.stopThermalWatch()
+        live.cancel()
         camera.stop()
         cameraReady = false
+        if let engine = chat.engineHandle?.engine {
+            Task { await engine.endLiveVisionSession() }
+        }
     }
 }

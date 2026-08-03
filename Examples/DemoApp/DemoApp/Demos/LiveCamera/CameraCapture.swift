@@ -1,5 +1,7 @@
 @preconcurrency import AVFoundation
+import CoreGraphics
 import CoreImage
+import CoreMLBackend
 import CoreVideo
 import Foundation
 import ImageIO
@@ -11,6 +13,7 @@ enum CameraError: Error, CustomStringConvertible {
     case cannotConfigure(String)
     case noFrame
     case cannotEncodeFrame
+    case cannotDecodeFile(String)
 
     var description: String {
         switch self {
@@ -24,12 +27,19 @@ enum CameraError: Error, CustomStringConvertible {
             return "No camera frame has arrived yet."
         case .cannotEncodeFrame:
             return "Cannot encode the camera frame as JPEG."
+        case .cannotDecodeFile(let name):
+            return "Cannot decode the image file \(name)."
         }
     }
 }
 
+struct LiveFrame: Sendable {
+    let image: LiveFrameImage
+    let label: String
+}
+
 protocol LiveFrameSource: AnyObject, Sendable {
-    func stageFrame(to url: URL) throws -> String
+    func nextFrame() throws -> LiveFrame
 }
 
 final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {
@@ -90,7 +100,21 @@ final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {
            connection.isVideoRotationAngleSupported(portraitRotationAngle) {
             connection.videoRotationAngle = portraitRotationAngle
         }
+        Self.limitFrameRate(of: device, to: Self.captureFramesPerSecond)
         configured = true
+    }
+
+    static let captureFramesPerSecond: Int32 = 5
+
+    private static func limitFrameRate(of device: AVCaptureDevice, to fps: Int32) {
+        let wanted = CMTime(value: 1, timescale: fps)
+        let supported = device.activeFormat.videoSupportedFrameRateRanges.contains {
+            CMTimeCompare(wanted, $0.minFrameDuration) >= 0
+                && CMTimeCompare(wanted, $0.maxFrameDuration) <= 0
+        }
+        guard supported, (try? device.lockForConfiguration()) != nil else { return }
+        device.activeVideoMinFrameDuration = wanted
+        device.unlockForConfiguration()
     }
 
     private var portraitRotationAngle: CGFloat { 90 }
@@ -118,7 +142,19 @@ final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {
         return latest != nil
     }
 
+    func nextFrame() throws -> LiveFrame {
+        let cgImage = try latestCGImage()
+        return LiveFrame(
+            image: LiveFrameImage(cgImage), label: "camera \(cgImage.width)x\(cgImage.height)")
+    }
+
     func stageFrame(to url: URL) throws -> String {
+        let cgImage = try latestCGImage()
+        try Self.writeJPEG(cgImage, to: url)
+        return "camera \(cgImage.width)x\(cgImage.height)"
+    }
+
+    private func latestCGImage() throws -> CGImage {
         lock.lock()
         let buffer = latest
         lock.unlock()
@@ -127,8 +163,7 @@ final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {
         guard let cgImage = ciContext.createCGImage(image, from: image.extent) else {
             throw CameraError.cannotEncodeFrame
         }
-        try Self.writeJPEG(cgImage, to: url)
-        return "camera \(cgImage.width)x\(cgImage.height)"
+        return cgImage
     }
 
     static func writeJPEG(_ image: CGImage, to url: URL) throws {
@@ -164,14 +199,17 @@ final class FileSequenceFrameSource: LiveFrameSource, @unchecked Sendable {
 
     init(urls: [URL]) { self.urls = urls }
 
-    func stageFrame(to url: URL) throws -> String {
+    func nextFrame() throws -> LiveFrame {
         lock.lock()
         let current = index
         index += 1
         lock.unlock()
         guard !urls.isEmpty else { throw CameraError.noFrame }
         let source = urls[current % urls.count]
-        try Data(contentsOf: source).write(to: url, options: .atomic)
-        return source.lastPathComponent
+        guard let imageSource = CGImageSourceCreateWithURL(source as CFURL, nil),
+              let cgImage = CGImageSourceCreateImageAtIndex(imageSource, 0, nil) else {
+            throw CameraError.cannotDecodeFile(source.lastPathComponent)
+        }
+        return LiveFrame(image: LiveFrameImage(cgImage), label: source.lastPathComponent)
     }
 }

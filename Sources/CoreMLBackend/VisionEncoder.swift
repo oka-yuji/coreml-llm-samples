@@ -1,8 +1,9 @@
+import CoreGraphics
 import CoreML
 import Foundation
 import LLMCore
 
-final class VisionEncoder {
+actor VisionEncoder {
     private let packageURL: URL
     private let computeUnits: MLComputeUnits
     private var model: MLModel?
@@ -23,13 +24,20 @@ final class VisionEncoder {
 
     func unload() { model = nil }
 
+    func softTokenRowCount() -> Int? {
+        guard let constraint = model?.modelDescription
+            .outputDescriptionsByName["soft_tokens"]?.multiArrayConstraint,
+              constraint.shape.count == 2 else { return nil }
+        return constraint.shape[0].intValue
+    }
+
     func encode(patches: MLMultiArray, releaseAfter: Bool = false) async throws -> SoftTokenRows {
         try await loadIfNeeded()
         guard let model else {
             throw LLMEngineError.generationFailed(reason: "VisionEncoder: model is not loaded")
         }
         defer { if releaseAfter { unload() } }
-        let out = try await model.prediction(from: MLDictionaryFeatureProvider(dictionary: ["patches": patches]))
+        let out = try Self.predict(model, patches: patches)
         guard let soft = out.featureValue(for: "soft_tokens")?.multiArrayValue else {
             throw LLMEngineError.generationFailed(reason: "VisionEncoder: no soft_tokens output")
         }
@@ -47,6 +55,15 @@ final class VisionEncoder {
     func encode(imageAt url: URL, releaseAfter: Bool = true) async throws -> SoftTokenRows {
         let patches = try VisionPreprocess.patches(fromImageAt: url)
         return try await encode(patches: patches, releaseAfter: releaseAfter)
+    }
+
+    func encode(image: CGImage, releaseAfter: Bool = true) async throws -> SoftTokenRows {
+        let patches = try VisionPreprocess.patches(from: image)
+        return try await encode(patches: patches, releaseAfter: releaseAfter)
+    }
+
+    private static func predict(_ model: MLModel, patches: MLMultiArray) throws -> MLFeatureProvider {
+        try model.prediction(from: MLDictionaryFeatureProvider(dictionary: ["patches": patches]))
     }
 
     private static func copyToF16(_ array: MLMultiArray, into dst: inout [Float16]) {
@@ -82,6 +99,14 @@ enum VLMPrompt {
         let pre = [bos, turnStart] + userTokens + [boi]
         let post = [eoi] + questionTokens + [turnEnd, newline, turnStart] + modelTokens
         return [.tokens(pre), .image(image), .tokens(post)]
+    }
+
+    static func flatIDs(
+        bos: Int, userTokens: [Int], questionTokens: [Int], modelTokens: [Int], imageRows: Int
+    ) -> [Int] {
+        [bos, turnStart] + userTokens + [boi]
+            + Array(repeating: ChunkedSpeculativeChain.imagePlaceholderID, count: imageRows)
+            + [eoi] + questionTokens + [turnEnd, newline, turnStart] + modelTokens
     }
 
     static func followUpTokens(userTokens: [Int], questionTokens: [Int], modelTokens: [Int]) -> [Int] {
