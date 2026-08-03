@@ -13,6 +13,36 @@ enum LiveCycleError: Error, CustomStringConvertible {
     }
 }
 
+enum LiveCaptionLanguage: String, CaseIterable, Identifiable, Sendable {
+    case english = "en"
+    case japanese = "ja"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .english: return "EN"
+        case .japanese: return "日本語"
+        }
+    }
+
+    var question: String {
+        switch self {
+        case .english:
+            return "In one short sentence, what is visible in this image?"
+        case .japanese:
+            return "この画像に写っているものを、短い一文で説明してください。"
+        }
+    }
+
+    var maxNewTokens: Int {
+        switch self {
+        case .english: return 24
+        case .japanese: return 40
+        }
+    }
+}
+
 enum LiveEngineProvision {
 
     enum Outcome {
@@ -86,6 +116,7 @@ enum LiveEngineProvision {
 struct LiveCycleReport: Sendable {
     var index: Int
     var frameLabel: String
+    var language: LiveCaptionLanguage
     var caption: String
     var captureSeconds: Double
     var encodeSeconds: Double
@@ -107,6 +138,7 @@ struct LiveCycleReport: Sendable {
 
     var detailLine: String {
         var parts = [breakdownLine]
+        parts.append("lang \(language.rawValue)")
         parts.append("prompt \(promptTokens)")
         if imageRows > 0 { parts.append("image \(imageRows) rows") }
         parts.append("\(generatedTokens) tok")
@@ -156,10 +188,10 @@ enum LiveCyclePhase: String {
 @Observable
 final class LiveCameraViewModel {
 
-    static let question = "In one short sentence, what is visible in this image?"
-    static let maxNewTokens = 24
     static let maxConsecutiveFailures = 3
+    static let languageDefaultsKey = "liveCameraCaptionLanguage"
 
+    var language: LiveCaptionLanguage
     var caption: String = ""
     var statusLine: String = ""
     var breakdown: String = ""
@@ -172,10 +204,24 @@ final class LiveCameraViewModel {
     var cyclePhase: LiveCyclePhase = .idle
 
     @ObservationIgnored var onCycle: (@MainActor (LiveCycleReport) -> Void)?
+    @ObservationIgnored var onPartialCaption: (@MainActor (String, Int) -> Void)?
     @ObservationIgnored private(set) var loop: Task<Void, Never>?
     @ObservationIgnored private var stopRequested = false
     @ObservationIgnored private var thermalWatcher: Task<Void, Never>?
     @ObservationIgnored private var runID = 0
+    @ObservationIgnored private var cycleSeq = 0
+    @ObservationIgnored private var streamedTokens = 0
+
+    init() {
+        let stored = UserDefaults.standard.string(forKey: Self.languageDefaultsKey)
+        language = stored.flatMap(LiveCaptionLanguage.init(rawValue:)) ?? .english
+    }
+
+    func selectLanguage(_ next: LiveCaptionLanguage) {
+        guard next != language else { return }
+        language = next
+        UserDefaults.standard.set(next.rawValue, forKey: Self.languageDefaultsKey)
+    }
 
     var canStart: Bool { !isRunning }
 
@@ -217,6 +263,7 @@ final class LiveCameraViewModel {
         source: any LiveFrameSource,
         speculative: Bool,
         cycleLimit: Int? = nil,
+        streaming: Bool = true,
         modelID: String? = nil,
         hfRevision: String? = nil,
         computeUnits: String? = nil,
@@ -231,8 +278,6 @@ final class LiveCameraViewModel {
         runID += 1
         let myRunID = runID
         statusLine = "Starting…"
-        let question = Self.question
-        let maxNew = Self.maxNewTokens
 
         loop = Task { [weak self] in
             guard let self else { return }
@@ -258,6 +303,24 @@ final class LiveCameraViewModel {
                 }
 
                 let cycleStart = clock.now
+                let language = self.language
+                let question = language.question
+                let maxNew = language.maxNewTokens
+                self.cycleSeq += 1
+                let mySeq = self.cycleSeq
+                self.streamedTokens = 0
+                var onPartial: (@Sendable (String, Int) -> Void)?
+                if streaming {
+                    onPartial = { [weak self] text, tokens in
+                        Task { @MainActor in
+                            guard let self, self.runID == myRunID, self.isRunning else { return }
+                            guard self.cycleSeq == mySeq, tokens > self.streamedTokens else { return }
+                            self.streamedTokens = tokens
+                            self.caption = text
+                            self.onPartialCaption?(text, tokens)
+                        }
+                    }
+                }
                 do {
                     let captureStart = clock.now
                     let frame = try await Task.detached(priority: .userInitiated) {
@@ -275,7 +338,8 @@ final class LiveCameraViewModel {
                                 guard let self, self.runID == myRunID, self.isRunning else { return }
                                 self.cyclePhase = LiveCyclePhase(phase)
                             }
-                        })
+                        },
+                        onPartial: onPartial)
                     guard !Task.isCancelled else { break }
                     self.cyclePhase = .idle
 
@@ -288,6 +352,7 @@ final class LiveCameraViewModel {
                     let report = LiveCycleReport(
                         index: index,
                         frameLabel: label,
+                        language: language,
                         caption: text,
                         captureSeconds: captureSeconds,
                         encodeSeconds: info.visionEncodeSeconds,

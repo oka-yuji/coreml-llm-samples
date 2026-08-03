@@ -104,7 +104,7 @@ final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {
         configured = true
     }
 
-    static let captureFramesPerSecond: Int32 = 5
+    static let captureFramesPerSecond: Int32 = 30
 
     private static func limitFrameRate(of device: AVCaptureDevice, to fps: Int32) {
         let wanted = CMTime(value: 1, timescale: fps)

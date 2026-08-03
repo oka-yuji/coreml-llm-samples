@@ -12,6 +12,8 @@ enum LiveCameraSelfTest {
         var stopBudgetSeconds: Double
         var cancelPhase: LiveCyclePhase
         var cancelWarmupCycles: Int
+        var language: LiveCaptionLanguage
+        var streaming: Bool
     }
 
     static let frameSampleName = "live-frame-sample.jpg"
@@ -35,7 +37,9 @@ enum LiveCameraSelfTest {
             cancelGate: args.contains("--cancel-gate"),
             stopBudgetSeconds: value("--stop-budget").flatMap { Double($0) } ?? 1.0,
             cancelPhase: value("--cancel-phase").flatMap { LiveCyclePhase(rawValue: $0) } ?? .feed,
-            cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0)
+            cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0,
+            language: value("--lang").flatMap { LiveCaptionLanguage(rawValue: $0) } ?? .english,
+            streaming: !args.contains("--no-stream"))
     }
 
     static func run() -> Never {
@@ -65,7 +69,7 @@ enum LiveCameraSelfTest {
         }
 
         let chat = ChatViewModel()
-        chat.maxTokens = LiveCameraViewModel.maxNewTokens
+        chat.maxTokens = opts.language.maxNewTokens
         if let model = opts.model.map(SelfTest.resolve) {
             errln("[live] preloading \(model)")
             await chat.loadModel(path: model)
@@ -86,13 +90,20 @@ enum LiveCameraSelfTest {
         errln("[live] engine bundle=\(handle.bundleFolder ?? "?") path=\(chat.loadedPath)")
         errln("[live] model=\(chat.modelName) speculative=\(handle.speculative) cycles=\(opts.cycles) "
             + "source=\(opts.useCamera ? "camera" : "\(urls.count) images") "
+            + "lang=\(opts.language.rawValue) streaming=\(opts.streaming) "
             + "thermal=\(LiveCameraViewModel.thermalName())")
 
         let widthsBeforePrewarm = await handle.engine.residentPrefillWidths()
         let prewarm: LiveVisionPrewarm
         do {
             prewarm = try await handle.engine.beginLiveVisionSession(
-                question: LiveCameraViewModel.question)
+                question: opts.language.question)
+            for language in LiveCaptionLanguage.allCases where language != opts.language {
+                let extra = try await handle.engine.prepareLivePrefill(
+                    question: language.question, imageRows: prewarm.imageRows)
+                errln("[live] prewarm \(language.rawValue) prompt \(extra.promptTokens) tokens "
+                    + "widths \(extra.prefillWidths)")
+            }
         } catch {
             errln("live-selftest: prewarm failed (\(error))")
             return 1
@@ -139,9 +150,15 @@ enum LiveCameraSelfTest {
         }
 
         let live = LiveCameraViewModel()
+        live.language = opts.language
         var reports: [LiveCycleReport] = []
+        var partials: [String] = []
+        var streamTrace: [(updates: Int, last: String)] = []
+        live.onPartialCaption = { text, _ in partials.append(text) }
         live.onCycle = { report in
             reports.append(report)
+            streamTrace.append((partials.count, partials.last ?? ""))
+            partials.removeAll()
             sink.out("cycle \(report.index) [\(report.frameLabel)] \(report.caption)")
             errln("[live] \(report.detailLine)")
         }
@@ -155,6 +172,7 @@ enum LiveCameraSelfTest {
         live.start(
             engine: handle.engine, source: source,
             speculative: handle.speculative, cycleLimit: opts.cycles,
+            streaming: opts.streaming,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         await live.loop?.value
@@ -193,6 +211,38 @@ enum LiveCameraSelfTest {
             return 1
         }
         errln("[live] context reset holds: every cycle prefilled \(prompts.first ?? 0) tokens")
+
+        let totalUpdates = streamTrace.reduce(0) { $0 + $1.updates }
+        if opts.streaming {
+            for (index, trace) in streamTrace.enumerated() {
+                let caption = reports[index].caption
+                let streamed = trace.last.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard streamed.isEmpty || caption.hasPrefix(streamed) else {
+                    errln("live-selftest: cycle \(index + 1) streamed text is not a prefix of its "
+                        + "final caption (streamed \"\(streamed)\")")
+                    return 1
+                }
+                guard trace.updates > 0
+                    || reports[index].generatedTokens < 2 * CoreMLEngine.partialUpdateTokens else {
+                    errln("live-selftest: cycle \(index + 1) generated "
+                        + "\(reports[index].generatedTokens) tokens but streamed nothing")
+                    return 1
+                }
+            }
+            guard totalUpdates > 0 else {
+                errln("live-selftest: streaming was on but no partial caption was delivered")
+                return 1
+            }
+            errln("[live] streaming: \(totalUpdates) partial updates over \(reports.count) cycles "
+                + "(batch \(CoreMLEngine.partialUpdateTokens) tokens), "
+                + "counts \(streamTrace.map(\.updates)), each a prefix of its final caption")
+        } else {
+            guard totalUpdates == 0 else {
+                errln("live-selftest: --no-stream still delivered \(totalUpdates) partial updates")
+                return 1
+            }
+            errln("[live] streaming off: no partial captions were delivered")
+        }
         return 0
     }
 
@@ -212,6 +262,7 @@ enum LiveCameraSelfTest {
             + "cancelling in the \(target.label) phase")
         live.start(
             engine: handle.engine, source: source, speculative: handle.speculative,
+            streaming: opts.streaming,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         guard let running = live.loop else {
@@ -267,7 +318,7 @@ enum LiveCameraSelfTest {
         errln("[cancel] restarting to prove the chain repairs itself")
         live.start(
             engine: handle.engine, source: source, speculative: handle.speculative,
-            cycleLimit: 2,
+            cycleLimit: 2, streaming: opts.streaming,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         await live.loop?.value

@@ -672,20 +672,25 @@ extension ChunkedSpeculativeChain {
 
     func residentPrefillWidths() -> [Int] { prefillModels.keys.sorted() }
 
-    func continueGreedy(seed: Int, maxNew: Int, eos: Set<Int>) throws -> [Int] {
+    func continueGreedy(
+        seed: Int, maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)? = nil
+    ) throws -> [Int] {
         var out: [Int] = []
         var next = seed
         while out.count < maxNew {
             try Task.checkCancellation()
             if eos.contains(next) { break }
             out.append(next)
+            onToken?(next)
             if out.count >= maxNew { break }
             next = try decodeStep(tokenID: next)
         }
         return out
     }
 
-    func continueSpeculative(seed: Int, context: [Int], maxNew: Int, eos: Set<Int>) throws -> [Int] {
+    func continueSpeculative(
+        seed: Int, context: [Int], maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)? = nil
+    ) throws -> [Int] {
         var processed = context
         var next = seed
         var out: [Int] = []
@@ -697,6 +702,7 @@ extension ChunkedSpeculativeChain {
             for token in round.emitted {
                 if eos.contains(token) { break loop }
                 out.append(token)
+                onToken?(token)
                 if out.count >= maxNew { break loop }
             }
             next = round.next

@@ -144,6 +144,8 @@ struct LiveCameraView: View {
             }
             .font(.callout)
 
+            languagePicker
+
             Text(live.statusLine.isEmpty ? "Ready." : live.statusLine)
                 .font(.caption)
                 .foregroundStyle(live.errorText.isEmpty ? Color.secondary : Color.orange)
@@ -157,6 +159,18 @@ struct LiveCameraView: View {
             }
         }
         .padding(12)
+    }
+
+    private var languagePicker: some View {
+        Picker("Caption language", selection: Binding(
+            get: { live.language },
+            set: { live.selectLanguage($0) })) {
+            ForEach(LiveCaptionLanguage.allCases) { language in
+                Text(language.label).tag(language)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
     }
 
     private var startStopTitle: String {
@@ -235,8 +249,10 @@ struct LiveCameraView: View {
             do {
                 let encoder = try await handle.engine.loadLiveVisionEncoder()
                 stage("Preparing the prompt pipeline…")
-                _ = try await handle.engine.prepareLivePrefill(
-                    question: LiveCameraViewModel.question, imageRows: encoder.imageRows)
+                for language in LiveCaptionLanguage.allCases {
+                    _ = try await handle.engine.prepareLivePrefill(
+                        question: language.question, imageRows: encoder.imageRows)
+                }
             } catch {
                 let message = "Preparing the vision pipeline failed: \(error)"
                 live.errorText = message

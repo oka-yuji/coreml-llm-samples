@@ -291,16 +291,20 @@ public actor CoreMLEngine: LLMEngine {
 
     public func generateWithImage(
         frame: LiveFrameImage, question: String, maxNew: Int, speculative useSpec: Bool,
-        onPhase: (@Sendable (VLMPhase) -> Void)? = nil
+        onPhase: (@Sendable (VLMPhase) -> Void)? = nil,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
     ) async throws -> VLMGenerationInfo {
         try await runImageTurn(
             image: .frame(frame), question: question, maxNew: maxNew,
-            speculative: useSpec, onPhase: onPhase)
+            speculative: useSpec, onPhase: onPhase, onPartial: onPartial)
     }
+
+    public static let partialUpdateTokens = 4
 
     private func runImageTurn(
         image: VLMImageSource, question: String, maxNew: Int, speculative useSpec: Bool,
-        onPhase: (@Sendable (VLMPhase) -> Void)?
+        onPhase: (@Sendable (VLMPhase) -> Void)?,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
     ) async throws -> VLMGenerationInfo {
         guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
             throw LLMEngineError.incompatibleBundle(
@@ -325,9 +329,21 @@ public actor CoreMLEngine: LLMEngine {
             maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
         onPhase?(.generate)
         let d0 = clock.now
+        var streamed: [Int] = []
+        var streamedAt = 0
+        let onToken: ((Int) -> Void)? = onPartial.map { partial in
+            { token in
+                streamed.append(token)
+                guard streamed.count - streamedAt >= Self.partialUpdateTokens else { return }
+                streamedAt = streamed.count
+                guard let text = try? tokenizer.decode(streamed) else { return }
+                partial(text, streamedAt)
+            }
+        }
         let out = spec
-            ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)
-            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+            ? try chunked.continueSpeculative(
+                seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos, onToken: onToken)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: onToken)
         let decodeSeconds = (clock.now - d0) / .seconds(1)
         processedTokens = prep.flatIDs + out
         return VLMGenerationInfo(
