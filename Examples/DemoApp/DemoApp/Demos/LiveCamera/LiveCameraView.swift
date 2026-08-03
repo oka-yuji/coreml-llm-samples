@@ -147,6 +147,16 @@ struct LiveCameraView: View {
             return
         }
         camera.start()
+        var waited = 0.0
+        while !camera.hasFrame, waited < 10 {
+            if Task.isCancelled { return }
+            try? await Task.sleep(for: .milliseconds(200))
+            waited += 0.2
+        }
+        guard camera.hasFrame else {
+            cameraError = CameraError.noFrame.description
+            return
+        }
         cameraReady = true
     }
 
