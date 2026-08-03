@@ -7,6 +7,8 @@ struct DemoApp: App {
             #if os(iOS)
             if SelfTest.isRequested {
                 SelfTestView()
+            } else if LiveCameraSelfTest.isRequested {
+                LiveSelfTestView()
             } else {
                 DemoRootView()
             }
@@ -29,6 +31,9 @@ enum DemoAppMain {
         }
         if CommandLine.arguments.contains("--models-selftest") {
             ModelsSelfTest.run()
+        }
+        if CommandLine.arguments.contains("--live-selftest") {
+            LiveCameraSelfTest.run()
         }
         #endif
         DemoApp.main()

@@ -6,6 +6,7 @@ import UIKit
 
 enum Demo: String, CaseIterable, Identifiable {
     case chat
+    case liveCamera
     case models
 
     var id: String { rawValue }
@@ -13,6 +14,7 @@ enum Demo: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .chat: return "Chat"
+        case .liveCamera: return "Live Camera"
         case .models: return "Models"
         }
     }
@@ -20,6 +22,7 @@ enum Demo: String, CaseIterable, Identifiable {
     var summary: String {
         switch self {
         case .chat: return "Streaming chat with a Core ML LLM bundle"
+        case .liveCamera: return "Describe what the camera sees, frame after frame"
         case .models: return "Download and manage model bundles"
         }
     }
@@ -27,6 +30,7 @@ enum Demo: String, CaseIterable, Identifiable {
     var systemImage: String {
         switch self {
         case .chat: return "bubble.left.and.bubble.right"
+        case .liveCamera: return "camera.viewfinder"
         case .models: return "square.and.arrow.down"
         }
     }
@@ -34,6 +38,7 @@ enum Demo: String, CaseIterable, Identifiable {
     @MainActor @ViewBuilder var splitView: some View {
         switch self {
         case .chat: SplitChatView()
+        case .liveCamera: LiveCameraView()
         case .models: SplitModelsView()
         }
     }
@@ -41,6 +46,7 @@ enum Demo: String, CaseIterable, Identifiable {
     @MainActor @ViewBuilder var singleView: some View {
         switch self {
         case .chat: SingleChatView()
+        case .liveCamera: LiveCameraView()
         case .models: SingleModelsView()
         }
     }

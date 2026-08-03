@@ -110,6 +110,22 @@ final class ChatViewModel {
 
     init() {}
 
+    struct EngineHandle {
+        let engine: CoreMLEngine
+        let modelID: String?
+        let hfRevision: String?
+        let computeUnits: String?
+        let bundleFolder: String?
+        let speculative: Bool
+    }
+
+    var engineHandle: EngineHandle? {
+        guard let engine else { return nil }
+        return EngineHandle(
+            engine: engine, modelID: loadedModelID, hfRevision: loadedRevision,
+            computeUnits: loadedComputeUnits, bundleFolder: loadedFolder, speculative: speculative)
+    }
+
     var isGenerating: Bool { if case .generating = phase { return true } else { return false } }
     var isLoading: Bool { if case .loading = phase { return true } else { return false } }
     var isModelLoaded: Bool { engine != nil }
