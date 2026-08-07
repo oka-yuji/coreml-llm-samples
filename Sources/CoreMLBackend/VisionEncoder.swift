@@ -7,11 +7,14 @@ actor VisionEncoder {
     private let packageURL: URL
     private let computeUnits: MLComputeUnits
     private var model: MLModel?
+    private var didWarmUp = false
 
     init(packageURL: URL, computeUnits: MLComputeUnits) {
         self.packageURL = packageURL
         self.computeUnits = computeUnits
     }
+
+    var computeUnitsLabel: String { Self.label(computeUnits) }
 
     func loadIfNeeded() async throws {
         guard model == nil else { return }
@@ -22,7 +25,30 @@ actor VisionEncoder {
         model = try MLModel(contentsOf: compiled, configuration: cfg)
     }
 
-    func unload() { model = nil }
+    func warmUpIfNeeded() async throws -> Double {
+        try await loadIfNeeded()
+        guard !didWarmUp, let model else { return 0 }
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        _ = try Self.predict(model, patches: try VisionPreprocess.blankPatches())
+        didWarmUp = true
+        return (clock.now - t0) / .seconds(1)
+    }
+
+    func unload() {
+        model = nil
+        didWarmUp = false
+    }
+
+    private static func label(_ units: MLComputeUnits) -> String {
+        switch units {
+        case .cpuOnly: return "cpuOnly"
+        case .cpuAndGPU: return "cpuAndGPU"
+        case .cpuAndNeuralEngine: return "cpuAndNeuralEngine"
+        case .all: return "all"
+        @unknown default: return "unknown"
+        }
+    }
 
     func softTokenRowCount() -> Int? {
         guard let constraint = model?.modelDescription

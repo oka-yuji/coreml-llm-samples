@@ -19,6 +19,8 @@ public enum VLMPhase: String, Sendable {
 public struct LiveVisionEncoderInfo: Sendable {
     public let imageRows: Int
     public let seconds: Double
+    public let warmUpSeconds: Double
+    public let computeUnits: String
 }
 
 public struct LiveEncodedFrame: Sendable {
@@ -56,8 +58,10 @@ public struct LiveVisionPrewarm: Sendable {
 
     public var summary: String {
         String(
-            format: "vision encoder %.2fs, prefill widths %@ %.2fs, prompt %d tokens (%d image rows)",
-            encoder.seconds, "\(prefill.prefillWidths)", prefill.seconds,
+            format: "vision encoder %.2fs on %@ (first predict %.2fs), prefill widths %@ %.2fs, "
+                + "prompt %d tokens (%d image rows)",
+            encoder.seconds, encoder.computeUnits, encoder.warmUpSeconds,
+            "\(prefill.prefillWidths)", prefill.seconds,
             prefill.promptTokens, encoder.imageRows)
     }
 }

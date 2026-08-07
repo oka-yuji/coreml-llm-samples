@@ -274,6 +274,7 @@ final class LiveCameraViewModel {
         speculative: Bool,
         cycleLimit: Int? = nil,
         streaming: Bool = true,
+        prefetch: Bool = true,
         modelID: String? = nil,
         hfRevision: String? = nil,
         computeUnits: String? = nil,
@@ -363,7 +364,7 @@ final class LiveCameraViewModel {
                             Task { @MainActor [weak self] in
                                 guard let self, self.runID == myRunID, self.isRunning else { return }
                                 self.cyclePhase = LiveCyclePhase(phase)
-                                guard phase == .generate, self.cycleSeq == mySeq,
+                                guard prefetch, phase == .generate, self.cycleSeq == mySeq,
                                       !isLastCycle, self.prefetched == nil else { return }
                                 self.prefetched = Self.captureAndEncode(
                                     source: source, handle: handle, clock: clock)

@@ -61,6 +61,13 @@ enum VisionPreprocess {
         try patches(from: try loadCGImage(from: url))
     }
 
+    static func blankPatches() throws -> MLMultiArray {
+        let out = try MLMultiArray(
+            shape: [1, NSNumber(value: numPatches), NSNumber(value: patchDim)], dataType: .float16)
+        out.withF16 { $0.update(repeating: 0) }
+        return out
+    }
+
     static func loadCGImage(from url: URL) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {

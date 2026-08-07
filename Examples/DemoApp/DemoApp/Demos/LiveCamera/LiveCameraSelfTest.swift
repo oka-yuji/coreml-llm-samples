@@ -1,5 +1,6 @@
 import CoreMLBackend
 import Foundation
+import LLMCore
 
 enum LiveCameraSelfTest {
 
@@ -14,6 +15,8 @@ enum LiveCameraSelfTest {
         var cancelWarmupCycles: Int
         var language: LiveCaptionLanguage
         var streaming: Bool
+        var prefetch: Bool
+        var visionComputeUnits: ComputeUnitPreference?
     }
 
     static let frameSampleName = "live-frame-sample.jpg"
@@ -39,7 +42,10 @@ enum LiveCameraSelfTest {
             cancelPhase: value("--cancel-phase").flatMap { LiveCyclePhase(rawValue: $0) } ?? .feed,
             cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0,
             language: value("--lang").flatMap { LiveCaptionLanguage(rawValue: $0) } ?? .english,
-            streaming: !args.contains("--no-stream"))
+            streaming: !args.contains("--no-stream"),
+            prefetch: !args.contains("--no-prefetch"),
+            visionComputeUnits: value("--vision-cu")
+                .flatMap { ComputeUnitPreference(rawValue: $0) })
     }
 
     static func run() -> Never {
@@ -88,9 +94,15 @@ enum LiveCameraSelfTest {
             handle = ready
         }
         errln("[live] engine bundle=\(handle.bundleFolder ?? "?") path=\(chat.loadedPath)")
+        if let units = opts.visionComputeUnits {
+            await handle.engine.setLiveVisionComputeUnits(units)
+        }
         errln("[live] model=\(chat.modelName) speculative=\(handle.speculative) cycles=\(opts.cycles) "
             + "source=\(opts.useCamera ? "camera" : "\(urls.count) images") "
             + "lang=\(opts.language.rawValue) streaming=\(opts.streaming) "
+            + "prefetch=\(opts.prefetch) "
+            + "visionCU=\(opts.visionComputeUnits?.rawValue ?? CoreMLEngine.defaultLiveVisionComputeUnits.rawValue) "
+            + "chainCU=\(handle.computeUnits ?? "?") "
             + "thermal=\(LiveCameraViewModel.thermalName())")
 
         let widthsBeforePrewarm = await handle.engine.residentPrefillWidths()
@@ -172,7 +184,7 @@ enum LiveCameraSelfTest {
         live.start(
             engine: handle.engine, source: source,
             speculative: handle.speculative, cycleLimit: opts.cycles,
-            streaming: opts.streaming,
+            streaming: opts.streaming, prefetch: opts.prefetch,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         await live.loop?.value
@@ -271,7 +283,7 @@ enum LiveCameraSelfTest {
             + "cancelling in the \(target.label) phase")
         live.start(
             engine: handle.engine, source: source, speculative: handle.speculative,
-            streaming: opts.streaming,
+            streaming: opts.streaming, prefetch: opts.prefetch,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         guard let running = live.loop else {
@@ -323,7 +335,7 @@ enum LiveCameraSelfTest {
         }
         let cancelledDuring = reports().count
         errln("[cancel] completed cycles before the cancel: \(cancelledDuring)")
-        if target == .generate {
+        if target == .generate, opts.prefetch {
             guard live.discardedPrefetches > 0 else {
                 errln("live-selftest: cancelling in the generate phase did not discard a "
                     + "prefetched frame — the next frame was not being encoded ahead of "
@@ -337,7 +349,7 @@ enum LiveCameraSelfTest {
         errln("[cancel] restarting to prove the chain repairs itself")
         live.start(
             engine: handle.engine, source: source, speculative: handle.speculative,
-            cycleLimit: 2, streaming: opts.streaming,
+            cycleLimit: 2, streaming: opts.streaming, prefetch: opts.prefetch,
             modelID: handle.modelID, hfRevision: handle.hfRevision,
             computeUnits: handle.computeUnits, bundleFolder: handle.bundleFolder)
         await live.loop?.value

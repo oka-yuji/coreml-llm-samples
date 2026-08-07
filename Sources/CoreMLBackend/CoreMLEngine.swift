@@ -25,7 +25,24 @@ public actor CoreMLEngine: LLMEngine {
     private var loadedUnits: MLComputeUnits = .cpuOnly
     private var liveVisionEncoder: VisionEncoder?
 
+    public static let defaultLiveVisionComputeUnits: ComputeUnitPreference = {
+        #if os(macOS)
+        return .cpuAndGPU
+        #else
+        return .all
+        #endif
+    }()
+
+    private var liveVisionUnits: ComputeUnitPreference = CoreMLEngine.defaultLiveVisionComputeUnits
+
     public init() {}
+
+    public func setLiveVisionComputeUnits(_ preference: ComputeUnitPreference) async {
+        guard preference != liveVisionUnits else { return }
+        liveVisionUnits = preference
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
 
     public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
 
@@ -51,12 +68,7 @@ public actor CoreMLEngine: LLMEngine {
         let clock = ContinuousClock()
         let start = clock.now
 
-        let units: MLComputeUnits = switch options.computeUnits {
-        case .all: .all
-        case .cpuAndGPU: .cpuAndGPU
-        case .cpuAndNeuralEngine: .cpuAndNeuralEngine
-        case .cpuOnly: .cpuOnly
-        }
+        let units = Self.mlComputeUnits(options.computeUnits)
 
         if model.manifest.format == ChunkedSpeculativeChain.format {
             let r = try await ChunkedSpeculativeChain(
@@ -224,12 +236,25 @@ public actor CoreMLEngine: LLMEngine {
         return (segments, flatIDs, soft.rows, visionSeconds)
     }
 
-    private func makeVisionEncoder() throws -> VisionEncoder {
+    private static func mlComputeUnits(_ preference: ComputeUnitPreference) -> MLComputeUnits {
+        switch preference {
+        case .all: .all
+        case .cpuAndGPU: .cpuAndGPU
+        case .cpuAndNeuralEngine: .cpuAndNeuralEngine
+        case .cpuOnly: .cpuOnly
+        }
+    }
+
+    private func makeVisionEncoder(computeUnits: MLComputeUnits) throws -> VisionEncoder {
         guard let visionURL = visionModelURL() else {
             throw LLMEngineError.modelNotFound(
                 path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
         }
-        return VisionEncoder(packageURL: visionURL, computeUnits: loadedUnits)
+        return VisionEncoder(packageURL: visionURL, computeUnits: computeUnits)
+    }
+
+    private func makeVisionEncoder() throws -> VisionEncoder {
+        try makeVisionEncoder(computeUnits: loadedUnits)
     }
 
     public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
@@ -239,14 +264,18 @@ public actor CoreMLEngine: LLMEngine {
         }
         let clock = ContinuousClock()
         let t0 = clock.now
-        let encoder = try liveVisionEncoder ?? makeVisionEncoder()
+        let encoder = try liveVisionEncoder
+            ?? makeVisionEncoder(computeUnits: Self.mlComputeUnits(liveVisionUnits))
         try await encoder.loadIfNeeded()
         liveVisionEncoder = encoder
         guard let rows = await encoder.softTokenRowCount() else {
             throw LLMEngineError.incompatibleBundle(
                 reason: "the vision encoder does not declare a fixed soft_tokens row count")
         }
-        return LiveVisionEncoderInfo(imageRows: rows, seconds: (clock.now - t0) / .seconds(1))
+        let warmUpSeconds = try await encoder.warmUpIfNeeded()
+        return LiveVisionEncoderInfo(
+            imageRows: rows, seconds: (clock.now - t0) / .seconds(1),
+            warmUpSeconds: warmUpSeconds, computeUnits: await encoder.computeUnitsLabel)
     }
 
     public func prepareLivePrefill(
