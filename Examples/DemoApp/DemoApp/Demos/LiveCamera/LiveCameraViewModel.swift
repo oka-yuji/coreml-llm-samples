@@ -274,7 +274,7 @@ final class LiveCameraViewModel {
         speculative: Bool,
         cycleLimit: Int? = nil,
         streaming: Bool = true,
-        prefetch: Bool = true,
+        prefetch: Bool = false,
         modelID: String? = nil,
         hfRevision: String? = nil,
         computeUnits: String? = nil,

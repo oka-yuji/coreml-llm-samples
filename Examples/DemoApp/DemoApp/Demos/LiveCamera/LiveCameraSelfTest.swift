@@ -43,7 +43,7 @@ enum LiveCameraSelfTest {
             cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0,
             language: value("--lang").flatMap { LiveCaptionLanguage(rawValue: $0) } ?? .english,
             streaming: !args.contains("--no-stream"),
-            prefetch: !args.contains("--no-prefetch"),
+            prefetch: args.contains("--prefetch"),
             visionComputeUnits: value("--vision-cu")
                 .flatMap { ComputeUnitPreference(rawValue: $0) })
     }
