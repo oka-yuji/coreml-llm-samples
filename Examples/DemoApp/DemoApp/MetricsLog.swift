@@ -30,6 +30,7 @@ struct MetricsRecord: Codable {
     var prefillSeconds: Double?
     var captureSeconds: Double?
     var visionEncodeSeconds: Double?
+    var visionEncodeWaitSeconds: Double?
     var cycleSeconds: Double?
     var cycleIndex: Int?
     var captionLanguage: String?
@@ -135,8 +136,9 @@ enum MetricsLog {
         record.generatedTokens = report.generatedTokens
         record.captureSeconds = report.captureSeconds
         record.visionEncodeSeconds = report.encodeSeconds
+        record.visionEncodeWaitSeconds = report.encodeWaitSeconds
         record.prefillSeconds = report.feedSeconds
-        record.ttftSeconds = report.encodeSeconds + report.feedSeconds
+        record.ttftSeconds = report.encodeWaitSeconds + report.feedSeconds
         record.cycleSeconds = report.cycleSeconds
         record.decodeTokPerSec = report.tokensPerSecond
         record.peakFootprintMB = megabytes(report.footprintBytes)

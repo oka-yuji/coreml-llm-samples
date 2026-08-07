@@ -205,6 +205,15 @@ enum LiveCameraSelfTest {
             format: "[live] cycles=%d promptTokens=%@ cycle min/mean/max %.2f/%.2f/%.2fs",
             reports.count, "\(prompts.sorted())",
             cycleSeconds.min() ?? 0, mean, cycleSeconds.max() ?? 0))
+        let warm = Array(cycleSeconds.dropFirst())
+        let warmMean = warm.isEmpty ? 0 : warm.reduce(0, +) / Double(warm.count)
+        let encodeMean = reports.map(\.encodeSeconds).reduce(0, +) / Double(reports.count)
+        let waitMean = reports.map(\.encodeWaitSeconds).reduce(0, +) / Double(reports.count)
+        let overlapped = encodeMean > 0 ? 100 * (1 - min(1, waitMean / encodeMean)) : 0
+        errln(String(
+            format: "[live] warm cycle mean %.2fs (cycles 2-%d) | encode %.2fs mean, "
+                + "waited %.2fs mean = %.0f%% of the encode ran under the generation",
+            warmMean, reports.count, encodeMean, waitMean, overlapped))
         guard prompts.count == 1 else {
             errln("live-selftest: prompt length changed across cycles \(prompts.sorted()) "
                 + "— the per-cycle context reset is not holding")
@@ -314,6 +323,16 @@ enum LiveCameraSelfTest {
         }
         let cancelledDuring = reports().count
         errln("[cancel] completed cycles before the cancel: \(cancelledDuring)")
+        if target == .generate {
+            guard live.discardedPrefetches > 0 else {
+                errln("live-selftest: cancelling in the generate phase did not discard a "
+                    + "prefetched frame — the next frame was not being encoded ahead of "
+                    + "this generation")
+                return 1
+            }
+        }
+        errln("[cancel] discarded prefetched frames: \(live.discardedPrefetches) "
+            + "(the prefetch is issued when the generate phase starts)")
 
         errln("[cancel] restarting to prove the chain repairs itself")
         live.start(

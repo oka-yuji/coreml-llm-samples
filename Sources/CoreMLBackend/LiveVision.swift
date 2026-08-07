@@ -21,6 +21,25 @@ public struct LiveVisionEncoderInfo: Sendable {
     public let seconds: Double
 }
 
+public struct LiveEncodedFrame: Sendable {
+    let soft: SoftTokenRows
+    public let imageRows: Int
+    public let encodeSeconds: Double
+}
+
+public struct LiveVisionEncodeHandle: Sendable {
+    let encoder: VisionEncoder
+
+    public func encode(_ frame: LiveFrameImage) async throws -> LiveEncodedFrame {
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let soft = try await encoder.encode(image: frame.cgImage, releaseAfter: false)
+        return LiveEncodedFrame(
+            soft: soft, imageRows: soft.rows,
+            encodeSeconds: (clock.now - t0) / .seconds(1))
+    }
+}
+
 public struct LiveVisionPrefillInfo: Sendable {
     public let promptTokens: Int
     public let prefillWidths: [Int]

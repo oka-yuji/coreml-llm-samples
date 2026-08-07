@@ -183,25 +183,34 @@ public actor CoreMLEngine: LLMEngine {
     private enum VLMImageSource {
         case url(URL)
         case frame(LiveFrameImage)
+        case encoded(LiveEncodedFrame)
+    }
+
+    private func softTokens(
+        for image: VLMImageSource
+    ) async throws -> (soft: SoftTokenRows, seconds: Double) {
+        let held = liveVisionEncoder
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        switch image {
+        case .encoded(let ready):
+            return (ready.soft, ready.encodeSeconds)
+        case .url(let url):
+            let encoder = try held ?? makeVisionEncoder()
+            let soft = try await encoder.encode(imageAt: url, releaseAfter: held == nil)
+            return (soft, (clock.now - t0) / .seconds(1))
+        case .frame(let frame):
+            let encoder = try held ?? makeVisionEncoder()
+            let soft = try await encoder.encode(image: frame.cgImage, releaseAfter: held == nil)
+            return (soft, (clock.now - t0) / .seconds(1))
+        }
     }
 
     private func prepareVLMSegments(
         image: VLMImageSource, question: String
     ) async throws -> (segments: [PromptSegment], flatIDs: [Int], imageRows: Int, visionSeconds: Double) {
         guard let tokenizer else { throw LLMEngineError.notLoaded }
-        let held = liveVisionEncoder
-        let encoder = try held ?? makeVisionEncoder()
-        let clock = ContinuousClock()
-        let t0 = clock.now
-        let release = held == nil
-        let soft: SoftTokenRows
-        switch image {
-        case .url(let url):
-            soft = try await encoder.encode(imageAt: url, releaseAfter: release)
-        case .frame(let frame):
-            soft = try await encoder.encode(image: frame.cgImage, releaseAfter: release)
-        }
-        let visionSeconds = (clock.now - t0) / .seconds(1)
+        let (soft, visionSeconds) = try await softTokens(for: image)
         let bos = tokenizer.bosTokenID ?? 2
         let userTokens = try tokenizer.encode("user\n")
         let questionTokens = try tokenizer.encode(question)
@@ -272,6 +281,15 @@ public actor CoreMLEngine: LLMEngine {
         return LiveVisionPrewarm(encoder: encoder, prefill: prefill)
     }
 
+    public func liveVisionEncodeHandle() async throws -> LiveVisionEncodeHandle {
+        _ = try await loadLiveVisionEncoder()
+        guard let encoder = liveVisionEncoder else {
+            throw LLMEngineError.generationFailed(
+                reason: "the live vision encoder is not resident")
+        }
+        return LiveVisionEncodeHandle(encoder: encoder)
+    }
+
     public func endLiveVisionSession() async {
         await liveVisionEncoder?.unload()
         liveVisionEncoder = nil
@@ -296,6 +314,16 @@ public actor CoreMLEngine: LLMEngine {
     ) async throws -> VLMGenerationInfo {
         try await runImageTurn(
             image: .frame(frame), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: onPhase, onPartial: onPartial)
+    }
+
+    public func generateWithEncodedFrame(
+        _ encoded: LiveEncodedFrame, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)? = nil,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
+    ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .encoded(encoded), question: question, maxNew: maxNew,
             speculative: useSpec, onPhase: onPhase, onPartial: onPartial)
     }
 

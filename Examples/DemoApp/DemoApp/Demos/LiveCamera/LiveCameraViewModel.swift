@@ -120,6 +120,7 @@ struct LiveCycleReport: Sendable {
     var caption: String
     var captureSeconds: Double
     var encodeSeconds: Double
+    var encodeWaitSeconds: Double
     var feedSeconds: Double
     var generateSeconds: Double
     var cycleSeconds: Double
@@ -132,8 +133,9 @@ struct LiveCycleReport: Sendable {
 
     var breakdownLine: String {
         String(
-            format: "capture %.2fs | encode %.2fs | feed %.2fs | gen %.2fs | cycle %.2fs",
-            captureSeconds, encodeSeconds, feedSeconds, generateSeconds, cycleSeconds)
+            format: "capture %.2fs | encode %.2fs | wait %.2fs | feed %.2fs | gen %.2fs | cycle %.2fs",
+            captureSeconds, encodeSeconds, encodeWaitSeconds, feedSeconds, generateSeconds,
+            cycleSeconds)
     }
 
     var detailLine: String {
@@ -149,6 +151,12 @@ struct LiveCycleReport: Sendable {
         }
         return parts.joined(separator: "  |  ")
     }
+}
+
+struct LiveReadyFrame: Sendable {
+    let label: String
+    let encoded: LiveEncodedFrame
+    let captureSeconds: Double
 }
 
 enum LiveCyclePhase: String {
@@ -211,6 +219,8 @@ final class LiveCameraViewModel {
     @ObservationIgnored private var runID = 0
     @ObservationIgnored private var cycleSeq = 0
     @ObservationIgnored private var streamedTokens = 0
+    @ObservationIgnored private var prefetched: Task<LiveReadyFrame, Error>?
+    @ObservationIgnored private(set) var discardedPrefetches = 0
 
     init() {
         let stored = UserDefaults.standard.string(forKey: Self.languageDefaultsKey)
@@ -284,6 +294,8 @@ final class LiveCameraViewModel {
             var index = 0
             var failures = 0
             let clock = ContinuousClock()
+            var encodeHandle: LiveVisionEncodeHandle?
+            defer { self.discardPrefetch() }
             while !Task.isCancelled, !self.stopRequested {
                 if let cycleLimit, index >= cycleLimit { break }
 
@@ -322,21 +334,39 @@ final class LiveCameraViewModel {
                     }
                 }
                 do {
-                    let captureStart = clock.now
-                    let frame = try await Task.detached(priority: .userInitiated) {
-                        try source.nextFrame()
-                    }.value
-                    let captureSeconds = (clock.now - captureStart) / .seconds(1)
-                    let label = frame.label
+                    let handle: LiveVisionEncodeHandle
+                    if let encodeHandle {
+                        handle = encodeHandle
+                    } else {
+                        handle = try await engine.liveVisionEncodeHandle()
+                        encodeHandle = handle
+                    }
 
                     self.cyclePhase = .encode
-                    let info = try await engine.generateWithImage(
-                        frame: frame.image, question: question, maxNew: maxNew,
+                    let waitStart = clock.now
+                    let ready: LiveReadyFrame
+                    if let pending = self.prefetched {
+                        self.prefetched = nil
+                        ready = try await pending.value
+                    } else {
+                        ready = try await Self.captureAndEncode(
+                            source: source, handle: handle, clock: clock).value
+                    }
+                    let encodeWaitSeconds = (clock.now - waitStart) / .seconds(1)
+                    guard !Task.isCancelled, !self.stopRequested else { break }
+
+                    let isLastCycle = cycleLimit.map { index + 1 >= $0 } ?? false
+                    let info = try await engine.generateWithEncodedFrame(
+                        ready.encoded, question: question, maxNew: maxNew,
                         speculative: speculative,
                         onPhase: { phase in
                             Task { @MainActor [weak self] in
                                 guard let self, self.runID == myRunID, self.isRunning else { return }
                                 self.cyclePhase = LiveCyclePhase(phase)
+                                guard phase == .generate, self.cycleSeq == mySeq,
+                                      !isLastCycle, self.prefetched == nil else { return }
+                                self.prefetched = Self.captureAndEncode(
+                                    source: source, handle: handle, clock: clock)
                             }
                         },
                         onPartial: onPartial)
@@ -351,11 +381,12 @@ final class LiveCameraViewModel {
                     self.errorText = ""
                     let report = LiveCycleReport(
                         index: index,
-                        frameLabel: label,
+                        frameLabel: ready.label,
                         language: language,
                         caption: text,
-                        captureSeconds: captureSeconds,
+                        captureSeconds: ready.captureSeconds,
                         encodeSeconds: info.visionEncodeSeconds,
+                        encodeWaitSeconds: encodeWaitSeconds,
                         feedSeconds: info.prefillSeconds,
                         generateSeconds: info.decodeSeconds,
                         cycleSeconds: cycleSeconds,
@@ -408,10 +439,33 @@ final class LiveCameraViewModel {
         }
     }
 
+    private func discardPrefetch() {
+        guard let prefetched else { return }
+        prefetched.cancel()
+        self.prefetched = nil
+        discardedPrefetches += 1
+    }
+
+    nonisolated private static func captureAndEncode(
+        source: any LiveFrameSource, handle: LiveVisionEncodeHandle, clock: ContinuousClock
+    ) -> Task<LiveReadyFrame, Error> {
+        Task.detached(priority: .userInitiated) {
+            try Task.checkCancellation()
+            let t0 = clock.now
+            let frame = try source.nextFrame()
+            let captureSeconds = (clock.now - t0) / .seconds(1)
+            try Task.checkCancellation()
+            let encoded = try await handle.encode(frame.image)
+            return LiveReadyFrame(
+                label: frame.label, encoded: encoded, captureSeconds: captureSeconds)
+        }
+    }
+
     func stop() {
         guard isRunning else { return }
         stopRequested = true
         loop?.cancel()
+        discardPrefetch()
         isRunning = false
         isPausedByThermal = false
         cyclePhase = .idle
@@ -423,6 +477,7 @@ final class LiveCameraViewModel {
     func cancel() {
         stopRequested = true
         loop?.cancel()
+        discardPrefetch()
         loop = nil
         isRunning = false
         isPausedByThermal = false
