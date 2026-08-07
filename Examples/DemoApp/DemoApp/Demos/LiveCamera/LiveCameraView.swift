@@ -13,6 +13,8 @@ struct LiveCameraView: View {
     @State private var starting = false
     @State private var loadingStage = ""
     @State private var offerModels = false
+    @State private var visionBundles: [URL] = []
+    @State private var selectedBundle: URL?
 
     var body: some View {
         liveScreen
@@ -58,8 +60,16 @@ struct LiveCameraView: View {
         }
         .task {
             live.startThermalWatch()
+            refreshVisionBundles()
             await prepareCamera()
         }
+    }
+
+    private func refreshVisionBundles() {
+        visionBundles = LiveEngineProvision.visionCapableBundles()
+        if let selectedBundle, visionBundles.contains(selectedBundle) { return }
+        selectedBundle = LiveEngineProvision.initialSelection(
+            among: visionBundles, loadedPath: chat.loadedPath)
     }
 
     private var loadingGate: some View {
@@ -146,6 +156,8 @@ struct LiveCameraView: View {
 
             languagePicker
 
+            if visionBundles.count > 1 { bundlePicker }
+
             Text(live.statusLine.isEmpty ? "Ready." : live.statusLine)
                 .font(.caption)
                 .foregroundStyle(live.errorText.isEmpty ? Color.secondary : Color.orange)
@@ -171,6 +183,22 @@ struct LiveCameraView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+    }
+
+    private var bundlePicker: some View {
+        Picker("Model", selection: Binding(
+            get: { selectedBundle },
+            set: { next in
+                selectedBundle = next
+                if let next { LiveEngineProvision.rememberBundle(next) }
+            })) {
+            ForEach(visionBundles, id: \.self) { url in
+                Text(LiveEngineProvision.shortName(url)).tag(URL?.some(url))
+            }
+        }
+        .pickerStyle(.menu)
+        .disabled(live.isRunning || starting)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private var startStopTitle: String {
@@ -234,7 +262,7 @@ struct LiveCameraView: View {
 
         stage("Checking the loaded model…")
         switch await LiveEngineProvision.ensureVisionEngine(
-            chat: chat, status: { stage($0) })
+            chat: chat, preferred: selectedBundle, status: { stage($0) })
         {
         case .unavailable(let message):
             live.errorText = message

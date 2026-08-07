@@ -131,7 +131,7 @@ enum VLMPrompt {
         bos: Int, userTokens: [Int], questionTokens: [Int], modelTokens: [Int], imageRows: Int
     ) -> [Int] {
         [bos, turnStart] + userTokens + [boi]
-            + Array(repeating: ChunkedSpeculativeChain.imagePlaceholderID, count: imageRows)
+            + Array(repeating: MultimodalSlot.imagePlaceholderID, count: imageRows)
             + [eoi] + questionTokens + [turnEnd, newline, turnStart] + modelTokens
     }
 

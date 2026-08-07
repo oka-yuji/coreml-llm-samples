@@ -6,6 +6,7 @@ enum LiveCameraSelfTest {
 
     struct Options {
         var model: String?
+        var bundle: String?
         var images: [String]
         var cycles: Int
         var useCamera: Bool
@@ -34,6 +35,7 @@ enum LiveCameraSelfTest {
             .filter { !$0.isEmpty } ?? []
         return Options(
             model: value("--model"),
+            bundle: value("--bundle"),
             images: images,
             cycles: value("--cycles").flatMap { Int($0) } ?? 10,
             useCamera: args.contains("--camera"),
@@ -83,9 +85,14 @@ enum LiveCameraSelfTest {
         } else {
             errln("[live] no --model given: starting from an unloaded engine")
         }
+        let preferred = opts.bundle.map { URL(fileURLWithPath: SelfTest.resolve($0), isDirectory: true) }
+        if let preferred {
+            errln("[live] preferred bundle \(LiveEngineProvision.shortName(preferred)) "
+                + "(candidates \(LiveEngineProvision.visionCapableBundles().map(LiveEngineProvision.shortName)))")
+        }
         let handle: ChatViewModel.EngineHandle
         switch await LiveEngineProvision.ensureVisionEngine(
-            chat: chat, status: { errln("[live] \($0)") })
+            chat: chat, preferred: preferred, status: { errln("[live] \($0)") })
         {
         case .unavailable(let message):
             errln("live-selftest: \(message)")

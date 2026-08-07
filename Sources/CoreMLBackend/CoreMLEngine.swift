@@ -184,8 +184,19 @@ public actor CoreMLEngine: LLMEngine {
         processedTokens = []
     }
 
+    private var multimodalChain: (any MultimodalChain)? { chain as? any MultimodalChain }
+
+    private func requireMultimodalChain() throws -> any MultimodalChain {
+        guard let mm = multimodalChain else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) or "
+                    + "coreml-stateful-chain-v2 bundle")
+        }
+        return mm
+    }
+
     public func supportsImageInput() -> Bool {
-        chain is ChunkedSpeculativeChain && visionModelURL() != nil
+        multimodalChain != nil && visionModelURL() != nil
     }
 
     private func visionModelURL() -> URL? {
@@ -222,7 +233,13 @@ public actor CoreMLEngine: LLMEngine {
         image: VLMImageSource, question: String
     ) async throws -> (segments: [PromptSegment], flatIDs: [Int], imageRows: Int, visionSeconds: Double) {
         guard let tokenizer else { throw LLMEngineError.notLoaded }
+        let hidden = try requireMultimodalChain().hiddenSize
         let (soft, visionSeconds) = try await softTokens(for: image)
+        guard soft.hidden == hidden else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "the vision encoder emits \(soft.hidden)-wide soft tokens but this bundle's "
+                    + "hidden size is \(hidden) — vision_fp16 does not belong to this model")
+        }
         let bos = tokenizer.bosTokenID ?? 2
         let userTokens = try tokenizer.encode("user\n")
         let questionTokens = try tokenizer.encode(question)
@@ -258,10 +275,7 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
-        guard chain is ChunkedSpeculativeChain else {
-            throw LLMEngineError.incompatibleBundle(
-                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
-        }
+        _ = try requireMultimodalChain()
         let clock = ContinuousClock()
         let t0 = clock.now
         let encoder = try liveVisionEncoder
@@ -281,24 +295,22 @@ public actor CoreMLEngine: LLMEngine {
     public func prepareLivePrefill(
         question: String, imageRows: Int
     ) throws -> LiveVisionPrefillInfo {
-        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
-            throw LLMEngineError.incompatibleBundle(
-                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
-        }
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
         let flatIDs = VLMPrompt.flatIDs(
             bos: tokenizer.bosTokenID ?? 2,
             userTokens: try tokenizer.encode("user\n"),
             questionTokens: try tokenizer.encode(question),
             modelTokens: try tokenizer.encode("model\n"),
             imageRows: imageRows)
-        guard flatIDs.count < chunked.contextLength else {
+        guard flatIDs.count < mm.contextLength else {
             throw LLMEngineError.contextOverflow(
-                promptTokens: flatIDs.count, contextLength: chunked.contextLength)
+                promptTokens: flatIDs.count, contextLength: mm.contextLength)
         }
-        let widths = chunked.plannedPrefillWidths(promptLength: flatIDs.count)
+        let widths = mm.plannedPrefillWidths(promptLength: flatIDs.count, from: 0)
         let clock = ContinuousClock()
         let t0 = clock.now
-        try chunked.materializePrefill(widths: widths)
+        try mm.materializePrefill(widths: widths)
         return LiveVisionPrefillInfo(
             promptTokens: flatIDs.count, prefillWidths: widths,
             seconds: (clock.now - t0) / .seconds(1))
@@ -325,7 +337,7 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     public func residentPrefillWidths() -> [Int] {
-        (chain as? ChunkedSpeculativeChain)?.residentPrefillWidths() ?? []
+        multimodalChain?.residentPrefillWidths() ?? []
     }
 
     public func generateWithImage(
@@ -363,27 +375,25 @@ public actor CoreMLEngine: LLMEngine {
         onPhase: (@Sendable (VLMPhase) -> Void)?,
         onPartial: (@Sendable (String, Int) -> Void)? = nil
     ) async throws -> VLMGenerationInfo {
-        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
-            throw LLMEngineError.incompatibleBundle(
-                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
-        }
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
         onPhase?(.encode)
         let prep = try await prepareVLMSegments(image: image, question: question)
-        guard prep.flatIDs.count < chunked.contextLength else {
+        guard prep.flatIDs.count < mm.contextLength else {
             throw LLMEngineError.contextOverflow(
-                promptTokens: prep.flatIDs.count, contextLength: chunked.contextLength)
+                promptTokens: prep.flatIDs.count, contextLength: mm.contextLength)
         }
-        let spec = useSpec && chunked.supportsMTP
-        if spec { try await installMTPIfNeeded() }
+        let speculating = (mm as? ChunkedSpeculativeChain).map { useSpec && $0.supportsMTP } ?? false
+        if speculating { try await installMTPIfNeeded() }
         let eos = Set(tokenizer.eosTokenIDs)
         let clock = ContinuousClock()
-        try chunked.reset()
+        try mm.reset()
         onPhase?(.feed)
         let p0 = clock.now
-        let seed = try chunked.prefillSegments(prep.segments)
+        let seed = try mm.prefillSegments(prep.segments)
         let prefillSeconds = (clock.now - p0) / .seconds(1)
         let cap = Self.tokenBudget(
-            maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
+            maxNew: maxNew, used: prep.flatIDs.count, contextLength: mm.contextLength)
         onPhase?(.generate)
         let d0 = clock.now
         var streamed: [Int] = []
@@ -397,10 +407,13 @@ public actor CoreMLEngine: LLMEngine {
                 partial(text, streamedAt)
             }
         }
-        let out = spec
-            ? try chunked.continueSpeculative(
+        let out: [Int]
+        if speculating, let chunked = mm as? ChunkedSpeculativeChain {
+            out = try chunked.continueSpeculative(
                 seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos, onToken: onToken)
-            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: onToken)
+        } else {
+            out = try mm.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: onToken)
+        }
         let decodeSeconds = (clock.now - d0) / .seconds(1)
         processedTokens = prep.flatIDs + out
         return VLMGenerationInfo(
@@ -415,10 +428,8 @@ public actor CoreMLEngine: LLMEngine {
     public func continueWithImageContext(
         question: String, maxNew: Int, speculative useSpec: Bool
     ) async throws -> VLMGenerationInfo {
-        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
-            throw LLMEngineError.incompatibleBundle(
-                reason: "image input requires a \(ChunkedSpeculativeChain.format) bundle")
-        }
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
         guard !processedTokens.isEmpty else {
             throw LLMEngineError.generationFailed(reason: "no image context to continue from")
         }
@@ -426,24 +437,27 @@ public actor CoreMLEngine: LLMEngine {
             userTokens: try tokenizer.encode("user\n"),
             questionTokens: try tokenizer.encode(question),
             modelTokens: try tokenizer.encode("model\n"))
-        let used = chunked.position + ids.count
-        guard used < chunked.contextLength else {
+        let used = mm.position + ids.count
+        guard used < mm.contextLength else {
             throw LLMEngineError.contextOverflow(
-                promptTokens: used, contextLength: chunked.contextLength)
+                promptTokens: used, contextLength: mm.contextLength)
         }
-        let spec = useSpec && chunked.supportsMTP
-        if spec { try await installMTPIfNeeded() }
+        let speculating = (mm as? ChunkedSpeculativeChain).map { useSpec && $0.supportsMTP } ?? false
+        if speculating { try await installMTPIfNeeded() }
         let eos = Set(tokenizer.eosTokenIDs)
         let clock = ContinuousClock()
         let p0 = clock.now
-        let seed = try chunked.prefillScheduled(ids)
+        let seed = try mm.prefill(ids)
         let prefillSeconds = (clock.now - p0) / .seconds(1)
         var context = processedTokens + ids
-        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: chunked.contextLength)
+        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: mm.contextLength)
         let d0 = clock.now
-        let out = spec
-            ? try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
-            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let out: [Int]
+        if speculating, let chunked = mm as? ChunkedSpeculativeChain {
+            out = try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
+        } else {
+            out = try mm.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: nil)
+        }
         let decodeSeconds = (clock.now - d0) / .seconds(1)
         context.append(contentsOf: out)
         processedTokens = context

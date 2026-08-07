@@ -566,7 +566,7 @@ final class ChunkedSpeculativeChain {
         bufs.tk.withF16 { buf in
             for k in 0..<(N * plecols) { buf[k] = 0 }
             for (i, t) in ids.enumerated() {
-                let row = (softRows?[i] != nil) ? 0 : t
+                let row = (softRows?[i] != nil) ? MultimodalSlot.perLayerInputRow : t
                 pleSidecar.read(row: row, into: buf.baseAddress! + i * plecols)
             }
         }
@@ -730,6 +730,12 @@ final class SoftTokenRows: Sendable {
     }
 }
 
+enum MultimodalSlot {
+    static let imagePlaceholderID = 258880
+    static let audioPlaceholderID = 258881
+    static let perLayerInputRow = 0
+}
+
 enum PromptSegment {
     case tokens([Int])
     case image(SoftTokenRows)
@@ -742,8 +748,10 @@ struct SoftRowRef {
 }
 
 extension ChunkedSpeculativeChain {
-    static var imagePlaceholderID: Int { 258880 }
-    static var audioPlaceholderID: Int { 258881 }
+    static var imagePlaceholderID: Int { MultimodalSlot.imagePlaceholderID }
+    static var audioPlaceholderID: Int { MultimodalSlot.audioPlaceholderID }
+
+    var hiddenSize: Int { H }
 
     private func flattenSegments(_ segments: [PromptSegment]) -> (ids: [Int], rowRefs: [SoftRowRef?]) {
         var ids: [Int] = []

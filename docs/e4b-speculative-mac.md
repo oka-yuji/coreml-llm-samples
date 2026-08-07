@@ -130,6 +130,19 @@ Select the **`DemoApp`** (macOS) scheme and Run. On the **Models** screen, *Gemm
 switches to the conversation screen. The entry is macOS-only: at 6.5 GB it does not fit an iPhone's
 memory budget, and the graph needs the GPU.
 
+## 7. Images and Live Camera (macOS)
+
+E4B reads images once a `vision_fp16.mlpackage` sits **inside the bundle directory**, next to
+`manifest.json`. It must be the E4B encoder — it emits 2,560-wide soft tokens, where the E2B encoder
+emits 1,536 — and the app refuses a mismatched one rather than producing garbage.
+
+1. **Chat**: load the E4B bundle, attach an image, and ask about it. A 768x768 image costs 256 of the
+   2,048 context tokens.
+2. **Live Camera**: press **Start**. When more than one vision-capable bundle is installed, a **Model**
+   menu appears above the status line — pick `gemma-4-e4b-speculative` before pressing Start.
+3. **Switching back to E2B**: pick it in that same menu. The choice is remembered across launches, and
+   the menu only lists bundles that run on the current platform, so E4B never appears on iOS.
+
 ---
 
 ## Notes

@@ -53,11 +53,26 @@ enum LiveEngineProvision {
     static let noBundleMessage =
         "No vision-capable bundle. Load Gemma 4 E2B (pal6) and add vision assets."
 
+    static let bundleDefaultsKey = "liveCameraVisionBundle"
+
     static func hasVisionSidecar(_ bundle: URL) -> Bool {
         let fileManager = FileManager.default
         return ["vision_fp16.mlmodelc", "vision_fp16.mlpackage"].contains {
             fileManager.fileExists(atPath: bundle.appending(path: $0).path(percentEncoded: false))
         }
+    }
+
+    static func runsOnThisPlatform(_ url: URL) -> Bool {
+        guard let model = LLMModels.all.first(where: {
+            $0.bundleFolderName == url.lastPathComponent
+        }) else { return true }
+        return model.supportedPlatforms.contains(LLMModels.currentPlatform)
+    }
+
+    static func identityKey(_ url: URL) -> String {
+        var path = url.resolvingSymlinksInPath().standardizedFileURL.path(percentEncoded: false)
+        while path.count > 1, path.hasSuffix("/") { path.removeLast() }
+        return path
     }
 
     static func visionCapableBundles() -> [URL] {
@@ -66,12 +81,13 @@ enum LiveEngineProvision {
         var found: [URL] = []
 
         func consider(_ url: URL) {
-            let path = url.path(percentEncoded: false)
+            let path = identityKey(url)
             guard !seen.contains(path) else { return }
             seen.insert(path)
             let manifest = url.appending(path: "manifest.json")
             guard fileManager.fileExists(atPath: manifest.path(percentEncoded: false)) else { return }
             guard hasVisionSidecar(url) else { return }
+            guard runsOnThisPlatform(url) else { return }
             found.append(url)
         }
 
@@ -92,10 +108,40 @@ enum LiveEngineProvision {
         (try? ModelBundle(contentsOf: url).manifest.name) ?? url.lastPathComponent
     }
 
+    static func shortName(_ url: URL) -> String { url.lastPathComponent }
+
+    static func rememberBundle(_ url: URL) {
+        UserDefaults.standard.set(url.lastPathComponent, forKey: bundleDefaultsKey)
+    }
+
+    static func initialSelection(among candidates: [URL], loadedPath: String) -> URL? {
+        let stored = UserDefaults.standard.string(forKey: bundleDefaultsKey)
+        if let stored, let match = candidates.first(where: { $0.lastPathComponent == stored }) {
+            return match
+        }
+        let loadedKey = identityKey(URL(fileURLWithPath: loadedPath, isDirectory: true))
+        if let loaded = candidates.first(where: { identityKey($0) == loadedKey }) {
+            return loaded
+        }
+        return candidates.first
+    }
+
     @MainActor
     static func ensureVisionEngine(
-        chat: ChatViewModel, status: @MainActor (String) -> Void
+        chat: ChatViewModel, preferred: URL? = nil, status: @MainActor (String) -> Void
     ) async -> Outcome {
+        if let preferred {
+            let loaded = identityKey(URL(fileURLWithPath: chat.loadedPath, isDirectory: true))
+            if loaded == identityKey(preferred),
+               chat.supportsImageAttachment, let handle = chat.engineHandle { return .ready(handle) }
+            status("Loading \(displayName(preferred))…")
+            await chat.loadModel(path: preferred.path(percentEncoded: false))
+            if chat.supportsImageAttachment, let handle = chat.engineHandle { return .ready(handle) }
+            if case .failed(let reason) = chat.phase {
+                return .unavailable("Loading \(shortName(preferred)) failed: \(reason)")
+            }
+            return .unavailable("\(shortName(preferred)) has no usable vision assets.")
+        }
         if chat.supportsImageAttachment, let handle = chat.engineHandle { return .ready(handle) }
         let candidates = visionCapableBundles()
         guard !candidates.isEmpty else { return .unavailable(noBundleMessage) }
