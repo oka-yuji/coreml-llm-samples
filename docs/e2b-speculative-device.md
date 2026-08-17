@@ -85,6 +85,37 @@ The app reads bundles from its own **Documents** folder (file sharing is enabled
 
 ---
 
+## 4. Images, audio, and Live Camera
+
+The Hugging Face repo carries two more encoders next to the language chunks — `vision_fp16.mlmodelc`
+(312 MB) and `audio_fp16.mlmodelc` (590 MB) — so an in-app download installs them and the features
+turn themselves on. The engine looks for them **inside the bundle directory**, next to `manifest.json`.
+A bundle without them still chats: the composer offers only what the bundle can do, so a missing
+encoder means an absent button rather than a broken one.
+
+1. **Image in chat:** attach a photo and ask about it. The image is resized to 768x768 and becomes 256
+   soft tokens — 256 of the 2,048 context — regardless of the original resolution. Follow-up questions
+   about the same image cost nothing extra: the image stays in the KV cache and a follow-up prefills
+   only the new words.
+2. **Audio in chat:** record a clip and it is transcribed on-device. Audio is capped at 30 seconds and
+   costs 25 tokens per second of sound, so a full 30-second clip takes 750 of the 2,048 context. Longer
+   recordings are truncated to the first 30 seconds.
+3. **Live Camera:** a separate demo that points the camera at the world and captions what it sees,
+   cycle after cycle, in English or Japanese. Each cycle resets the context, so cycle N never drifts on
+   cycle N-1 — the prompt is the same 279 tokens every time.
+
+On an iPhone 17 Pro, a warm Live Camera cycle averages **4.52 s** at 418–438 MB of footprint. The **first**
+cycle after installing is the expensive one — 80 s cold — so pressing **Start** opens a *Preparing…*
+load gate that pays about **70 s** of that up front (encoder load plus prefill materialization) and
+leaves a ~5 s first caption. That compiled work is cached per device, so later launches skip it.
+
+Transcription is the most thoroughly cross-checked path here: the same clip produces a **SHA-256
+identical** transcript on the phone and on a Mac, and the Mac output is in turn byte-identical to the
+Hugging Face fp32 reference on 3 of 4 test clips (the fourth differs at one shared-top-2 tie where the
+on-device text is the closer match to the source audio).
+
+---
+
 ## Run it on a Mac (CLI)
 
 The `corellm-chat` CLI runs the same bundle on a Mac. `cpuOnly` is a good way to sanity-check output

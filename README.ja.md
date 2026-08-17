@@ -21,6 +21,23 @@
 > **Gemma 4 E2B** は、prompt-lookup ロスレス投機を **iPhone 15（A16）の Neural Engine 上でバイト一致検証**
 > 済みで、クロスマシンの KV restore も同梱します。詳細とメモリ会計はカードを参照してください。
 
+### モダリティ
+
+テキストは全モデル共通です。画像・音声は同じ Hugging Face リポジトリ内の別エンコーダとして同梱されるため、
+バンドルをダウンロードすればそのバンドルが対応する分だけ一緒に入ります。下表の **Download** は
+エンコーダをすべて含んだダウンロード全体のサイズです。
+
+| Model | Download | テキスト | チャットの画像 | チャットの音声 | Live Camera |
+|---|---|---|---|---|---|
+| Gemma 4 12B IT — 128K | 10.2 GB | macOS | — | — | — |
+| Gemma 4 E2B Speculative | 5.9 GB | iOS・macOS | iOS・macOS | iOS・macOS | iOS・macOS |
+| Gemma 4 E4B Speculative | 6.8 GB | macOS | macOS | — | macOS |
+
+E4B は全機能が macOS 専用です。言語部の重みだけで iPhone のメモリ枠を超えます。画像エンコーダは E2B と
+同一のタワー（**658 テンソル中 658 が bit 一致**）で、言語モデルへ渡す射影の幅だけが違うため、バンドルごとに
+専用のコピーを持ち、取り違えたものはアプリ側が拒否します。音声は E2B のみで、E4B 用の音声エンコーダは
+存在しません。
+
 ---
 
 ## クイックスタート
@@ -46,8 +63,9 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 ### Xcode プロジェクトを開く場合
 
 GUI で試すなら `Examples/DemoApp/DemoApp.xcodeproj` を Xcode で開いて Run してください。`DemoApp` は
-デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。デモは **Chat** と **Models**
-の 2 つで、起動時は Chat が選択されています。今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
+デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。デモは **Chat** / **Models** /
+**Live Camera** の 3 つで、起動時は Chat が選択されています。今後のモデルやモダリティは、ここに 1 行ずつ
+画面が増えます。
 
 **Models** 画面では、モデルバンドルを Hugging Face からアプリ内でダウンロードできます(進捗・キャンセル・
 削除つき)。ダウンロード済みのバンドルはそのまま Chat に読み込めます。カタログのモデルはすべて public
@@ -58,8 +76,19 @@ GUI で試すなら `Examples/DemoApp/DemoApp.xcodeproj` を Xcode で開いて 
 直近ターンの tok/s と TTFT が出ます。各実行の初回応答は GPU カーネル特殊化の一度きりのコストを払います（[モデルカード](samples/gemma-4-12b-128k.ja.md)
 の「初回実行が遅いのは仕様です」を参照）。以降の応答は高速です。
 
-`DemoApp` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな macOS 26 SwiftUI アプリで、
-同一のエンジンで動きます。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
+読み込んだバンドルが対応するエンコーダを持つ場合、Chat は添付も受け取ります。画像を添付して内容を尋ねる、
+短い音声を録音して文字起こしさせる、のいずれもできます。入力欄はバンドルが対応する機能だけを出すので、
+押せるのに動かないボタンは出ません。画像は 2,048 の文脈のうち 256 トークン、30 秒の録音は最大 750 トークンを
+消費するため、添付するターンは短く保つのが得策です。
+
+**Live Camera** デモはカメラを世界に向け、映っているものを 1 サイクルずつ英語または日本語で説明し続けます。
+各サイクルは独立していて（毎回コンテキストをリセットするため、前の説明に引きずられません）、説明は生成
+しながら流れます。画像エンコーダを持つバンドルが必要で、複数導入されている場合はステータス行の上に
+**Model** メニューが出ます。
+
+`DemoApp` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな SwiftUI アプリで、同一のエンジンで
+動きます。ひとつのソースツリーから macOS 26 と iOS 26 の両方をビルドでき、スキームは `DemoApp` と
+`DemoApp-iOS` の 2 つです。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
 App Store 配布物ではありません。
 
 Xcode ではなく CLI からビルドする場合はアーキテクチャを固定してください:
@@ -74,7 +103,7 @@ Xcode ではなく CLI からビルドする場合はアーキテクチャを固
 README.md / README.ja.md   この索引 — モデル表 + クイックスタート
 samples/                   モデルごとの自己完結カード(モデル選びはここから)
 Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
-Examples/DemoApp/          macOS SwiftUI デモアプリ — デモ一覧(Chat / Models)。Sources/ のランタイムをリンク
+Examples/DemoApp/          SwiftUI デモアプリ(macOS + iOS) — デモ一覧(Chat / Models / Live Camera)
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md
 LICENSE                    MIT(コードに適用)
