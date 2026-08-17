@@ -28,6 +28,12 @@ struct MetricsRecord: Codable {
     var modelLoadSeconds: Double?
     var ttftSeconds: Double?
     var prefillSeconds: Double?
+    var captureSeconds: Double?
+    var visionEncodeSeconds: Double?
+    var visionEncodeWaitSeconds: Double?
+    var cycleSeconds: Double?
+    var cycleIndex: Int?
+    var captionLanguage: String?
     var decodeTokPerSec: Double?
     var perTokenMillis: [Double]?
     var perTokenMinMs: Double?
@@ -111,6 +117,33 @@ enum MetricsLog {
         record.availableMemoryMB = megabytes(metrics.availableMemoryBytes)
         record.thermalStateStart = metrics.thermalStateStart
         record.thermalStateEnd = metrics.thermalStateEnd
+        append(record)
+    }
+
+    @MainActor
+    static func liveCycle(
+        report: LiveCycleReport, modelID: String?, hfRevision: String?,
+        computeUnits: String?, bundleFolder: String?
+    ) {
+        var record = base(kind: "live-cycle")
+        record.modelID = modelID
+        record.hfRevision = hfRevision
+        record.computeUnits = computeUnits
+        record.bundleFolder = bundleFolder
+        record.cycleIndex = report.index
+        record.captionLanguage = report.language.rawValue
+        record.promptTokens = report.promptTokens
+        record.generatedTokens = report.generatedTokens
+        record.captureSeconds = report.captureSeconds
+        record.visionEncodeSeconds = report.encodeSeconds
+        record.visionEncodeWaitSeconds = report.encodeWaitSeconds
+        record.prefillSeconds = report.feedSeconds
+        record.ttftSeconds = report.encodeWaitSeconds + report.feedSeconds
+        record.cycleSeconds = report.cycleSeconds
+        record.decodeTokPerSec = report.tokensPerSecond
+        record.peakFootprintMB = megabytes(report.footprintBytes)
+        record.availableMemoryMB = megabytes(availableMemoryBytes())
+        record.thermalStateEnd = report.thermal
         append(record)
     }
 

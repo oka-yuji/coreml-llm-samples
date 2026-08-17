@@ -23,8 +23,26 @@ public actor CoreMLEngine: LLMEngine {
     private var processedTokens: [Int] = []
     private var loadedBundleURL: URL?
     private var loadedUnits: MLComputeUnits = .cpuOnly
+    private var liveVisionEncoder: VisionEncoder?
+
+    public static let defaultLiveVisionComputeUnits: ComputeUnitPreference = {
+        #if os(macOS)
+        return .cpuAndGPU
+        #else
+        return .all
+        #endif
+    }()
+
+    private var liveVisionUnits: ComputeUnitPreference = CoreMLEngine.defaultLiveVisionComputeUnits
 
     public init() {}
+
+    public func setLiveVisionComputeUnits(_ preference: ComputeUnitPreference) async {
+        guard preference != liveVisionUnits else { return }
+        liveVisionUnits = preference
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
 
     public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
 
@@ -50,12 +68,7 @@ public actor CoreMLEngine: LLMEngine {
         let clock = ContinuousClock()
         let start = clock.now
 
-        let units: MLComputeUnits = switch options.computeUnits {
-        case .all: .all
-        case .cpuAndGPU: .cpuAndGPU
-        case .cpuAndNeuralEngine: .cpuAndNeuralEngine
-        case .cpuOnly: .cpuOnly
-        }
+        let units = Self.mlComputeUnits(options.computeUnits)
 
         if model.manifest.format == ChunkedSpeculativeChain.format {
             let r = try await ChunkedSpeculativeChain(
@@ -101,6 +114,7 @@ public actor CoreMLEngine: LLMEngine {
         tokenizer = nil
         pendingLoadMetrics = nil
         processedTokens = []
+        liveVisionEncoder = nil
     }
 
     public func kvSave(to url: URL, prompt: String, warmupDecodes: Int = 0) async throws -> KVCheckpointInfo {
@@ -168,6 +182,425 @@ public actor CoreMLEngine: LLMEngine {
     public func resetConversation() {
         try? chain?.reset()
         processedTokens = []
+    }
+
+    private var multimodalChain: (any MultimodalChain)? { chain as? any MultimodalChain }
+
+    private func requireMultimodalChain() throws -> any MultimodalChain {
+        guard let mm = multimodalChain else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "image input requires a \(ChunkedSpeculativeChain.format) or "
+                    + "coreml-stateful-chain-v2 bundle")
+        }
+        return mm
+    }
+
+    public func supportsImageInput() -> Bool {
+        multimodalChain != nil && visionModelURL() != nil
+    }
+
+    private func visionModelURL() -> URL? {
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "vision_fp16")
+    }
+
+    private enum VLMImageSource {
+        case url(URL)
+        case frame(LiveFrameImage)
+        case encoded(LiveEncodedFrame)
+    }
+
+    private func softTokens(
+        for image: VLMImageSource
+    ) async throws -> (soft: SoftTokenRows, seconds: Double) {
+        let held = liveVisionEncoder
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        switch image {
+        case .encoded(let ready):
+            return (ready.soft, ready.encodeSeconds)
+        case .url(let url):
+            let encoder = try held ?? makeVisionEncoder()
+            let soft = try await encoder.encode(imageAt: url, releaseAfter: held == nil)
+            return (soft, (clock.now - t0) / .seconds(1))
+        case .frame(let frame):
+            let encoder = try held ?? makeVisionEncoder()
+            let soft = try await encoder.encode(image: frame.cgImage, releaseAfter: held == nil)
+            return (soft, (clock.now - t0) / .seconds(1))
+        }
+    }
+
+    private func prepareVLMSegments(
+        image: VLMImageSource, question: String
+    ) async throws -> (segments: [PromptSegment], flatIDs: [Int], imageRows: Int, visionSeconds: Double) {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        let hidden = try requireMultimodalChain().hiddenSize
+        let (soft, visionSeconds) = try await softTokens(for: image)
+        guard soft.hidden == hidden else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "the vision encoder emits \(soft.hidden)-wide soft tokens but this bundle's "
+                    + "hidden size is \(hidden) — vision_fp16 does not belong to this model")
+        }
+        let bos = tokenizer.bosTokenID ?? 2
+        let userTokens = try tokenizer.encode("user\n")
+        let questionTokens = try tokenizer.encode(question)
+        let modelTokens = try tokenizer.encode("model\n")
+        let segments = VLMPrompt.segments(
+            bos: bos, userTokens: userTokens, questionTokens: questionTokens,
+            modelTokens: modelTokens, image: soft)
+        let flatIDs = VLMPrompt.flatIDs(
+            bos: bos, userTokens: userTokens, questionTokens: questionTokens,
+            modelTokens: modelTokens, imageRows: soft.rows)
+        return (segments, flatIDs, soft.rows, visionSeconds)
+    }
+
+    private static func mlComputeUnits(_ preference: ComputeUnitPreference) -> MLComputeUnits {
+        switch preference {
+        case .all: .all
+        case .cpuAndGPU: .cpuAndGPU
+        case .cpuAndNeuralEngine: .cpuAndNeuralEngine
+        case .cpuOnly: .cpuOnly
+        }
+    }
+
+    private func makeVisionEncoder(computeUnits: MLComputeUnits) throws -> VisionEncoder {
+        guard let visionURL = visionModelURL() else {
+            throw LLMEngineError.modelNotFound(
+                path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
+        }
+        return VisionEncoder(packageURL: visionURL, computeUnits: computeUnits)
+    }
+
+    private func makeVisionEncoder() throws -> VisionEncoder {
+        try makeVisionEncoder(computeUnits: loadedUnits)
+    }
+
+    public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
+        _ = try requireMultimodalChain()
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let encoder = try liveVisionEncoder
+            ?? makeVisionEncoder(computeUnits: Self.mlComputeUnits(liveVisionUnits))
+        try await encoder.loadIfNeeded()
+        liveVisionEncoder = encoder
+        guard let rows = await encoder.softTokenRowCount() else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "the vision encoder does not declare a fixed soft_tokens row count")
+        }
+        let warmUpSeconds = try await encoder.warmUpIfNeeded()
+        return LiveVisionEncoderInfo(
+            imageRows: rows, seconds: (clock.now - t0) / .seconds(1),
+            warmUpSeconds: warmUpSeconds, computeUnits: await encoder.computeUnitsLabel)
+    }
+
+    public func prepareLivePrefill(
+        question: String, imageRows: Int
+    ) throws -> LiveVisionPrefillInfo {
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        let flatIDs = VLMPrompt.flatIDs(
+            bos: tokenizer.bosTokenID ?? 2,
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"),
+            imageRows: imageRows)
+        guard flatIDs.count < mm.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: flatIDs.count, contextLength: mm.contextLength)
+        }
+        let widths = mm.plannedPrefillWidths(promptLength: flatIDs.count, from: 0)
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        try mm.materializePrefill(widths: widths)
+        return LiveVisionPrefillInfo(
+            promptTokens: flatIDs.count, prefillWidths: widths,
+            seconds: (clock.now - t0) / .seconds(1))
+    }
+
+    public func beginLiveVisionSession(question: String) async throws -> LiveVisionPrewarm {
+        let encoder = try await loadLiveVisionEncoder()
+        let prefill = try prepareLivePrefill(question: question, imageRows: encoder.imageRows)
+        return LiveVisionPrewarm(encoder: encoder, prefill: prefill)
+    }
+
+    public func liveVisionEncodeHandle() async throws -> LiveVisionEncodeHandle {
+        _ = try await loadLiveVisionEncoder()
+        guard let encoder = liveVisionEncoder else {
+            throw LLMEngineError.generationFailed(
+                reason: "the live vision encoder is not resident")
+        }
+        return LiveVisionEncodeHandle(encoder: encoder)
+    }
+
+    public func endLiveVisionSession() async {
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
+
+    public func residentPrefillWidths() -> [Int] {
+        multimodalChain?.residentPrefillWidths() ?? []
+    }
+
+    public func generateWithImage(
+        imageURL: URL, question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .url(imageURL), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: nil)
+    }
+
+    public func generateWithImage(
+        frame: LiveFrameImage, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)? = nil,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
+    ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .frame(frame), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: onPhase, onPartial: onPartial)
+    }
+
+    public func generateWithEncodedFrame(
+        _ encoded: LiveEncodedFrame, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)? = nil,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
+    ) async throws -> VLMGenerationInfo {
+        try await runImageTurn(
+            image: .encoded(encoded), question: question, maxNew: maxNew,
+            speculative: useSpec, onPhase: onPhase, onPartial: onPartial)
+    }
+
+    public static let partialUpdateTokens = 4
+
+    private func runImageTurn(
+        image: VLMImageSource, question: String, maxNew: Int, speculative useSpec: Bool,
+        onPhase: (@Sendable (VLMPhase) -> Void)?,
+        onPartial: (@Sendable (String, Int) -> Void)? = nil
+    ) async throws -> VLMGenerationInfo {
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        onPhase?(.encode)
+        let prep = try await prepareVLMSegments(image: image, question: question)
+        guard prep.flatIDs.count < mm.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: prep.flatIDs.count, contextLength: mm.contextLength)
+        }
+        let speculating = (mm as? ChunkedSpeculativeChain).map { useSpec && $0.supportsMTP } ?? false
+        if speculating { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        try mm.reset()
+        onPhase?(.feed)
+        let p0 = clock.now
+        let seed = try mm.prefillSegments(prep.segments)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        let cap = Self.tokenBudget(
+            maxNew: maxNew, used: prep.flatIDs.count, contextLength: mm.contextLength)
+        onPhase?(.generate)
+        let d0 = clock.now
+        var streamed: [Int] = []
+        var streamedAt = 0
+        let onToken: ((Int) -> Void)? = onPartial.map { partial in
+            { token in
+                streamed.append(token)
+                guard streamed.count - streamedAt >= Self.partialUpdateTokens else { return }
+                streamedAt = streamed.count
+                guard let text = try? tokenizer.decode(streamed) else { return }
+                partial(text, streamedAt)
+            }
+        }
+        let out: [Int]
+        if speculating, let chunked = mm as? ChunkedSpeculativeChain {
+            out = try chunked.continueSpeculative(
+                seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos, onToken: onToken)
+        } else {
+            out = try mm.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: onToken)
+        }
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        processedTokens = prep.flatIDs + out
+        return VLMGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: prep.flatIDs.count, imageRows: prep.imageRows,
+            visionEncodeSeconds: prep.visionSeconds, prefillSeconds: prefillSeconds,
+            decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public func continueWithImageContext(
+        question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> VLMGenerationInfo {
+        let mm = try requireMultimodalChain()
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        guard !processedTokens.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "no image context to continue from")
+        }
+        let ids = VLMPrompt.followUpTokens(
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"))
+        let used = mm.position + ids.count
+        guard used < mm.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: used, contextLength: mm.contextLength)
+        }
+        let speculating = (mm as? ChunkedSpeculativeChain).map { useSpec && $0.supportsMTP } ?? false
+        if speculating { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        let p0 = clock.now
+        let seed = try mm.prefill(ids)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        var context = processedTokens + ids
+        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: mm.contextLength)
+        let d0 = clock.now
+        let out: [Int]
+        if speculating, let chunked = mm as? ChunkedSpeculativeChain {
+            out = try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
+        } else {
+            out = try mm.continueGreedy(seed: seed, maxNew: cap, eos: eos, onToken: nil)
+        }
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        context.append(contentsOf: out)
+        processedTokens = context
+        return VLMGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: ids.count, imageRows: 0,
+            visionEncodeSeconds: 0, prefillSeconds: prefillSeconds, decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public nonisolated static var maxAudioSeconds: Double { AudioPreprocess.maxSeconds }
+
+    public nonisolated static var defaultTranscriptionInstruction: String { ASRPrompt.instruction() }
+
+    public func supportsAudioInput() -> Bool {
+        chain is ChunkedSpeculativeChain && audioModelURL() != nil
+    }
+
+    private func audioModelURL() -> URL? {
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "audio_fp16")
+    }
+
+    private static func sidecarModelURL(bundleURL: URL?, name: String) -> URL? {
+        guard let bundleURL else { return nil }
+        let fileManager = FileManager.default
+        let package = bundleURL.appending(path: "\(name).mlpackage")
+        let compiled = bundleURL.appending(path: "\(name).mlmodelc")
+        let hasPackage = fileManager.fileExists(atPath: package.path(percentEncoded: false))
+        let hasCompiled = fileManager.fileExists(atPath: compiled.path(percentEncoded: false))
+        return hasPackage || hasCompiled ? package : nil
+    }
+
+    private func prepareASRSegments(
+        samples: [Float], instruction: String
+    ) async throws -> (segments: [PromptSegment], flatIDs: [Int], audioRows: Int, encodeSeconds: Double) {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        guard let audioURL = audioModelURL() else {
+            throw LLMEngineError.modelNotFound(
+                path: "audio_fp16.mlpackage (absent next to the loaded bundle)")
+        }
+        let encoder = AudioEncoder(packageURL: audioURL)
+        let clock = ContinuousClock()
+        let t0 = clock.now
+        let soft = try await encoder.encode(samples: samples, releaseAfter: true)
+        let encodeSeconds = (clock.now - t0) / .seconds(1)
+        let bos = tokenizer.bosTokenID ?? 2
+        let userTokens = try tokenizer.encode("user\n")
+        let instructionTokens = try tokenizer.encode(instruction)
+        let modelTokens = try tokenizer.encode("model\n")
+        let segments = ASRPrompt.segments(
+            bos: bos, userTokens: userTokens, instructionTokens: instructionTokens,
+            modelTokens: modelTokens, audio: soft)
+        let flatIDs = ASRPrompt.flatIDs(
+            bos: bos, userTokens: userTokens, instructionTokens: instructionTokens,
+            modelTokens: modelTokens, audioRows: soft.rows)
+        return (segments, flatIDs, soft.rows, encodeSeconds)
+    }
+
+    public func generateWithAudio(
+        samples: [Float], instruction: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> ASRGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "audio input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        let prep = try await prepareASRSegments(samples: samples, instruction: instruction)
+        guard prep.flatIDs.count < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: prep.flatIDs.count, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        try chunked.reset()
+        let p0 = clock.now
+        let seed = try chunked.prefillSegments(prep.segments)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        let cap = Self.tokenBudget(
+            maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        processedTokens = prep.flatIDs + out
+        return ASRGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: prep.flatIDs.count, audioRows: prep.audioRows,
+            audioSeconds: Double(samples.count) / Double(AudioPreprocess.sampleRate),
+            audioEncodeSeconds: prep.encodeSeconds, prefillSeconds: prefillSeconds,
+            decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    public func continueWithAudioContext(
+        question: String, maxNew: Int, speculative useSpec: Bool
+    ) async throws -> ASRGenerationInfo {
+        guard let chunked = chain as? ChunkedSpeculativeChain, let tokenizer else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "audio input requires a \(ChunkedSpeculativeChain.format) bundle")
+        }
+        guard !processedTokens.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "no audio context to continue from")
+        }
+        let ids = ASRPrompt.followUpTokens(
+            userTokens: try tokenizer.encode("user\n"),
+            questionTokens: try tokenizer.encode(question),
+            modelTokens: try tokenizer.encode("model\n"))
+        let used = chunked.position + ids.count
+        guard used < chunked.contextLength else {
+            throw LLMEngineError.contextOverflow(
+                promptTokens: used, contextLength: chunked.contextLength)
+        }
+        let spec = useSpec && chunked.supportsMTP
+        if spec { try await installMTPIfNeeded() }
+        let eos = Set(tokenizer.eosTokenIDs)
+        let clock = ContinuousClock()
+        let p0 = clock.now
+        let seed = try chunked.prefillScheduled(ids)
+        let prefillSeconds = (clock.now - p0) / .seconds(1)
+        var context = processedTokens + ids
+        let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: chunked.contextLength)
+        let d0 = clock.now
+        let out = spec
+            ? try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
+            : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
+        let decodeSeconds = (clock.now - d0) / .seconds(1)
+        context.append(contentsOf: out)
+        processedTokens = context
+        return ASRGenerationInfo(
+            text: (try? tokenizer.decode(out)) ?? "", generatedTokens: out.count,
+            promptTokens: ids.count, audioRows: 0, audioSeconds: 0, audioEncodeSeconds: 0,
+            prefillSeconds: prefillSeconds, decodeSeconds: decodeSeconds,
+            decodeTokensPerSecond: decodeSeconds > 0 ? Double(out.count) / decodeSeconds : 0,
+            peakMemoryBytes: Self.memoryFootprint())
+    }
+
+    private static func tokenBudget(maxNew: Int, used: Int, contextLength: Int) -> Int {
+        let budget = max(0, contextLength - used - 8)
+        return maxNew > 0 ? min(maxNew, budget) : budget
     }
 
     func setPromptTemplate(prefix: String, suffix: String) {

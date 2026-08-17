@@ -130,6 +130,32 @@ Select the **`DemoApp`** (macOS) scheme and Run. On the **Models** screen, *Gemm
 switches to the conversation screen. The entry is macOS-only: at 6.5 GB it does not fit an iPhone's
 memory budget, and the graph needs the GPU.
 
+## 7. Images and Live Camera (macOS)
+
+The Hugging Face repo carries `vision_fp16.mlmodelc` alongside the language chunks, so an in-app
+download installs it and image support turns itself on. The engine looks for the encoder **inside the
+bundle directory**, next to `manifest.json`, and accepts either the compiled `vision_fp16.mlmodelc` or
+a `vision_fp16.mlpackage`; the compiled form is what ships, because compiling on first load costs a
+minute the compiled form does not. If you side-load a bundle by hand, put the encoder at that same
+level.
+
+It must be the E4B encoder — it emits 2,560-wide soft tokens, where the E2B encoder emits 1,536 — and
+the app refuses a mismatched one rather than producing garbage. The two towers are otherwise the same
+weights: 658 of 658 tensors are bit-identical, and only the projection into the language model differs.
+
+1. **Chat**: load the E4B bundle, attach an image, and ask about it. A 768x768 image costs 256 of the
+   2,048 context tokens.
+2. **Live Camera**: press **Start**. When more than one vision-capable bundle is installed, a **Model**
+   menu appears above the status line — pick `gemma-4-e4b-speculative` before pressing Start.
+3. **Switching back to E2B**: pick it in that same menu. The choice is remembered across launches, and
+   the menu only lists bundles that run on the current platform, so E4B never appears on iOS.
+
+On an M4 Max, a warm Live Camera cycle takes **1.44 s** in English and **1.63 s** in Japanese, and a
+single-shot image question answers in **0.75 s** to first token at 29.8–34.3 tok/s. The vision encoder
+runs on the GPU (`cpuAndGPU`) while the language chain keeps the full compute-unit set; on the GPU the
+encode takes 93–94 ms against 313–320 ms on the CPU, a 3.4x difference. There is no E4B audio
+encoder — audio is E2B-only.
+
 ---
 
 ## Notes

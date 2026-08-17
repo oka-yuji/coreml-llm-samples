@@ -43,6 +43,8 @@ targets:
         GENERATE_INFOPLIST_FILE: "YES"
         INFOPLIST_KEY_CFBundleDisplayName: Core ML Demos
         INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.developer-tools
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Records a short clip so the on-device model can transcribe it.
+        INFOPLIST_KEY_NSCameraUsageDescription: Reads camera frames so the on-device model can describe what is in view.
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
         CODE_SIGN_STYLE: Manual
         CODE_SIGN_IDENTITY: "-"
@@ -70,8 +72,9 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "26.0"
         TARGETED_DEVICE_FAMILY: "1,2"
         GENERATE_INFOPLIST_FILE: "YES"
+        INFOPLIST_FILE: DemoApp-iOS-Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: Core ML Demos
-        INFOPLIST_KEY_UIFileSharingEnabled: "YES"
+        INFOPLIST_KEY_NSMicrophoneUsageDescription: Records a short clip so the on-device model can transcribe it.
         INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace: "YES"
         INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"

@@ -23,6 +23,23 @@ verification discipline is the house style — the receipts are in each model ca
 > **Gemma 4 E2B** ships lossless prompt-lookup speculation verified **byte-identical on an iPhone 15
 > (A16) Neural Engine**, plus cross-machine KV restore — details and the memory ledger are in its card.
 
+### Modalities
+
+Text is the baseline for every model. Image and audio support arrives as separate encoders inside the
+same Hugging Face repo, so downloading a bundle brings whatever that bundle supports. **Download**
+below is the full size with every encoder included.
+
+| Model | Download | Text | Image in chat | Audio in chat | Live Camera |
+|---|---|---|---|---|---|
+| Gemma 4 12B IT — 128K | 10.2 GB | macOS | — | — | — |
+| Gemma 4 E2B Speculative | 5.9 GB | iOS · macOS | iOS · macOS | iOS · macOS | iOS · macOS |
+| Gemma 4 E4B Speculative | 6.8 GB | macOS | macOS | — | macOS |
+
+E4B is macOS-only throughout: its language weights alone exceed an iPhone's memory budget. Its image
+encoder is the same tower as E2B's — **658 of 658 tensors bit-identical** — differing only in the
+projection width that feeds the language model, so each bundle carries its own copy and the app
+refuses a mismatched one. Audio is E2B-only; there is no E4B audio encoder.
+
 ---
 
 ## Quick start
@@ -48,8 +65,9 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 ### Or open the Xcode project
 
 Prefer a GUI? Open `Examples/DemoApp/DemoApp.xcodeproj` in Xcode and press Run. `DemoApp` is a demo
-list — a sidebar of demos with the selected one shown on the right. It has two demos, **Chat** and
-**Models**, with Chat selected on launch; more models and modalities each add a row and a screen here.
+list — a sidebar of demos with the selected one shown on the right. It has three demos — **Chat**,
+**Models**, and **Live Camera** — with Chat selected on launch; more models and modalities each add a
+row and a screen here.
 
 The **Models** screen downloads model bundles in-app from Hugging Face, with progress, cancel, and
 delete, and loads a finished bundle straight into Chat. Every catalog model is a public repo, so the
@@ -61,9 +79,20 @@ turn's tokens/second and time-to-first-token. The first reply of a run pays the 
 specialization cost described under **First run is slow** in the
 [model card](samples/gemma-4-12b-128k.md); later replies are fast.
 
-`DemoApp` is a small macOS 26 SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries
-as the CLI, so it runs the identical engine. It is a local development sample with App Sandbox
-disabled so it can open a bundle from any path, not an App Store build.
+Chat also takes attachments when the loaded bundle carries the matching encoder: attach an image and
+ask about it, or record a clip and have it transcribed. The composer only offers what the bundle
+supports, so the buttons are absent rather than broken. An image costs 256 of the 2,048 context
+tokens and a 30-second recording costs up to 750, which is why an attachment turn is best kept short.
+
+The **Live Camera** demo points the camera at the world and captions what it sees, cycle after cycle,
+in English or Japanese. Each cycle is independent — the context is reset every time, so a caption
+never drifts on the last one — and captions stream in as they generate. It needs a bundle with an
+image encoder; when more than one is installed a **Model** menu appears above the status line.
+
+`DemoApp` is a small SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries as the
+CLI, so it runs the identical engine. It builds for macOS 26 and iOS 26 from one source tree, with
+two schemes: `DemoApp` and `DemoApp-iOS`. It is a local development sample with App Sandbox disabled
+so it can open a bundle from any path, not an App Store build.
 
 To build it from the command line instead of Xcode, pin the architecture:
 `xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
@@ -77,7 +106,7 @@ To build it from the command line instead of Xcode, pin the architecture:
 README.md / README.ja.md   this index — the model table + quick start
 samples/                   one self-contained model card per model (start here to pick a model)
 Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
-Examples/DemoApp/          macOS SwiftUI demo app — a sidebar of demos (Chat, Models); links the Sources/ runtime
+Examples/DemoApp/          SwiftUI demo app (macOS + iOS) — a sidebar of demos (Chat, Models, Live Camera)
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md
 LICENSE                    MIT (covers the code)

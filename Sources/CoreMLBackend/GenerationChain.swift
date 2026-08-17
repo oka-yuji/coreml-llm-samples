@@ -15,6 +15,45 @@ protocol GenerationChain: AnyObject {
     func decodeStep(tokenID: Int) throws -> Int
 }
 
+protocol MultimodalChain: GenerationChain {
+
+    var hiddenSize: Int { get }
+
+    func prefillSegments(_ segments: [PromptSegment]) throws -> Int
+
+    func continueGreedy(
+        seed: Int, maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)?
+    ) throws -> [Int]
+
+    func plannedPrefillWidths(promptLength: Int, from startPosition: Int) -> [Int]
+
+    func materializePrefill(widths: [Int]) throws
+
+    func residentPrefillWidths() -> [Int]
+}
+
+extension MultimodalChain {
+    func continueGreedy(
+        seed: Int, maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)? = nil
+    ) throws -> [Int] {
+        var out: [Int] = []
+        var next = seed
+        while out.count < maxNew {
+            try Task.checkCancellation()
+            if eos.contains(next) { break }
+            out.append(next)
+            onToken?(next)
+            if out.count >= maxNew { break }
+            next = try decodeStep(tokenID: next)
+        }
+        return out
+    }
+}
+
+extension ChunkedSpeculativeChain: MultimodalChain {}
+
+extension CoreMLChainV2: MultimodalChain {}
+
 struct MTPRound {
 
     let emitted: [Int]

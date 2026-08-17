@@ -245,13 +245,18 @@ final class ChunkedSpeculativeChain {
         return try lmhead(hiddenBuffer)
     }
 
-    private func runDecodeChunks(tokenID: Int) throws {
+    private func runDecodeChunks(tokenID: Int, softRow: SoftRowRef? = nil) throws {
         guard position < CTX else {
             throw LLMEngineError.generationFailed(reason: "context length \(CTX) exceeded")
         }
         fillDecodeHost(pos: position)
-        embedsBuffer.withF16 { embedSidecar.read(row: tokenID, into: $0.baseAddress!) }
-        tokidBuffer.withF16 { pleSidecar.read(row: tokenID, into: $0.baseAddress!) }
+        if let ov = softRow {
+            embedsBuffer.withF16 { ov.tokens.readRow(ov.row, into: $0.baseAddress!) }
+            tokidBuffer.withF16 { pleSidecar.read(row: 0, into: $0.baseAddress!) }
+        } else {
+            embedsBuffer.withF16 { embedSidecar.read(row: tokenID, into: $0.baseAddress!) }
+            tokidBuffer.withF16 { pleSidecar.read(row: tokenID, into: $0.baseAddress!) }
+        }
         copyFlat(from: embedsBuffer, to: hiddenBuffer, count: H)
 
         for (ci, bounds) in config.chunkBounds.enumerated() {
@@ -286,7 +291,12 @@ final class ChunkedSpeculativeChain {
     }
 
     func prefillScheduled(_ ids: [Int]) throws -> Int {
+        try feedScheduled(ids: ids, rowRefs: Array(repeating: nil, count: ids.count))
+    }
+
+    private func feedScheduled(ids: [Int], rowRefs: [SoftRowRef?]) throws -> Int {
         guard !ids.isEmpty else { throw LLMEngineError.generationFailed(reason: "empty prompt") }
+        precondition(rowRefs.count == ids.count)
         if blockScheduledPrefill {
             throw LLMEngineError.generationFailed(
                 reason: "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded")
@@ -295,32 +305,73 @@ final class ChunkedSpeculativeChain {
         var idx = 0
         var last = 0
         while idx < ids.count {
+            try Task.checkCancellation()
             let remaining = ids.count - idx
             if position == 0 && idx == 0 && remaining >= config.plainN {
                 let block = Array(ids[idx..<(idx + config.plainN)])
-                let hidden = try runPrefillPlain(block, N: config.plainN)
+                let hidden = try runPrefillPlain(
+                    block, N: config.plainN, softRows: softSlice(rowRefs, idx, idx + config.plainN))
                 last = try lmheadRow(hidden, row: config.plainN - 1)
                 idx += config.plainN
             } else if let N = offsetNs.first(where: { remaining >= $0 && position + $0 <= CTX }) {
                 let block = Array(ids[idx..<(idx + N)])
-                let hidden = try runPrefillOffset(block, p: position, N: N)
+                let hidden = try runPrefillOffset(
+                    block, p: position, N: N, softRows: softSlice(rowRefs, idx, idx + N))
                 last = try lmheadRow(hidden, row: N - 1)
                 idx += N
             } else {
-                for i in idx..<ids.count { last = try decodeStep(tokenID: ids[i]) }
+                for i in idx..<ids.count {
+                    try Task.checkCancellation()
+                    try runDecodeChunks(tokenID: ids[i], softRow: rowRefs[i])
+                    last = try lmhead(hiddenBuffer)
+                }
                 idx = ids.count
             }
         }
         return last
     }
 
+    func plannedPrefillWidths(promptLength: Int, from startPosition: Int = 0) -> [Int] {
+        let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
+        var widths: Set<Int> = []
+        var pos = startPosition
+        var idx = 0
+        while idx < promptLength {
+            let remaining = promptLength - idx
+            if pos == 0 && idx == 0 && remaining >= config.plainN {
+                widths.insert(config.plainN)
+                idx += config.plainN
+                pos = config.plainN
+            } else if let N = offsetNs.first(where: { remaining >= $0 && pos + $0 <= CTX }) {
+                widths.insert(N)
+                idx += N
+                pos += N
+            } else {
+                break
+            }
+        }
+        return widths.sorted(by: >)
+    }
+
+    func materializePrefill(widths: [Int]) throws {
+        for n in widths {
+            _ = try prefillChain(N: n)
+            _ = try prefillBuffers(N: n)
+        }
+    }
+
+    private func softSlice(_ rowRefs: [SoftRowRef?], _ lo: Int, _ hi: Int) -> [SoftRowRef?]? {
+        for k in lo..<hi where rowRefs[k] != nil { return Array(rowRefs[lo..<hi]) }
+        return nil
+    }
+
     @discardableResult
-    func runPrefillPlain(_ ids: [Int], N: Int) throws -> MLMultiArray {
+    func runPrefillPlain(_ ids: [Int], N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
         let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = ids.count
         precondition(L <= N)
-        fillTokenInputs(bufs: bufs, ids: ids, N: N)
+        fillTokenInputs(bufs: bufs, ids: ids, N: N, softRows: softRows)
         writeRoPE(cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { $0 })
         writeRoPE(cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { $0 })
         fillPlainMask(bufs.maskPlainS, sliding: true, N: N, L: L)
@@ -361,12 +412,12 @@ final class ChunkedSpeculativeChain {
     }
 
     @discardableResult
-    func runPrefillOffset(_ block: [Int], p: Int, N: Int) throws -> MLMultiArray {
+    func runPrefillOffset(_ block: [Int], p: Int, N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
         let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = block.count
         precondition(L <= N && p + L <= CTX)
-        fillTokenInputs(bufs: bufs, ids: block, N: N)
+        fillTokenInputs(bufs: bufs, ids: block, N: N, softRows: softRows)
         writeRoPE(cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { p + $0 })
         writeRoPE(cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { p + $0 })
         fillOffsetOnehot(bufs.onehot, p: p, N: N, L: L)
@@ -499,15 +550,25 @@ final class ChunkedSpeculativeChain {
         }
     }
 
-    private func fillTokenInputs(bufs: PrefillBuffers, ids: [Int], N: Int) {
+    private func fillTokenInputs(bufs: PrefillBuffers, ids: [Int], N: Int, softRows: [SoftRowRef?]? = nil) {
+        precondition(softRows == nil || softRows!.count == ids.count)
         bufs.ie.withF16 { buf in
             for k in 0..<(N * H) { buf[k] = 0 }
-            for (i, t) in ids.enumerated() { embedSidecar.read(row: t, into: buf.baseAddress! + i * H) }
+            for (i, t) in ids.enumerated() {
+                if let ov = softRows?[i] {
+                    ov.tokens.readRow(ov.row, into: buf.baseAddress! + i * H)
+                } else {
+                    embedSidecar.read(row: t, into: buf.baseAddress! + i * H)
+                }
+            }
         }
         let plecols = numLayers * PLE
         bufs.tk.withF16 { buf in
             for k in 0..<(N * plecols) { buf[k] = 0 }
-            for (i, t) in ids.enumerated() { pleSidecar.read(row: t, into: buf.baseAddress! + i * plecols) }
+            for (i, t) in ids.enumerated() {
+                let row = (softRows?[i] != nil) ? MultimodalSlot.perLayerInputRow : t
+                pleSidecar.read(row: row, into: buf.baseAddress! + i * plecols)
+            }
         }
     }
 
@@ -611,34 +672,115 @@ extension ChunkedSpeculativeChain {
 
     func residentPrefillWidths() -> [Int] { prefillModels.keys.sorted() }
 
-    func continueGreedy(seed: Int, maxNew: Int, eos: Set<Int>) throws -> [Int] {
+    func continueGreedy(
+        seed: Int, maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)? = nil
+    ) throws -> [Int] {
         var out: [Int] = []
         var next = seed
         while out.count < maxNew {
+            try Task.checkCancellation()
             if eos.contains(next) { break }
             out.append(next)
+            onToken?(next)
             if out.count >= maxNew { break }
             next = try decodeStep(tokenID: next)
         }
         return out
     }
 
-    func continueSpeculative(seed: Int, context: [Int], maxNew: Int, eos: Set<Int>) throws -> [Int] {
+    func continueSpeculative(
+        seed: Int, context: [Int], maxNew: Int, eos: Set<Int>, onToken: ((Int) -> Void)? = nil
+    ) throws -> [Int] {
         var processed = context
         var next = seed
         var out: [Int] = []
         loop: while out.count < maxNew {
+            try Task.checkCancellation()
             if eos.contains(next) { break }
             let round = try mtpRound(prediction: next, context: processed)
             processed.append(contentsOf: round.emitted)
             for token in round.emitted {
                 if eos.contains(token) { break loop }
                 out.append(token)
+                onToken?(token)
                 if out.count >= maxNew { break loop }
             }
             next = round.next
         }
         return out
+    }
+}
+
+final class SoftTokenRows: Sendable {
+    let rows: Int
+    let hidden: Int
+    private let data: [Float16]
+
+    init(rows: Int, hidden: Int, data: [Float16]) {
+        precondition(data.count == rows * hidden,
+                     "SoftTokenRows: data.count \(data.count) != rows*hidden \(rows * hidden)")
+        self.rows = rows
+        self.hidden = hidden
+        self.data = data
+    }
+
+    func readRow(_ r: Int, into dst: UnsafeMutablePointer<Float16>) {
+        precondition(r >= 0 && r < rows)
+        data.withUnsafeBufferPointer { dst.update(from: $0.baseAddress! + r * hidden, count: hidden) }
+    }
+}
+
+enum MultimodalSlot {
+    static let imagePlaceholderID = 258880
+    static let audioPlaceholderID = 258881
+    static let perLayerInputRow = 0
+}
+
+enum PromptSegment {
+    case tokens([Int])
+    case image(SoftTokenRows)
+    case audio(SoftTokenRows)
+}
+
+struct SoftRowRef {
+    let tokens: SoftTokenRows
+    let row: Int
+}
+
+extension ChunkedSpeculativeChain {
+    static var imagePlaceholderID: Int { MultimodalSlot.imagePlaceholderID }
+    static var audioPlaceholderID: Int { MultimodalSlot.audioPlaceholderID }
+
+    var hiddenSize: Int { H }
+
+    private func flattenSegments(_ segments: [PromptSegment]) -> (ids: [Int], rowRefs: [SoftRowRef?]) {
+        var ids: [Int] = []
+        var rowRefs: [SoftRowRef?] = []
+        func appendSoft(_ soft: SoftTokenRows, placeholder: Int, kind: String) {
+            precondition(soft.hidden == H, "\(kind) soft tokens hidden \(soft.hidden) != chain H \(H)")
+            for r in 0..<soft.rows {
+                ids.append(placeholder)
+                rowRefs.append(SoftRowRef(tokens: soft, row: r))
+            }
+        }
+        for seg in segments {
+            switch seg {
+            case .tokens(let ts):
+                for t in ts { ids.append(t); rowRefs.append(nil) }
+            case .image(let soft):
+                appendSoft(soft, placeholder: Self.imagePlaceholderID, kind: "image")
+            case .audio(let soft):
+                appendSoft(soft, placeholder: Self.audioPlaceholderID, kind: "audio")
+            }
+        }
+        return (ids, rowRefs)
+    }
+
+    @discardableResult
+    func prefillSegments(_ segments: [PromptSegment]) throws -> Int {
+        let (ids, rowRefs) = flattenSegments(segments)
+        guard !ids.isEmpty else { throw LLMEngineError.generationFailed(reason: "empty prompt (segments)") }
+        return try feedScheduled(ids: ids, rowRefs: rowRefs)
     }
 }
 

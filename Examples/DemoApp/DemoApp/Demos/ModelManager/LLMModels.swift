@@ -77,22 +77,22 @@ enum LLMModels {
             displayName: "Gemma 4 E2B Speculative (pal6)",
             source: .huggingFace(
                 repoID: "okayuji/Gemma-4-E2B-it-coreml-speculative",
-                revision: "6b95bf36211b0a21bf35af8721960e01409ae5b9",
+                revision: "57a1ad919d1313f8e9e231238996fa599ab32a10",
                 folderName: "gemma-4-e2b-speculative-pal6"),
             supportedPlatforms: [.iOS, .macOS],
             verifiedOn: "iPhone 15, iOS 26",
-            approxSizeText: "4.9 GB"
+            approxSizeText: "5.9 GB"
         ),
         LLMModel(
             id: "gemma-4-e4b-speculative",
             displayName: "Gemma 4 E4B Speculative (Mac GPU)",
             source: .huggingFace(
                 repoID: "okayuji/Gemma-4-E4B-it-coreml-speculative",
-                revision: "4ce978f9c5ba47c3c0ffce366d9ef3e73039f96e",
+                revision: "9ccbd9854795603b7442744915fac61d564312b2",
                 folderName: "gemma-4-e4b-speculative"),
             supportedPlatforms: [.macOS],
             verifiedOn: "M4 Max, macOS 26",
-            approxSizeText: "6.5 GB"
+            approxSizeText: "6.8 GB"
         )
     ]
 

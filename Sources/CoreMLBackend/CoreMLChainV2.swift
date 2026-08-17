@@ -568,7 +568,15 @@ final class CoreMLChainV2 {
 
     @discardableResult
     func prefill(_ promptIDs: [Int], blockSize: Int) throws -> Int {
+        try prefillRows(promptIDs, blockSize: blockSize, softRows: nil)
+    }
+
+    @discardableResult
+    private func prefillRows(
+        _ promptIDs: [Int], blockSize: Int, softRows: [SoftRowRef?]?
+    ) throws -> Int {
         precondition(!promptIDs.isEmpty, "prefill needs at least 1 token")
+        precondition(softRows == nil || softRows!.count == promptIDs.count)
 
         let start = position
         let ctxLimit = config.effectiveContextLength
@@ -590,7 +598,9 @@ final class CoreMLChainV2 {
                 let toBoundary = config.windowSlide - (base % config.windowSlide)
                 s = min(s, toBoundary)
             }
-            lastHidden = try forwardChunks(tokens: Array(promptIDs[pos..<pos + s]), basePosition: base)
+            lastHidden = try forwardChunks(
+                tokens: Array(promptIDs[pos..<pos + s]), basePosition: base,
+                softRows: softSlice(softRows, pos, pos + s))
             lastRow = s - 1
             pos += s
         }
@@ -624,13 +634,28 @@ final class CoreMLChainV2 {
         return next
     }
 
-    private func forwardChunks(tokens: [Int], basePosition: Int) throws -> MLMultiArray {
+    private func forwardChunks(
+        tokens: [Int], basePosition: Int, softRows: [SoftRowRef?]? = nil
+    ) throws -> MLMultiArray {
         let s = tokens.count
         let hin = try hiddenBuffer(for: s)
 
-        hin.withF16 { buf in
-            for (r, tok) in tokens.enumerated() {
-                embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)
+        if let softRows {
+            precondition(softRows.count == s)
+            hin.withF16 { buf in
+                for (r, tok) in tokens.enumerated() {
+                    if let ov = softRows[r] {
+                        ov.tokens.readRow(ov.row, into: buf.baseAddress! + r * config.H)
+                    } else {
+                        embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)
+                    }
+                }
+            }
+        } else {
+            hin.withF16 { buf in
+                for (r, tok) in tokens.enumerated() {
+                    embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)
+                }
             }
         }
         if config.isLadder {
@@ -641,11 +666,13 @@ final class CoreMLChainV2 {
             let activeHost = promoted ? hostCtx128k! : hostCtx32k!
             let feats = try activeHost.filled(base: basePosition, count: s)
             return try runChunks(
-                chunks: activeChunks, hidden: hin, feats: feats, splitOnehot: true, tokens: tokens)
+                chunks: activeChunks, hidden: hin, feats: feats, splitOnehot: true, tokens: tokens,
+                softRows: softRows)
         }
         let feats = try host.filled(base: basePosition, count: s)
         return try runChunks(
-            chunks: chunks, hidden: hin, feats: feats, splitOnehot: config.usesSplitOnehot, tokens: tokens)
+            chunks: chunks, hidden: hin, feats: feats, splitOnehot: config.usesSplitOnehot, tokens: tokens,
+            softRows: softRows)
     }
 
     private func forwardChunksTree(
@@ -667,7 +694,8 @@ final class CoreMLChainV2 {
 
     private func runChunks(
         chunks activeChunks: [MLModel], hidden hin: MLMultiArray,
-        feats: HostInputsV2.Buffers, splitOnehot: Bool, tokens: [Int]
+        feats: HostInputsV2.Buffers, splitOnehot: Bool, tokens: [Int],
+        softRows: [SoftRowRef?]? = nil
     ) throws -> MLMultiArray {
         let inputsEmbeds = hin
         var hidden: MLMultiArray = hin
@@ -688,7 +716,8 @@ final class CoreMLChainV2 {
             }
             if usesPLE {
                 dictionary["inputs_embeds"] = inputsEmbeds
-                dictionary["tokid"] = try fillTokid(chunkIndex: ci, tokens: tokens)
+                dictionary["tokid"] = try fillTokid(
+                    chunkIndex: ci, tokens: tokens, softRows: softRows)
             }
             if hasSharedKV && needsSharedKV[ci] {
                 dictionary["sks"] = sharedKV["sks"]
@@ -910,12 +939,25 @@ final class CoreMLChainV2 {
         return b
     }
 
-    private func fillTokid(chunkIndex ci: Int, tokens: [Int]) throws -> MLMultiArray {
+    private func fillTokid(
+        chunkIndex ci: Int, tokens: [Int], softRows: [SoftRowRef?]? = nil
+    ) throws -> MLMultiArray {
         let a = config.chunkBounds[ci][0]
         let b = config.chunkBounds[ci][1]
         let nLayers = b - a
         let ple = config.pleDim
         let buf = try tokidBuffer(chunkIndex: ci, s: tokens.count, nLayers: nLayers)
+        if let softRows {
+            buf.withF16 { dst in
+                for (r, tok) in tokens.enumerated() {
+                    let row = (softRows[r] != nil) ? MultimodalSlot.perLayerInputRow : tok
+                    pleSidecar!.read(
+                        row: row, offset: a * ple, count: nLayers * ple,
+                        into: dst.baseAddress! + r * nLayers * ple)
+                }
+            }
+            return buf
+        }
         buf.withF16 { dst in
             for (r, tok) in tokens.enumerated() {
                 pleSidecar!.read(
@@ -951,6 +993,82 @@ final class CoreMLChainV2 {
             }
         }
     }
+}
+
+extension CoreMLChainV2 {
+    var hiddenSize: Int { config.H }
+
+    func softSlice(_ softRows: [SoftRowRef?]?, _ lo: Int, _ hi: Int) -> [SoftRowRef?]? {
+        guard let softRows else { return nil }
+        for k in lo..<hi where softRows[k] != nil { return Array(softRows[lo..<hi]) }
+        return nil
+    }
+
+    private func flattenSegments(_ segments: [PromptSegment]) -> (ids: [Int], rowRefs: [SoftRowRef?]) {
+        var ids: [Int] = []
+        var rowRefs: [SoftRowRef?] = []
+        func appendSoft(_ soft: SoftTokenRows, placeholder: Int, kind: String) {
+            precondition(soft.hidden == config.H,
+                         "\(kind) soft tokens hidden \(soft.hidden) != chain H \(config.H)")
+            for r in 0..<soft.rows {
+                ids.append(placeholder)
+                rowRefs.append(SoftRowRef(tokens: soft, row: r))
+            }
+        }
+        for seg in segments {
+            switch seg {
+            case .tokens(let ts):
+                for t in ts { ids.append(t); rowRefs.append(nil) }
+            case .image(let soft):
+                appendSoft(soft, placeholder: MultimodalSlot.imagePlaceholderID, kind: "image")
+            case .audio(let soft):
+                appendSoft(soft, placeholder: MultimodalSlot.audioPlaceholderID, kind: "audio")
+            }
+        }
+        return (ids, rowRefs)
+    }
+
+    @discardableResult
+    func prefillSegments(_ segments: [PromptSegment], blockSize: Int) throws -> Int {
+        let (ids, rowRefs) = flattenSegments(segments)
+        guard !ids.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "empty prompt (segments)")
+        }
+        return try prefillRows(ids, blockSize: blockSize, softRows: rowRefs)
+    }
+
+    @discardableResult
+    func prefillSegments(_ segments: [PromptSegment]) throws -> Int {
+        try prefillSegments(segments, blockSize: config.maxS)
+    }
+
+    func plannedPrefillWidths(promptLength: Int, from startPosition: Int = 0) -> [Int] {
+        let block = max(1, config.maxS)
+        var widths: Set<Int> = []
+        var pos = 0
+        while pos < promptLength {
+            var s = min(block, promptLength - pos)
+            if config.usesSplitOnehot {
+                let base = startPosition + pos
+                s = min(s, config.windowSlide - (base % config.windowSlide))
+            }
+            widths.insert(s)
+            pos += s
+        }
+        return widths.sorted(by: >)
+    }
+
+    func materializePrefill(widths: [Int]) throws {
+        for n in widths + [1] {
+            _ = try hiddenBuffer(for: n)
+            guard usesPLE else { continue }
+            for (ci, bounds) in config.chunkBounds.enumerated() {
+                _ = try tokidBuffer(chunkIndex: ci, s: n, nLayers: bounds[1] - bounds[0])
+            }
+        }
+    }
+
+    func residentPrefillWidths() -> [Int] { hiddenBuffers.keys.sorted() }
 }
 
 struct StateBundleIdentity: Codable, Equatable, Sendable {

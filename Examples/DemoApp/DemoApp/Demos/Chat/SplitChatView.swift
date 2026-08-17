@@ -191,7 +191,21 @@ struct SplitChatView: View {
             if vm.isConversationFull {
                 contextFullBanner
             }
+            if let url = vm.attachedImageURL {
+                ImageAttachmentChip(url: url)
+            }
+            if vm.isRecording || vm.attachedAudio != nil {
+                AudioAttachmentChip()
+            }
             HStack(alignment: .bottom, spacing: 8) {
+                if vm.supportsImageAttachment {
+                    AttachImageButton()
+                        .padding(.bottom, 4)
+                }
+                if vm.supportsAudioAttachment {
+                    RecordAudioButton()
+                        .padding(.bottom, 4)
+                }
                 TextField("Message", text: $vm.input, axis: .vertical)
                     .textFieldStyle(.plain)
                     .lineLimit(1...6)
@@ -255,7 +269,15 @@ private struct MessageRow: View {
             Text(isUser ? "You" : "Assistant")
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(.secondary)
-            Text(message.text.isEmpty && !isUser ? " " : message.text)
+            if let url = message.attachedImageURL {
+                ImageThumbnail(url: url, side: 120)
+            }
+            if let seconds = message.attachedAudioSeconds {
+                Label(String(format: "Audio %.1fs", seconds), systemImage: "waveform")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Text(message.text.isEmpty ? " " : message.text)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(10)
