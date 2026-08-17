@@ -34,6 +34,8 @@ struct MetricsRecord: Codable {
     var cycleSeconds: Double?
     var cycleIndex: Int?
     var captionLanguage: String?
+    var captionMode: String?
+    var imageRows: Int?
     var decodeTokPerSec: Double?
     var perTokenMillis: [Double]?
     var perTokenMinMs: Double?
@@ -132,6 +134,8 @@ enum MetricsLog {
         record.bundleFolder = bundleFolder
         record.cycleIndex = report.index
         record.captionLanguage = report.language.rawValue
+        record.captionMode = report.mode.rawValue
+        record.imageRows = report.imageRows
         record.promptTokens = report.promptTokens
         record.generatedTokens = report.generatedTokens
         record.captureSeconds = report.captureSeconds

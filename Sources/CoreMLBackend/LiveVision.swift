@@ -16,8 +16,21 @@ public enum VLMPhase: String, Sendable {
     case generate
 }
 
+public enum LiveVisionBudget: String, Sendable, CaseIterable {
+    case speed
+    case quality
+
+    public var sidecarName: String {
+        switch self {
+        case .speed: return "vision_fp16_b70"
+        case .quality: return "vision_fp16"
+        }
+    }
+}
+
 public struct LiveVisionEncoderInfo: Sendable {
     public let imageRows: Int
+    public let inputSide: Int
     public let seconds: Double
     public let warmUpSeconds: Double
     public let computeUnits: String
@@ -59,9 +72,9 @@ public struct LiveVisionPrewarm: Sendable {
     public var summary: String {
         String(
             format: "vision encoder %.2fs on %@ (first predict %.2fs), prefill widths %@ %.2fs, "
-                + "prompt %d tokens (%d image rows)",
+                + "prompt %d tokens (%d image rows from %dx%d)",
             encoder.seconds, encoder.computeUnits, encoder.warmUpSeconds,
             "\(prefill.prefillWidths)", prefill.seconds,
-            prefill.promptTokens, encoder.imageRows)
+            prefill.promptTokens, encoder.imageRows, encoder.inputSide, encoder.inputSide)
     }
 }

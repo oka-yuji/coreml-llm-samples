@@ -15,6 +15,7 @@ enum LiveCameraSelfTest {
         var cancelPhase: LiveCyclePhase
         var cancelWarmupCycles: Int
         var language: LiveCaptionLanguage
+        var mode: LiveCaptionMode?
         var streaming: Bool
         var prefetch: Bool
         var visionComputeUnits: ComputeUnitPreference?
@@ -44,6 +45,7 @@ enum LiveCameraSelfTest {
             cancelPhase: value("--cancel-phase").flatMap { LiveCyclePhase(rawValue: $0) } ?? .feed,
             cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0,
             language: value("--lang").flatMap { LiveCaptionLanguage(rawValue: $0) } ?? .english,
+            mode: value("--mode").flatMap { LiveCaptionMode(rawValue: $0) },
             streaming: !args.contains("--no-stream"),
             prefetch: args.contains("--prefetch"),
             visionComputeUnits: value("--vision-cu")
@@ -77,7 +79,7 @@ enum LiveCameraSelfTest {
         }
 
         let chat = ChatViewModel()
-        chat.maxTokens = opts.language.maxNewTokens
+        chat.maxTokens = opts.language.maxNewTokens(for: opts.mode ?? .quality)
         if let model = opts.model.map(SelfTest.resolve) {
             errln("[live] preloading \(model)")
             await chat.loadModel(path: model)
@@ -104,9 +106,22 @@ enum LiveCameraSelfTest {
         if let units = opts.visionComputeUnits {
             await handle.engine.setLiveVisionComputeUnits(units)
         }
+        let budgets = await handle.engine.availableLiveVisionBudgets()
+        if let requested = opts.mode, !budgets.contains(requested.budget) {
+            errln("live-selftest: mode \(requested.rawValue) needs "
+                + "\(requested.budget.sidecarName) next to the bundle "
+                + "(available \(budgets.map(\.rawValue)))")
+            return 1
+        }
+        let mode = opts.mode ?? (budgets.contains(.speed) ? .speed : .quality)
+        chat.maxTokens = opts.language.maxNewTokens(for: mode)
+        await handle.engine.setLiveVisionBudget(mode.budget)
         errln("[live] model=\(chat.modelName) speculative=\(handle.speculative) cycles=\(opts.cycles) "
             + "source=\(opts.useCamera ? "camera" : "\(urls.count) images") "
-            + "lang=\(opts.language.rawValue) streaming=\(opts.streaming) "
+            + "lang=\(opts.language.rawValue) mode=\(mode.rawValue)"
+            + "\(opts.mode == nil ? " (auto)" : "") "
+            + "maxNew=\(opts.language.maxNewTokens(for: mode)) "
+            + "streaming=\(opts.streaming) "
             + "prefetch=\(opts.prefetch) "
             + "visionCU=\(opts.visionComputeUnits?.rawValue ?? CoreMLEngine.defaultLiveVisionComputeUnits.rawValue) "
             + "chainCU=\(handle.computeUnits ?? "?") "
@@ -170,6 +185,7 @@ enum LiveCameraSelfTest {
 
         let live = LiveCameraViewModel()
         live.language = opts.language
+        live.mode = mode
         var reports: [LiveCycleReport] = []
         var partials: [String] = []
         var streamTrace: [(updates: Int, last: String)] = []

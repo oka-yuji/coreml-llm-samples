@@ -156,6 +156,8 @@ struct LiveCameraView: View {
 
             languagePicker
 
+            if availableModes.count > 1 { modePicker }
+
             if visionBundles.count > 1 { bundlePicker }
 
             Text(live.statusLine.isEmpty ? "Ready." : live.statusLine)
@@ -185,6 +187,19 @@ struct LiveCameraView: View {
         .labelsHidden()
     }
 
+    private var modePicker: some View {
+        Picker("Caption mode", selection: Binding(
+            get: { live.mode },
+            set: { live.selectMode($0) })) {
+            ForEach(availableModes) { mode in
+                Text(mode.label).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .disabled(live.isRunning || starting)
+    }
+
     private var bundlePicker: some View {
         Picker("Model", selection: Binding(
             get: { selectedBundle },
@@ -199,6 +214,10 @@ struct LiveCameraView: View {
         .pickerStyle(.menu)
         .disabled(live.isRunning || starting)
         .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var availableModes: [LiveCaptionMode] {
+        LiveEngineProvision.availableModes(selectedBundle)
     }
 
     private var startStopTitle: String {
@@ -275,6 +294,8 @@ struct LiveCameraView: View {
             }
             stage("Loading the vision encoder…")
             do {
+                live.applyAvailableModes(await handle.engine.availableLiveVisionBudgets())
+                await handle.engine.setLiveVisionBudget(live.mode.budget)
                 let encoder = try await handle.engine.loadLiveVisionEncoder()
                 stage("Preparing the prompt pipeline…")
                 for language in LiveCaptionLanguage.allCases {

@@ -7,6 +7,7 @@ actor VisionEncoder {
     private let packageURL: URL
     private let computeUnits: MLComputeUnits
     private var model: MLModel?
+    private var geometry: VisionGeometry?
     private var didWarmUp = false
 
     init(packageURL: URL, computeUnits: MLComputeUnits) {
@@ -22,21 +23,49 @@ actor VisionEncoder {
             bundleURL: packageURL.deletingLastPathComponent(), name: packageURL.lastPathComponent)
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits
-        model = try MLModel(contentsOf: compiled, configuration: cfg)
+        let loaded = try MLModel(contentsOf: compiled, configuration: cfg)
+        guard let shape = Self.patchGeometry(of: loaded) else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "\(packageURL.lastPathComponent) does not declare a square patch grid on "
+                    + "its patches input")
+        }
+        model = loaded
+        geometry = shape
+    }
+
+    func inputSide() async throws -> Int {
+        try await loadIfNeeded()
+        return try requireGeometry().side
+    }
+
+    private func requireGeometry() throws -> VisionGeometry {
+        guard let geometry else {
+            throw LLMEngineError.generationFailed(reason: "VisionEncoder: model is not loaded")
+        }
+        return geometry
+    }
+
+    private static func patchGeometry(of model: MLModel) -> VisionGeometry? {
+        guard let constraint = model.modelDescription
+            .inputDescriptionsByName["patches"]?.multiArrayConstraint,
+              constraint.shape.count == 3 else { return nil }
+        return VisionGeometry.forPatchCount(constraint.shape[1].intValue)
     }
 
     func warmUpIfNeeded() async throws -> Double {
         try await loadIfNeeded()
         guard !didWarmUp, let model else { return 0 }
+        let blank = try VisionPreprocess.blankPatches(geometry: try requireGeometry())
         let clock = ContinuousClock()
         let t0 = clock.now
-        _ = try Self.predict(model, patches: try VisionPreprocess.blankPatches())
+        _ = try Self.predict(model, patches: blank)
         didWarmUp = true
         return (clock.now - t0) / .seconds(1)
     }
 
     func unload() {
         model = nil
+        geometry = nil
         didWarmUp = false
     }
 
@@ -79,12 +108,15 @@ actor VisionEncoder {
     }
 
     func encode(imageAt url: URL, releaseAfter: Bool = true) async throws -> SoftTokenRows {
-        let patches = try VisionPreprocess.patches(fromImageAt: url)
+        try await loadIfNeeded()
+        let patches = try VisionPreprocess.patches(
+            fromImageAt: url, geometry: try requireGeometry())
         return try await encode(patches: patches, releaseAfter: releaseAfter)
     }
 
     func encode(image: CGImage, releaseAfter: Bool = true) async throws -> SoftTokenRows {
-        let patches = try VisionPreprocess.patches(from: image)
+        try await loadIfNeeded()
+        let patches = try VisionPreprocess.patches(from: image, geometry: try requireGeometry())
         return try await encode(patches: patches, releaseAfter: releaseAfter)
     }
 

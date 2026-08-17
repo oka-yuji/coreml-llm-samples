@@ -13,6 +13,27 @@ enum LiveCycleError: Error, CustomStringConvertible {
     }
 }
 
+enum LiveCaptionMode: String, CaseIterable, Identifiable, Sendable {
+    case speed
+    case quality
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .speed: return "Fast"
+        case .quality: return "Detailed"
+        }
+    }
+
+    var budget: LiveVisionBudget {
+        switch self {
+        case .speed: return .speed
+        case .quality: return .quality
+        }
+    }
+}
+
 enum LiveCaptionLanguage: String, CaseIterable, Identifiable, Sendable {
     case english = "en"
     case japanese = "ja"
@@ -35,10 +56,12 @@ enum LiveCaptionLanguage: String, CaseIterable, Identifiable, Sendable {
         }
     }
 
-    var maxNewTokens: Int {
-        switch self {
-        case .english: return 32
-        case .japanese: return 40
+    func maxNewTokens(for mode: LiveCaptionMode) -> Int {
+        switch (mode, self) {
+        case (.quality, .english): return 32
+        case (.quality, .japanese): return 40
+        case (.speed, .english): return 24
+        case (.speed, .japanese): return 32
         }
     }
 }
@@ -55,11 +78,23 @@ enum LiveEngineProvision {
 
     static let bundleDefaultsKey = "liveCameraVisionBundle"
 
-    static func hasVisionSidecar(_ bundle: URL) -> Bool {
+    static func hasSidecar(_ bundle: URL, named name: String) -> Bool {
         let fileManager = FileManager.default
-        return ["vision_fp16.mlmodelc", "vision_fp16.mlpackage"].contains {
+        return ["\(name).mlmodelc", "\(name).mlpackage"].contains {
             fileManager.fileExists(atPath: bundle.appending(path: $0).path(percentEncoded: false))
         }
+    }
+
+    static func hasVisionSidecar(_ bundle: URL) -> Bool {
+        hasSidecar(bundle, named: LiveVisionBudget.quality.sidecarName)
+    }
+
+    static func availableModes(_ bundle: URL?) -> [LiveCaptionMode] {
+        guard let bundle else { return [.quality] }
+        let found = LiveCaptionMode.allCases.filter {
+            hasSidecar(bundle, named: $0.budget.sidecarName)
+        }
+        return found.isEmpty ? [.quality] : found
     }
 
     static func runsOnThisPlatform(_ url: URL) -> Bool {
@@ -163,6 +198,7 @@ struct LiveCycleReport: Sendable {
     var index: Int
     var frameLabel: String
     var language: LiveCaptionLanguage
+    var mode: LiveCaptionMode
     var caption: String
     var captureSeconds: Double
     var encodeSeconds: Double
@@ -187,6 +223,7 @@ struct LiveCycleReport: Sendable {
     var detailLine: String {
         var parts = [breakdownLine]
         parts.append("lang \(language.rawValue)")
+        parts.append("mode \(mode.rawValue)")
         parts.append("prompt \(promptTokens)")
         if imageRows > 0 { parts.append("image \(imageRows) rows") }
         parts.append("\(generatedTokens) tok")
@@ -244,8 +281,10 @@ final class LiveCameraViewModel {
 
     static let maxConsecutiveFailures = 3
     static let languageDefaultsKey = "liveCameraCaptionLanguage"
+    static let modeDefaultsKey = "liveCameraCaptionMode"
 
     var language: LiveCaptionLanguage
+    var mode: LiveCaptionMode
     var caption: String = ""
     var statusLine: String = ""
     var breakdown: String = ""
@@ -271,12 +310,25 @@ final class LiveCameraViewModel {
     init() {
         let stored = UserDefaults.standard.string(forKey: Self.languageDefaultsKey)
         language = stored.flatMap(LiveCaptionLanguage.init(rawValue:)) ?? .english
+        let storedMode = UserDefaults.standard.string(forKey: Self.modeDefaultsKey)
+        mode = storedMode.flatMap(LiveCaptionMode.init(rawValue:)) ?? .speed
     }
 
     func selectLanguage(_ next: LiveCaptionLanguage) {
         guard next != language else { return }
         language = next
         UserDefaults.standard.set(next.rawValue, forKey: Self.languageDefaultsKey)
+    }
+
+    func selectMode(_ next: LiveCaptionMode) {
+        guard next != mode else { return }
+        mode = next
+        UserDefaults.standard.set(next.rawValue, forKey: Self.modeDefaultsKey)
+    }
+
+    func applyAvailableModes(_ budgets: [LiveVisionBudget]) {
+        guard !budgets.contains(mode.budget) else { return }
+        mode = budgets.contains(.speed) ? .speed : .quality
     }
 
     var canStart: Bool { !isRunning }
@@ -364,7 +416,7 @@ final class LiveCameraViewModel {
                 let cycleStart = clock.now
                 let language = self.language
                 let question = language.question
-                let maxNew = language.maxNewTokens
+                let maxNew = language.maxNewTokens(for: self.mode)
                 self.cycleSeq += 1
                 let mySeq = self.cycleSeq
                 self.streamedTokens = 0
@@ -430,6 +482,7 @@ final class LiveCameraViewModel {
                         index: index,
                         frameLabel: ready.label,
                         language: language,
+                        mode: self.mode,
                         caption: text,
                         captureSeconds: ready.captureSeconds,
                         encodeSeconds: info.visionEncodeSeconds,

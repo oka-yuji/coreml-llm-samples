@@ -34,6 +34,7 @@ public actor CoreMLEngine: LLMEngine {
     }()
 
     private var liveVisionUnits: ComputeUnitPreference = CoreMLEngine.defaultLiveVisionComputeUnits
+    private var liveVisionBudget: LiveVisionBudget = .quality
 
     public init() {}
 
@@ -42,6 +43,19 @@ public actor CoreMLEngine: LLMEngine {
         liveVisionUnits = preference
         await liveVisionEncoder?.unload()
         liveVisionEncoder = nil
+    }
+
+    public func setLiveVisionBudget(_ budget: LiveVisionBudget) async {
+        guard budget != liveVisionBudget else { return }
+        liveVisionBudget = budget
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
+
+    public func availableLiveVisionBudgets() -> [LiveVisionBudget] {
+        LiveVisionBudget.allCases.filter {
+            Self.sidecarModelURL(bundleURL: loadedBundleURL, name: $0.sidecarName) != nil
+        }
     }
 
     public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
@@ -200,7 +214,12 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     private func visionModelURL() -> URL? {
-        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "vision_fp16")
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: LiveVisionBudget.quality.sidecarName)
+    }
+
+    private func liveVisionModelURL() -> URL? {
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: liveVisionBudget.sidecarName)
+            ?? visionModelURL()
     }
 
     private enum VLMImageSource {
@@ -212,7 +231,7 @@ public actor CoreMLEngine: LLMEngine {
     private func softTokens(
         for image: VLMImageSource
     ) async throws -> (soft: SoftTokenRows, seconds: Double) {
-        let held = liveVisionEncoder
+        let held = liveVisionModelURL() == visionModelURL() ? liveVisionEncoder : nil
         let clock = ContinuousClock()
         let t0 = clock.now
         switch image {
@@ -262,16 +281,16 @@ public actor CoreMLEngine: LLMEngine {
         }
     }
 
-    private func makeVisionEncoder(computeUnits: MLComputeUnits) throws -> VisionEncoder {
-        guard let visionURL = visionModelURL() else {
+    private func makeVisionEncoder(at url: URL?, computeUnits: MLComputeUnits) throws -> VisionEncoder {
+        guard let url else {
             throw LLMEngineError.modelNotFound(
                 path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
         }
-        return VisionEncoder(packageURL: visionURL, computeUnits: computeUnits)
+        return VisionEncoder(packageURL: url, computeUnits: computeUnits)
     }
 
     private func makeVisionEncoder() throws -> VisionEncoder {
-        try makeVisionEncoder(computeUnits: loadedUnits)
+        try makeVisionEncoder(at: visionModelURL(), computeUnits: loadedUnits)
     }
 
     public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
@@ -279,7 +298,8 @@ public actor CoreMLEngine: LLMEngine {
         let clock = ContinuousClock()
         let t0 = clock.now
         let encoder = try liveVisionEncoder
-            ?? makeVisionEncoder(computeUnits: Self.mlComputeUnits(liveVisionUnits))
+            ?? makeVisionEncoder(
+                at: liveVisionModelURL(), computeUnits: Self.mlComputeUnits(liveVisionUnits))
         try await encoder.loadIfNeeded()
         liveVisionEncoder = encoder
         guard let rows = await encoder.softTokenRowCount() else {
@@ -288,7 +308,8 @@ public actor CoreMLEngine: LLMEngine {
         }
         let warmUpSeconds = try await encoder.warmUpIfNeeded()
         return LiveVisionEncoderInfo(
-            imageRows: rows, seconds: (clock.now - t0) / .seconds(1),
+            imageRows: rows, inputSide: try await encoder.inputSide(),
+            seconds: (clock.now - t0) / .seconds(1),
             warmUpSeconds: warmUpSeconds, computeUnits: await encoder.computeUnitsLabel)
     }
 
