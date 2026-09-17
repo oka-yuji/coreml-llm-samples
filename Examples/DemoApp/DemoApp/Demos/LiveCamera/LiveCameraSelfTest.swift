@@ -15,6 +15,8 @@ enum LiveCameraSelfTest {
         var cancelPhase: LiveCyclePhase
         var cancelWarmupCycles: Int
         var language: LiveCaptionLanguage
+        var mode: LiveCaptionMode?
+        var modeArgument: String?
         var streaming: Bool
         var prefetch: Bool
         var visionComputeUnits: ComputeUnitPreference?
@@ -44,6 +46,8 @@ enum LiveCameraSelfTest {
             cancelPhase: value("--cancel-phase").flatMap { LiveCyclePhase(rawValue: $0) } ?? .feed,
             cancelWarmupCycles: value("--cancel-warmup").flatMap { Int($0) } ?? 0,
             language: value("--lang").flatMap { LiveCaptionLanguage(rawValue: $0) } ?? .english,
+            mode: value("--mode").flatMap { LiveCaptionMode(rawValue: $0) },
+            modeArgument: value("--mode"),
             streaming: !args.contains("--no-stream"),
             prefetch: args.contains("--prefetch"),
             visionComputeUnits: value("--vision-cu")
@@ -64,6 +68,10 @@ enum LiveCameraSelfTest {
     @MainActor
     static func execute(_ opts: Options, sink: SelfTest.Sink) async -> Int32 {
         let errln = sink.err
+        if let raw = opts.modeArgument, raw != "auto", opts.mode == nil {
+            errln("live-selftest: unknown mode '\(raw)' (speed|quality|auto)")
+            return 2
+        }
         guard opts.useCamera || !opts.images.isEmpty else {
             errln("live-selftest: either --images a.jpg,b.jpg,c.jpg or --camera is required")
             return 2
@@ -77,7 +85,7 @@ enum LiveCameraSelfTest {
         }
 
         let chat = ChatViewModel()
-        chat.maxTokens = opts.language.maxNewTokens
+        chat.maxTokens = opts.language.maxNewTokens(for: opts.mode ?? .quality)
         if let model = opts.model.map(SelfTest.resolve) {
             errln("[live] preloading \(model)")
             await chat.loadModel(path: model)
@@ -104,9 +112,22 @@ enum LiveCameraSelfTest {
         if let units = opts.visionComputeUnits {
             await handle.engine.setLiveVisionComputeUnits(units)
         }
+        let budgets = await handle.engine.availableLiveVisionBudgets()
+        if let requested = opts.mode, !budgets.contains(requested.budget) {
+            errln("live-selftest: mode \(requested.rawValue) needs "
+                + "\(requested.budget.sidecarName) next to the bundle "
+                + "(available \(budgets.map(\.rawValue)))")
+            return 1
+        }
+        let mode = opts.mode ?? (budgets.contains(.speed) ? .speed : .quality)
+        chat.maxTokens = opts.language.maxNewTokens(for: mode)
+        await handle.engine.setLiveVisionBudget(mode.budget)
         errln("[live] model=\(chat.modelName) speculative=\(handle.speculative) cycles=\(opts.cycles) "
             + "source=\(opts.useCamera ? "camera" : "\(urls.count) images") "
-            + "lang=\(opts.language.rawValue) streaming=\(opts.streaming) "
+            + "lang=\(opts.language.rawValue) mode=\(mode.rawValue)"
+            + "\(opts.mode == nil ? " (auto)" : "") "
+            + "maxNew=\(opts.language.maxNewTokens(for: mode)) "
+            + "streaming=\(opts.streaming) "
             + "prefetch=\(opts.prefetch) "
             + "visionCU=\(opts.visionComputeUnits?.rawValue ?? CoreMLEngine.defaultLiveVisionComputeUnits.rawValue) "
             + "chainCU=\(handle.computeUnits ?? "?") "
@@ -170,6 +191,7 @@ enum LiveCameraSelfTest {
 
         let live = LiveCameraViewModel()
         live.language = opts.language
+        live.mode = mode
         var reports: [LiveCycleReport] = []
         var partials: [String] = []
         var streamTrace: [(updates: Int, last: String)] = []
@@ -216,6 +238,15 @@ enum LiveCameraSelfTest {
             errln("live-selftest: cycle \(empty.index) produced no text")
             return 1
         }
+        let rows = Set(reports.map(\.imageRows))
+        guard prewarm.imageRows > 0, rows == [prewarm.imageRows] else {
+            errln("live-selftest: mode \(mode.rawValue) prewarmed \(mode.budget.sidecarName) with "
+                + "\(prewarm.imageRows) image rows but the cycles fed \(rows.sorted())")
+            return 1
+        }
+        errln("[live] sidecar \(mode.budget.sidecarName) is the one in use: every cycle fed "
+            + "\(prewarm.imageRows) image rows from "
+            + "\(prewarm.encoder.inputSide)x\(prewarm.encoder.inputSide)")
 
         let prompts = Set(reports.map(\.promptTokens))
         let cycleSeconds = reports.map(\.cycleSeconds)

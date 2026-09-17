@@ -9,9 +9,9 @@ struct SingleModelsView: View {
 
     var body: some View {
         List {
-            Section("Downloadable models") {
+            Section("Models") {
                 if vm.rows.isEmpty {
-                    Text("No downloadable models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
+                    Text("No models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {

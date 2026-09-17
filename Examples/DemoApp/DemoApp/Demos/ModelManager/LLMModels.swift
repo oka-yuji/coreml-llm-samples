@@ -18,6 +18,8 @@ struct LLMModel: Identifiable, Sendable {
     let verifiedOn: String
     let approxSizeText: String
 
+    var identity: String? = nil
+
     var hfRepoID: String? {
         if case .huggingFace(let repoID, _, _) = source { return repoID }
         return nil
@@ -93,6 +95,18 @@ enum LLMModels {
             supportedPlatforms: [.macOS],
             verifiedOn: "M4 Max, macOS 26",
             approxSizeText: "6.8 GB"
+        ),
+        LLMModel(
+            id: "qwen38-27b-agent",
+            displayName: "Qwen3.8 27B Agent (on-device bundle, 16K + MTP)",
+            source: .huggingFace(
+                repoID: "okayuji/Qwen3.8-27B-coreml-agent",
+                revision: "main",
+                folderName: "qwen38-27b-agent"),
+            supportedPlatforms: [.macOS],
+            verifiedOn: "M4 Max, macOS 26",
+            approxSizeText: "30 GB",
+            identity: "Qwen3.8 27B (int8), running fully on this Mac with Core ML"
         )
     ]
 

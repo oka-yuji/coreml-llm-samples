@@ -11,4 +11,8 @@ public enum SpeculationPolicy {
     public static func defaultEnabled(processInfo: ProcessInfo = .processInfo) -> Bool {
         defaultEnabled(physicalMemoryBytes: processInfo.physicalMemory)
     }
+
+    public static func allowsRound(remaining: Int, maxAccept: Int) -> Bool {
+        remaining >= maxAccept
+    }
 }

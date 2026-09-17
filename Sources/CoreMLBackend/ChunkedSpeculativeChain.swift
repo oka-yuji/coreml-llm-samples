@@ -629,6 +629,7 @@ extension ChunkedSpeculativeChain: GenerationChain {
 extension ChunkedSpeculativeChain: SpeculativeDecoding {
     var supportsMTP: Bool { bundleSupportsVerify }
     var mtpLoaded: Bool { batchedVerifyHead != nil }
+    var maxAcceptedPerRound: Int { Self.verifyWidth }
 
     func mtpRound(prediction: Int, context: [Int]) throws -> MTPRound {
         let base = position
@@ -902,7 +903,7 @@ extension ChunkedSpeculativeChain {
     @discardableResult
     func importKV(from url: URL, expectedContext: [Int]?) throws -> ChunkedKVManifest {
         guard let mData = try? Data(contentsOf: url.appending(path: "manifest.json")) else {
-            throw ChunkedKVError.badManifest("manifest.json unreadable: \(url.path())")
+            throw ChunkedKVError.badManifest("manifest.json unreadable: \(url.path(percentEncoded: false))")
         }
         let manifest: ChunkedKVManifest
         do { manifest = try JSONDecoder().decode(ChunkedKVManifest.self, from: mData) }
@@ -989,7 +990,7 @@ extension ChunkedSpeculativeChain {
 
     private func loadKVPrefix(into arr: MLMultiArray, from fileURL: URL,
                              rows: Int, hd: Int, expectBytes: Int, name: String) throws {
-        guard FileManager.default.fileExists(atPath: fileURL.path()) else {
+        guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             throw ChunkedKVError.missingFile(name)
         }
         let data = try Data(contentsOf: fileURL, options: [.alwaysMapped])

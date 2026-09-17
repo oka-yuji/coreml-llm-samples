@@ -11,6 +11,7 @@ final class CoreMLChain {
     var supportsMTP: Bool { config.mtp != nil }
     private(set) var mtpLoaded = false
     var draftLen: Int { config.mtp?.draftLen ?? 0 }
+    var maxAcceptedPerRound: Int { draftLen }
 
     private let bundleURL: URL
     private let mlConfig: MLModelConfiguration

@@ -3,33 +3,56 @@ import CoreML
 import Foundation
 import ImageIO
 
-enum VisionPreprocess {
-    static let side = 768
+struct VisionGeometry: Sendable, Equatable {
     static let patch = 16
-    static let grid = side / patch
-    static let numPatches = grid * grid
-    static let patchDim = patch * patch * 3
+
+    let grid: Int
+
+    var side: Int { grid * Self.patch }
+    var patchCount: Int { grid * grid }
+    var patchDim: Int { Self.patch * Self.patch * 3 }
+
+    static let maxSide = 4096
+
+    static func forPatchCount(_ count: Int) -> VisionGeometry? {
+        guard count > 0 else { return nil }
+        let grid = Int(Double(count).squareRoot().rounded())
+        guard grid * grid == count, grid * patch <= maxSide else { return nil }
+        return VisionGeometry(grid: grid)
+    }
+}
+
+enum VisionPreprocess {
 
     enum PreprocessError: Error, CustomStringConvertible {
         case cannotDecodeImage(String)
-        case cannotMakeContext
+        case cannotMakeContext(side: Int)
         case badPixelCount(expected: Int, got: Int)
         var description: String {
             switch self {
             case .cannotDecodeImage(let p): return "cannot decode image: \(p)"
-            case .cannotMakeContext: return "cannot create the 768x768 RGBA context"
-            case .badPixelCount(let e, let g): return "pixel count mismatch (expected \(e), actual \(g))"
+            case .cannotMakeContext(let side):
+                return "cannot create the \(side)x\(side) RGBA context"
+            case .badPixelCount(let e, let g):
+                return "pixel count mismatch (expected \(e), actual \(g))"
             }
         }
     }
 
-    static func patchify(pixelsHWC pixels: [Float]) throws -> MLMultiArray {
+    static func patchify(
+        pixelsHWC pixels: [Float], geometry: VisionGeometry
+    ) throws -> MLMultiArray {
+        let side = geometry.side
+        let grid = geometry.grid
+        let patch = VisionGeometry.patch
+        let patchDim = geometry.patchDim
         let expected = side * side * 3
         guard pixels.count == expected else {
             throw PreprocessError.badPixelCount(expected: expected, got: pixels.count)
         }
         let out = try MLMultiArray(
-            shape: [1, NSNumber(value: numPatches), NSNumber(value: patchDim)], dataType: .float16)
+            shape: [1, NSNumber(value: geometry.patchCount), NSNumber(value: patchDim)],
+            dataType: .float16)
         out.withF16 { buf in
             let dst = buf.baseAddress!
             pixels.withUnsafeBufferPointer { src in
@@ -52,18 +75,15 @@ enum VisionPreprocess {
         return out
     }
 
-    static func patches(from image: CGImage) throws -> MLMultiArray {
-        let pixels = try unitRGBPixelsHWC(from: image)
-        return try patchify(pixelsHWC: pixels)
+    static func patches(from image: CGImage, geometry: VisionGeometry) throws -> MLMultiArray {
+        let pixels = try unitRGBPixelsHWC(from: image, geometry: geometry)
+        return try patchify(pixelsHWC: pixels, geometry: geometry)
     }
 
-    static func patches(fromImageAt url: URL) throws -> MLMultiArray {
-        try patches(from: try loadCGImage(from: url))
-    }
-
-    static func blankPatches() throws -> MLMultiArray {
+    static func blankPatches(geometry: VisionGeometry) throws -> MLMultiArray {
         let out = try MLMultiArray(
-            shape: [1, NSNumber(value: numPatches), NSNumber(value: patchDim)], dataType: .float16)
+            shape: [1, NSNumber(value: geometry.patchCount), NSNumber(value: geometry.patchDim)],
+            dataType: .float16)
         out.withF16 { $0.update(repeating: 0) }
         return out
     }
@@ -76,7 +96,8 @@ enum VisionPreprocess {
         return image
     }
 
-    static func unitRGBPixelsHWC(from image: CGImage) throws -> [Float] {
+    static func unitRGBPixelsHWC(from image: CGImage, geometry: VisionGeometry) throws -> [Float] {
+        let side = geometry.side
         let n = side * side
         let bytesPerRow = side * 4
         let raw = UnsafeMutableRawPointer.allocate(byteCount: n * 4, alignment: 16)
@@ -87,7 +108,7 @@ enum VisionPreprocess {
         guard let ctx = CGContext(
             data: raw, width: side, height: side, bitsPerComponent: 8,
             bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: bitmapInfo) else {
-            throw PreprocessError.cannotMakeContext
+            throw PreprocessError.cannotMakeContext(side: side)
         }
         ctx.interpolationQuality = .high
         ctx.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))

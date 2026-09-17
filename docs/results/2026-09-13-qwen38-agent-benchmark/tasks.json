@@ -1,0 +1,91 @@
+{
+  "frozen": "2026-08-26T19:25+09:00",
+  "note": "Frozen before the first run. Wording and rubrics must not change; changing either invalidates every run.",
+  "conditions": [
+    {"id": "low", "effort": "low", "repeats": 3},
+    {"id": "off", "effort": "off", "repeats": 1}
+  ],
+  "driver": "DemoApp --agent-e2e --model qwen38-27b-agent --task <task> --effort <cond> --deadline 900 (app defaults: max-steps 8, max-tokens 1536, page-budget 10000)",
+  "common_rubric": [
+    "log contains 'AGENT E2E COMPLETED'",
+    "log contains no '[agent] re-render diverges'",
+    "log contains no 'cannot rewind'",
+    "the last '[e2e] step N' status line does not end in finishReason 'cap'",
+    "log contains no '[e2e] deadline of' line",
+    "the final answer contains at least one http(s) URL"
+  ],
+  "tasks": [
+    {
+      "id": "S1", "group": "search-summary", "lang": "ja", "origin": "2026-08-26 E2E scenario 1",
+      "task": "Core ML の最新情報(2026 年)を検索して 3 行で要約して",
+      "rubric": ["common", "answer matches /Core ?ML/i"],
+      "grader": "auto; manual column checks the three lines are actually supported by the cited page"
+    },
+    {
+      "id": "S2", "group": "search-summary", "lang": "ja",
+      "task": "Apple の Neural Engine について調べて、3 行で要約して",
+      "rubric": ["common", "answer matches /Neural Engine|ニューラルエンジン|ANE/i"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "S3", "group": "search-summary", "lang": "en",
+      "task": "Search for what Apple's MLX framework is and summarise it in three lines.",
+      "rubric": ["common", "answer matches /MLX/"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "S4", "group": "search-summary", "lang": "ja",
+      "task": "Swift の async/await とは何かを調べて、3 行で要約して",
+      "rubric": ["common", "answer matches /async|await|非同期/i"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "U1", "group": "url-reading", "lang": "ja", "kind": "spa", "origin": "2026-08-26 E2E scenario 2",
+      "task": "https://developer.apple.com/documentation/coreml を読んで要点を 3 つ挙げて",
+      "rubric": ["common", "answer matches /Core ?ML/i", "log contains a fetch_page call for developer.apple.com/documentation/coreml"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "U2", "group": "url-reading", "lang": "en", "kind": "spa",
+      "task": "Read https://developer.apple.com/documentation/createml and list three key points.",
+      "rubric": ["common", "answer matches /Create ?ML/i", "log contains a fetch_page call for developer.apple.com/documentation/createml"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "U3", "group": "url-reading", "lang": "ja", "kind": "static",
+      "task": "https://ja.wikipedia.org/wiki/Apple_Silicon を読んで要点を 3 つ挙げて",
+      "rubric": ["common", "answer matches /Apple ?Silicon|アップルシリコン/i", "log contains a fetch_page call for ja.wikipedia.org"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "N1", "group": "note", "lang": "ja", "origin": "2026-08-26 E2E scenario 3",
+      "task": "東京の明日の天気を調べて、要約をメモに保存して",
+      "rubric": ["common", "a new .md appears in ~/Library/Application Support/DemoApp/agent-notes during the run", "the new note is >= 200 bytes", "the new note contains no '</think>'", "answer matches /晴|曇|くもり|雨|雪|℃|度/"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "N2", "group": "note", "lang": "ja",
+      "task": "Apple の M4 チップについて調べて、要点をメモに保存して",
+      "rubric": ["common", "new note", ">= 200 bytes", "no '</think>'", "answer matches /M4/"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "N3", "group": "note", "lang": "en",
+      "task": "Look up what Apple's Neural Engine is and save a short summary as a note.",
+      "rubric": ["common", "new note", ">= 200 bytes", "no '</think>'", "answer matches /Neural Engine|ANE/i"],
+      "grader": "auto + manual"
+    },
+    {
+      "id": "D1", "group": "date-dependent", "lang": "ja",
+      "task": "大阪の今日の天気を教えて",
+      "rubric": ["common", "answer matches /晴|曇|くもり|雨|雪|℃|度/"],
+      "grader": "auto + manual; manual checks the forecast matches the cited page and the right day"
+    },
+    {
+      "id": "D2", "group": "date-dependent", "lang": "en",
+      "task": "What are this week's top AI news stories? List three of them with their source URLs.",
+      "rubric": ["common", "answer contains >= 2 http(s) URLs"],
+      "grader": "auto + manual; manual checks the stories are from the current week, not an invented date"
+    }
+  ]
+}

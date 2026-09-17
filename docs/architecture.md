@@ -19,7 +19,9 @@ prompt ──► HFTokenizer ──► CoreMLEngine ──► CoreMLChainV2 ─�
   `format = "coreml-stateful-chain-v2"` selects the stateful chain below.
 - **`CoreMLEngine`** is a Swift `actor`. It owns the tokenizer and chain, applies the chat
   template from the manifest, drives prefill + decode, and yields an `AsyncThrowingStream` of
-  `GenerationEvent`s (`loadCompleted`, `prefillCompleted`, `token`, `finished`).
+  `GenerationEvent`s (`loadCompleted`, `prefillCompleted`, `token`, `finished`). Byte-level BPE
+  splits one character across several tokens, so the streamed delta is measured in UTF-8 bytes
+  and a half-decoded character is held back until the tokens that finish it arrive.
 - **`CoreMLChainV2`** is the stateful graph. The 48 transformer layers are split into four
   `.mlmodelc` chunks that pass hidden states down the chain; the KV cache lives in Core ML
   `MLState` (GPU-resident) rather than in host buffers. The `lmhead` chunk emits an argmax
@@ -55,7 +57,9 @@ When a drafter (`drafter_ring.mlmodelc`) ships in the bundle, the engine can run
 speculative decoding: the small drafter proposes several tokens, the main graph verifies them in a
 single batched call, and only the tokens that match greedy decoding are kept. Output is **identical**
 to non-speculative decoding by construction — verification is what makes it lossless, so speculation
-only changes speed, never text.
+only changes speed, never text. The accepted prefix is clamped at the first end-of-sequence token, so
+the generated-token count and the KV write position match a run with speculation off; accepting past
+EOS would leave the cache longer than the next prompt's prefix, which a hybrid bundle cannot rewind.
 
 For the ladder, the drafter also switches by regime: a `w32768` drafter below promotion and a
 `w131072` drafter after, because a fixed-width drafter is billed by its baked-in KV width, not by

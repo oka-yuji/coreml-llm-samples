@@ -78,6 +78,10 @@ final class ChatViewModel {
 
     var isRecording: Bool = false
 
+    var externallyBusy: Bool = false
+
+    var loadingComputeUnits: String = ""
+
     var recordingSeconds: Double = 0
 
     let maxRecordingSeconds: Double = CoreMLEngine.maxAudioSeconds
@@ -133,7 +137,8 @@ final class ChatViewModel {
 
     var canSend: Bool {
         isModelLoaded && !isGenerating && !isLoading && !preparingSpeculation && !isRecording
-            && (!trimmedInput.isEmpty || attachedAudio != nil) && !isConversationFull
+            && !externallyBusy && (!trimmedInput.isEmpty || attachedAudio != nil)
+            && !isConversationFull
     }
     var canReset: Bool { isModelLoaded && !isGenerating && !isLoading && !messages.isEmpty }
 
@@ -144,7 +149,7 @@ final class ChatViewModel {
         }
         return "Context window is full. Reset to start a new conversation."
     }
-    var canLoad: Bool { !isGenerating && !isLoading }
+    var canLoad: Bool { !isGenerating && !isLoading && !externallyBusy }
     var canCheckpoint: Bool { isModelLoaded && !isGenerating && !isLoading }
 
     private var checkpointURL: URL {
@@ -165,10 +170,13 @@ final class ChatViewModel {
     }
 
     var loadingMessage: String {
-        isCompilingLongLoad
+        guard isCompilingLongLoad else { return "Loading model…" }
+        let ane = loadingComputeUnits == ComputeUnitPreference.all.rawValue
+            || loadingComputeUnits == ComputeUnitPreference.cpuAndNeuralEngine.rawValue
+        return ane
             ? "Compiling for the Neural Engine — one-time on this device (about 90 s). "
                 + "Future loads take a few seconds."
-            : "Loading model…"
+            : "Loading model… large bundles take about a minute"
     }
 
     func refreshLocalBundles() {
@@ -186,6 +194,7 @@ final class ChatViewModel {
             return
         }
         phase = .loading("Reading manifest…")
+        loadingComputeUnits = ""
         let startedAt = Date()
         startLoadProgressTimer()
         do {
@@ -194,6 +203,7 @@ final class ChatViewModel {
             loadedContextLength = bundle.manifest.contextLength
             let preference = bundle.manifest.computeUnits
                 .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
+            loadingComputeUnits = preference.rawValue
             phase = .loading("Compiling / loading Core ML models (\(preference.rawValue))…")
             let newEngine = CoreMLEngine()
             try await newEngine.load(

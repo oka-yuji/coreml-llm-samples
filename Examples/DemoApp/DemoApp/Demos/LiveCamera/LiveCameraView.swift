@@ -15,6 +15,7 @@ struct LiveCameraView: View {
     @State private var offerModels = false
     @State private var visionBundles: [URL] = []
     @State private var selectedBundle: URL?
+    @State private var availableModes: [LiveCaptionMode] = [.quality]
 
     var body: some View {
         liveScreen
@@ -62,6 +63,9 @@ struct LiveCameraView: View {
             live.startThermalWatch()
             refreshVisionBundles()
             await prepareCamera()
+        }
+        .task(id: selectedBundle?.path(percentEncoded: false)) {
+            availableModes = LiveEngineProvision.availableModes(selectedBundle)
         }
     }
 
@@ -156,6 +160,8 @@ struct LiveCameraView: View {
 
             languagePicker
 
+            if availableModes.count > 1 { modePicker }
+
             if visionBundles.count > 1 { bundlePicker }
 
             Text(live.statusLine.isEmpty ? "Ready." : live.statusLine)
@@ -183,6 +189,19 @@ struct LiveCameraView: View {
         }
         .pickerStyle(.segmented)
         .labelsHidden()
+    }
+
+    private var modePicker: some View {
+        Picker("Caption mode", selection: Binding(
+            get: { live.mode },
+            set: { live.selectMode($0) })) {
+            ForEach(availableModes) { mode in
+                Text(mode.label).tag(mode)
+            }
+        }
+        .pickerStyle(.segmented)
+        .labelsHidden()
+        .disabled(live.isRunning || starting)
     }
 
     private var bundlePicker: some View {
@@ -275,6 +294,8 @@ struct LiveCameraView: View {
             }
             stage("Loading the vision encoder…")
             do {
+                live.applyAvailableModes(await handle.engine.availableLiveVisionBudgets())
+                await handle.engine.setLiveVisionBudget(live.mode.budget)
                 let encoder = try await handle.engine.loadLiveVisionEncoder()
                 stage("Preparing the prompt pipeline…")
                 for language in LiveCaptionLanguage.allCases {

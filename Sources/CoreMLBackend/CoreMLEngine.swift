@@ -20,7 +20,14 @@ public actor CoreMLEngine: LLMEngine {
 
     private var assistantSuffix = "<end_of_turn>\n"
 
-    private var processedTokens: [Int] = []
+    private var defaultPromptSuffix: String?
+    private var thinkingSuffix: String?
+
+    private var processedTokens: [Int] = [] {
+        didSet { processedText = "" }
+    }
+
+    private var processedText = ""
     private var loadedBundleURL: URL?
     private var loadedUnits: MLComputeUnits = .cpuOnly
     private var liveVisionEncoder: VisionEncoder?
@@ -34,6 +41,7 @@ public actor CoreMLEngine: LLMEngine {
     }()
 
     private var liveVisionUnits: ComputeUnitPreference = CoreMLEngine.defaultLiveVisionComputeUnits
+    private var liveVisionBudget: LiveVisionBudget = .quality
 
     public init() {}
 
@@ -42,6 +50,19 @@ public actor CoreMLEngine: LLMEngine {
         liveVisionUnits = preference
         await liveVisionEncoder?.unload()
         liveVisionEncoder = nil
+    }
+
+    public func setLiveVisionBudget(_ budget: LiveVisionBudget) async {
+        guard budget != liveVisionBudget else { return }
+        liveVisionBudget = budget
+        await liveVisionEncoder?.unload()
+        liveVisionEncoder = nil
+    }
+
+    public func availableLiveVisionBudgets() -> [LiveVisionBudget] {
+        LiveVisionBudget.allCases.filter {
+            Self.sidecarModelURL(bundleURL: loadedBundleURL, name: $0.sidecarName) != nil
+        }
     }
 
     public var supportsSpeculation: Bool { speculative?.supportsMTP ?? false }
@@ -76,7 +97,8 @@ public actor CoreMLEngine: LLMEngine {
                 sidecarStage: model.manifest.sidecarStage,
                 preloadVerifyAssets: options.preloadSpeculation)
             tokenizer = try await HFTokenizer(
-                modelFolder: model.directoryURL, eosTokenIDs: Set(r.config.eosIDs))
+                modelFolder: model.directoryURL,
+                eosTokenIDs: Set(r.config.eosIDs).union(model.manifest.eos ?? []))
             chain = r
             speculative = r
         } else if model.manifest.format == "coreml-stateful-chain-v2" {
@@ -89,13 +111,15 @@ public actor CoreMLEngine: LLMEngine {
             }
             let v2 = try await CoreMLChainV2(bundleURL: model.directoryURL, computeUnits: units)
             tokenizer = try await HFTokenizer(
-                modelFolder: model.directoryURL, eosTokenIDs: Set(v2.config.eosIDs))
+                modelFolder: model.directoryURL,
+                eosTokenIDs: Set(v2.config.eosIDs).union(model.manifest.eos ?? []))
             chain = v2
             speculative = v2
         } else {
             let v1 = try await CoreMLChain(bundleURL: model.directoryURL, computeUnits: units)
             tokenizer = try await HFTokenizer(
-                modelFolder: model.directoryURL, eosTokenIDs: Set(v1.config.eosIDs))
+                modelFolder: model.directoryURL,
+                eosTokenIDs: Set(v1.config.eosIDs).union(model.manifest.eos ?? []))
             chain = v1
             speculative = v1
         }
@@ -103,9 +127,19 @@ public actor CoreMLEngine: LLMEngine {
         loadedUnits = units
         if let prefix = model.manifest.promptPrefix { promptPrefix = prefix }
         if let suffix = model.manifest.promptSuffix { promptSuffix = suffix }
-        assistantSuffix = Self.deriveAssistantSuffix(prefix: promptPrefix, suffix: promptSuffix)
+        assistantSuffix = model.manifest.assistantSuffix
+            ?? Self.deriveAssistantSuffix(prefix: promptPrefix, suffix: promptSuffix)
+        defaultPromptSuffix = promptSuffix
+        thinkingSuffix = model.manifest.promptSuffixThinking
         processedTokens = []
         pendingLoadMetrics = LoadMetrics(duration: clock.now - start)
+    }
+
+    @discardableResult
+    public func setThinking(_ on: Bool) -> Bool {
+        guard let thinkingSuffix, let defaultPromptSuffix else { return false }
+        promptSuffix = on ? thinkingSuffix : defaultPromptSuffix
+        return true
     }
 
     public func unload() {
@@ -179,7 +213,7 @@ public actor CoreMLEngine: LLMEngine {
             pldDraftedTokens: pld?.draftedTokens, pldAcceptedTokens: pld?.acceptedTokens)
     }
 
-    public func resetConversation() {
+    public func resetConversation() async {
         try? chain?.reset()
         processedTokens = []
     }
@@ -200,7 +234,12 @@ public actor CoreMLEngine: LLMEngine {
     }
 
     private func visionModelURL() -> URL? {
-        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: "vision_fp16")
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: LiveVisionBudget.quality.sidecarName)
+    }
+
+    private func liveVisionModelURL() -> URL? {
+        Self.sidecarModelURL(bundleURL: loadedBundleURL, name: liveVisionBudget.sidecarName)
+            ?? visionModelURL()
     }
 
     private enum VLMImageSource {
@@ -212,7 +251,7 @@ public actor CoreMLEngine: LLMEngine {
     private func softTokens(
         for image: VLMImageSource
     ) async throws -> (soft: SoftTokenRows, seconds: Double) {
-        let held = liveVisionEncoder
+        let held = liveVisionModelURL() == visionModelURL() ? liveVisionEncoder : nil
         let clock = ContinuousClock()
         let t0 = clock.now
         switch image {
@@ -240,7 +279,7 @@ public actor CoreMLEngine: LLMEngine {
                 reason: "the vision encoder emits \(soft.hidden)-wide soft tokens but this bundle's "
                     + "hidden size is \(hidden) — vision_fp16 does not belong to this model")
         }
-        let bos = tokenizer.bosTokenID ?? 2
+        let bos = tokenizer.bosTokenID
         let userTokens = try tokenizer.encode("user\n")
         let questionTokens = try tokenizer.encode(question)
         let modelTokens = try tokenizer.encode("model\n")
@@ -262,16 +301,16 @@ public actor CoreMLEngine: LLMEngine {
         }
     }
 
-    private func makeVisionEncoder(computeUnits: MLComputeUnits) throws -> VisionEncoder {
-        guard let visionURL = visionModelURL() else {
+    private func makeVisionEncoder(at url: URL?, computeUnits: MLComputeUnits) throws -> VisionEncoder {
+        guard let url else {
             throw LLMEngineError.modelNotFound(
                 path: "vision_fp16.mlpackage (absent next to the loaded bundle)")
         }
-        return VisionEncoder(packageURL: visionURL, computeUnits: computeUnits)
+        return VisionEncoder(packageURL: url, computeUnits: computeUnits)
     }
 
     private func makeVisionEncoder() throws -> VisionEncoder {
-        try makeVisionEncoder(computeUnits: loadedUnits)
+        try makeVisionEncoder(at: visionModelURL(), computeUnits: loadedUnits)
     }
 
     public func loadLiveVisionEncoder() async throws -> LiveVisionEncoderInfo {
@@ -279,7 +318,8 @@ public actor CoreMLEngine: LLMEngine {
         let clock = ContinuousClock()
         let t0 = clock.now
         let encoder = try liveVisionEncoder
-            ?? makeVisionEncoder(computeUnits: Self.mlComputeUnits(liveVisionUnits))
+            ?? makeVisionEncoder(
+                at: liveVisionModelURL(), computeUnits: Self.mlComputeUnits(liveVisionUnits))
         try await encoder.loadIfNeeded()
         liveVisionEncoder = encoder
         guard let rows = await encoder.softTokenRowCount() else {
@@ -288,7 +328,8 @@ public actor CoreMLEngine: LLMEngine {
         }
         let warmUpSeconds = try await encoder.warmUpIfNeeded()
         return LiveVisionEncoderInfo(
-            imageRows: rows, seconds: (clock.now - t0) / .seconds(1),
+            imageRows: rows, inputSide: try await encoder.inputSide(),
+            seconds: (clock.now - t0) / .seconds(1),
             warmUpSeconds: warmUpSeconds, computeUnits: await encoder.computeUnitsLabel)
     }
 
@@ -298,7 +339,7 @@ public actor CoreMLEngine: LLMEngine {
         let mm = try requireMultimodalChain()
         guard let tokenizer else { throw LLMEngineError.notLoaded }
         let flatIDs = VLMPrompt.flatIDs(
-            bos: tokenizer.bosTokenID ?? 2,
+            bos: tokenizer.bosTokenID,
             userTokens: try tokenizer.encode("user\n"),
             questionTokens: try tokenizer.encode(question),
             modelTokens: try tokenizer.encode("model\n"),
@@ -504,7 +545,7 @@ public actor CoreMLEngine: LLMEngine {
         let t0 = clock.now
         let soft = try await encoder.encode(samples: samples, releaseAfter: true)
         let encodeSeconds = (clock.now - t0) / .seconds(1)
-        let bos = tokenizer.bosTokenID ?? 2
+        let bos = tokenizer.bosTokenID
         let userTokens = try tokenizer.encode("user\n")
         let instructionTokens = try tokenizer.encode(instruction)
         let modelTokens = try tokenizer.encode("model\n")
@@ -715,7 +756,12 @@ public actor CoreMLEngine: LLMEngine {
             pendingLoadMetrics = nil
         }
 
-        let promptIDs = try encodeConversation(history: request.history, prompt: request.prompt)
+        let promptText = conversationText(
+            history: request.history, prompt: request.prompt, raw: request.rawPrompt)
+        let continued = try continuedPromptIDs(
+            promptText, reuseCache: request.reuseCache, position: chain.position)
+        let promptIDs = try continued ?? encodeConversation(text: promptText)
+        try Self.requireNonEmptyPrompt(promptIDs)
 
         guard promptIDs.count < chain.contextLength else {
             throw LLMEngineError.contextOverflow(
@@ -730,120 +776,176 @@ public actor CoreMLEngine: LLMEngine {
 
         let useMTP = request.config.multiTokenPrediction && (speculative?.supportsMTP ?? false)
 
-        let reusedTokens: Int
+        var reusedTokens = 0
+        var reusedCache = false
         if request.reuseCache {
-
             let lcp = max(0, min(Self.commonPrefixLength(promptIDs, processedTokens), promptIDs.count - 1))
-            chain.rewind(to: lcp)
-
-            processedTokens = Array(promptIDs[0..<lcp])
-            reusedTokens = lcp
-        } else {
+            do {
+                try chain.rewind(to: lcp)
+                processedTokens = Array(promptIDs[0..<lcp])
+                reusedTokens = lcp
+                reusedCache = true
+            } catch {
+                FileHandle.standardError.write(Data(
+                    "[v2] cache reuse unavailable (\(error)); re-prefilling the whole conversation\n".utf8))
+            }
+        }
+        if !reusedCache {
             try chain.reset()
             processedTokens = []
             reusedTokens = 0
         }
         if useMTP { try await installMTPIfNeeded() }
+        let reuseMode = reusedTokens == 0 ? "none" : (continued != nil ? "text" : "tokens")
         let diff = reusedTokens > 0 ? Array(promptIDs[reusedTokens...]) : promptIDs
-        var nextToken = try chain.prefill(diff)
-        let prefillSeconds = (clock.now - start) / .seconds(1)
-        let footprintAfterPrefill = Self.memoryFootprint()
+        do {
+            var nextToken = try chain.prefill(diff)
+            let prefillSeconds = (clock.now - start) / .seconds(1)
+            let footprintAfterPrefill = Self.memoryFootprint()
 
-        processedTokens = promptIDs
-        continuation.yield(.prefillCompleted(
-            PrefillMetrics(
-                promptTokens: promptIDs.count, reusedTokens: reusedTokens, duration: clock.now - start)
-        ))
+            processedTokens = promptIDs
+            continuation.yield(.prefillCompleted(
+                PrefillMetrics(
+                    promptTokens: promptIDs.count, reusedTokens: reusedTokens, duration: clock.now - start)
+            ))
 
-        let decodeStart = clock.now
-        var firstTokenAt: ContinuousClock.Instant?
-        var generated: [Int] = []
-        var emittedText = ""
-        var acceptedTotal = 0
-        var draftedTotal = 0
-        var tokenInstants: [ContinuousClock.Instant] = []
-        var sawEOS = false
+            let decodeStart = clock.now
+            var firstTokenAt: ContinuousClock.Instant?
+            var generated: [Int] = []
+            var emittedText = ""
+            var acceptedTotal = 0
+            var draftedTotal = 0
+            var tokenInstants: [ContinuousClock.Instant] = []
+            var sawEOS = false
+            let statsBefore = (chain as? CoreMLChainV2)?.mtpHeadStatsSnapshot()
 
-        func emit(_ token: Int) throws {
-            generated.append(token)
-            let now = clock.now
-            tokenInstants.append(now)
-            if firstTokenAt == nil { firstTokenAt = now }
-            let fullText = try tokenizer.decode(generated)
-            let delta = fullText.hasPrefix(emittedText) ? String(fullText.dropFirst(emittedText.count)) : fullText
-            emittedText = fullText
-            guard !delta.isEmpty else { return }
-            let elapsed = (now - decodeStart) / .seconds(1)
-            continuation.yield(.token(TokenChunk(
-                text: delta,
-                tokenID: token,
-                tokensPerSecond: Double(generated.count) / max(elapsed, 0.001)
-            )))
-        }
-
-        decodeLoop: while generated.count < cap {
-            try Task.checkCancellation()
-            if tokenizer.eosTokenIDs.contains(nextToken) { sawEOS = true; break }
-
-            if useMTP, let spec = speculative {
-
-                let round = try spec.mtpRound(prediction: nextToken, context: processedTokens)
-                acceptedTotal += round.accepted
-                draftedTotal += round.drafted
-
-                processedTokens.append(contentsOf: round.emitted)
-                for token in round.emitted {
-                    try emit(token)
-                    if tokenizer.eosTokenIDs.contains(token) { sawEOS = true; break decodeLoop }
-                    if generated.count >= cap { break decodeLoop }
-                }
-                nextToken = round.next
-            } else {
-                let current = nextToken
-                try emit(current)
-                nextToken = try chain.decodeStep(tokenID: current)
-                processedTokens.append(current)
+            func yieldDelta(_ fullText: String, token: Int, at now: ContinuousClock.Instant) {
+                let delta = fullText.utf8.starts(with: emittedText.utf8)
+                    ? String(decoding: fullText.utf8.dropFirst(emittedText.utf8.count), as: UTF8.self)
+                    : fullText
+                emittedText = fullText
+                guard !delta.isEmpty else { return }
+                let elapsed = (now - decodeStart) / .seconds(1)
+                continuation.yield(.token(TokenChunk(
+                    text: delta,
+                    tokenID: token,
+                    tokensPerSecond: Double(generated.count) / max(elapsed, 0.001)
+                )))
             }
-        }
 
-        let decodeSeconds = (clock.now - decodeStart) / .seconds(1)
-        let finishReason: FinishReason = sawEOS ? .eos : (capIsContextBound ? .contextFull : .cap)
-        let footprintAtEnd = Self.memoryFootprint()
-        let pld = useMTP ? (chain as? ChunkedSpeculativeChain)?.pldStatsSnapshot() : nil
-        let widths = (chain as? ChunkedSpeculativeChain)?.residentPrefillWidths()
-        var perTokenMillis: [Double] = []
-        var previous = decodeStart
-        for instant in tokenInstants {
-            perTokenMillis.append((instant - previous) / .seconds(1) * 1000)
-            previous = instant
+            func emit(_ token: Int) throws {
+                generated.append(token)
+                let now = clock.now
+                tokenInstants.append(now)
+                if firstTokenAt == nil { firstTokenAt = now }
+                let fullText = try tokenizer.decode(
+                    generated, skipSpecialTokens: !request.config.emitSpecialTokens)
+
+                if fullText.unicodeScalars.last == "\u{FFFD}" { return }
+                yieldDelta(fullText, token: token, at: now)
+            }
+
+            decodeLoop: while generated.count < cap {
+                try Task.checkCancellation()
+                if tokenizer.eosTokenIDs.contains(nextToken) { sawEOS = true; break }
+
+                if useMTP, let spec = speculative,
+                   SpeculationPolicy.allowsRound(
+                       remaining: cap - generated.count, maxAccept: spec.maxAcceptedPerRound) {
+
+                    let round = try spec.mtpRound(prediction: nextToken, context: processedTokens)
+                    acceptedTotal += round.accepted
+                    draftedTotal += round.drafted
+
+                    processedTokens.append(contentsOf: round.emitted)
+                    for token in round.emitted {
+
+                        if tokenizer.eosTokenIDs.contains(token) { sawEOS = true; break decodeLoop }
+                        try emit(token)
+                        if generated.count >= cap { break decodeLoop }
+                    }
+                    nextToken = round.next
+                } else {
+                    let current = nextToken
+                    try emit(current)
+                    nextToken = try chain.decodeStep(tokenID: current)
+                    processedTokens.append(current)
+                }
+            }
+
+            if let lastToken = generated.last {
+                yieldDelta(
+                    try tokenizer.decode(
+                        generated, skipSpecialTokens: !request.config.emitSpecialTokens),
+                    token: lastToken, at: clock.now)
+            }
+            if processedTokens.count == promptIDs.count + generated.count {
+                processedText = promptText + emittedText
+            } else if processedTokens.count == promptIDs.count + generated.count + 1,
+                      let stop = processedTokens.last, tokenizer.eosTokenIDs.contains(stop) {
+                processedText = promptText + emittedText
+                    + (try tokenizer.decode([stop], skipSpecialTokens: false))
+            }
+
+            let decodeSeconds = (clock.now - decodeStart) / .seconds(1)
+            let finishReason: FinishReason = sawEOS ? .eos : (capIsContextBound ? .contextFull : .cap)
+            let footprintAtEnd = Self.memoryFootprint()
+            let pld = useMTP ? (chain as? ChunkedSpeculativeChain)?.pldStatsSnapshot() : nil
+            let widths = (chain as? ChunkedSpeculativeChain)?.residentPrefillWidths()
+            var perTokenMillis: [Double] = []
+            var previous = decodeStart
+            for instant in tokenInstants {
+                perTokenMillis.append((instant - previous) / .seconds(1) * 1000)
+                previous = instant
+            }
+            let peak = [footprintAfterPrefill, footprintAtEnd].compactMap { $0 }.max()
+            if let v2 = chain as? CoreMLChainV2 {
+                let st = v2.mtpHeadStatsSnapshot()
+                let rounds = st.rounds - (statsBefore?.rounds ?? 0)
+                let rollbacks = st.rollbacks - (statsBefore?.rollbacks ?? 0)
+                if rounds > 0 {
+                    let rates = st.positionRates.map { $0.map { String(format: "%.2f", $0) } ?? "-" }
+                    FileHandle.standardError.write(Data((String(
+                        format: "[v2] hybrid MTP: rounds=%d partial=%d (%.2f) mean_accepted=%.2f "
+                            + "pos_accept=[%@] writebacks=%d (%.2f ms/call, %.0f ms total) reuse=%@\n",
+                        rounds, rollbacks, Double(rollbacks) / Double(rounds),
+                        Double(acceptedTotal) / Double(rounds), rates.joined(separator: ", "),
+                        st.writebacks, st.writebackMillisPerCall ?? 0, st.writebackSeconds * 1000,
+                        reuseMode)).utf8))
+                }
+            }
+            continuation.yield(.finished(GenerationMetrics(
+                promptTokens: promptIDs.count,
+                generatedTokens: generated.count,
+                timeToFirstToken: (firstTokenAt ?? decodeStart) - start,
+                decodeTokensPerSecond: Double(generated.count) / max(decodeSeconds, 0.001),
+                peakMemoryBytes: peak,
+                draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil,
+                reusedTokens: reusedTokens,
+                finishReason: finishReason,
+                prefillSeconds: prefillSeconds,
+                perTokenMillis: perTokenMillis,
+                footprintAfterPrefillBytes: footprintAfterPrefill,
+                footprintAtEndBytes: footprintAtEnd,
+                availableMemoryBytes: Self.availableMemory(),
+                thermalStateStart: thermalStart,
+                thermalStateEnd: Self.thermalName(),
+                specEnabled: useMTP,
+                specRounds: pld?.pldRounds,
+                specDrafted: draftedTotal > 0 ? draftedTotal : nil,
+                specAccepted: draftedTotal > 0 ? acceptedTotal : nil,
+                specFallbackRounds: pld?.fallbackRounds,
+                feedWidths: widths
+            )))
+        } catch {
+            try? chain.reset()
+            processedTokens = []
+            throw error
         }
-        let peak = [footprintAfterPrefill, footprintAtEnd].compactMap { $0 }.max()
-        continuation.yield(.finished(GenerationMetrics(
-            promptTokens: promptIDs.count,
-            generatedTokens: generated.count,
-            timeToFirstToken: (firstTokenAt ?? decodeStart) - start,
-            decodeTokensPerSecond: Double(generated.count) / max(decodeSeconds, 0.001),
-            peakMemoryBytes: peak,
-            draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil,
-            reusedTokens: reusedTokens,
-            finishReason: finishReason,
-            prefillSeconds: prefillSeconds,
-            perTokenMillis: perTokenMillis,
-            footprintAfterPrefillBytes: footprintAfterPrefill,
-            footprintAtEndBytes: footprintAtEnd,
-            availableMemoryBytes: Self.availableMemory(),
-            thermalStateStart: thermalStart,
-            thermalStateEnd: Self.thermalName(),
-            specEnabled: useMTP,
-            specRounds: pld?.pldRounds,
-            specDrafted: draftedTotal > 0 ? draftedTotal : nil,
-            specAccepted: draftedTotal > 0 ? acceptedTotal : nil,
-            specFallbackRounds: pld?.fallbackRounds,
-            feedWidths: widths
-        )))
     }
 
-    private func conversationText(history: [ChatTurn], prompt: String) -> String {
+    private func conversationText(history: [ChatTurn], prompt: String, raw: String? = nil) -> String {
+        if let raw { return raw }
         var text = ""
         for turn in history {
             switch turn.role {
@@ -855,12 +957,29 @@ public actor CoreMLEngine: LLMEngine {
         return text
     }
 
-    private func encodeConversation(history: [ChatTurn], prompt: String) throws -> [Int] {
+    private func encodeConversation(
+        history: [ChatTurn], prompt: String, raw: String? = nil
+    ) throws -> [Int] {
+        try encodeConversation(text: conversationText(history: history, prompt: prompt, raw: raw))
+    }
+
+    private func encodeConversation(text: String) throws -> [Int] {
         guard let tokenizer else { throw LLMEngineError.notLoaded }
-        var ids = try tokenizer.encode(conversationText(history: history, prompt: prompt))
-        let bos = tokenizer.bosTokenID ?? 2
-        if ids.first != bos { ids.insert(bos, at: 0) }
+        var ids = try tokenizer.encode(text)
+        if let bos = tokenizer.bosTokenID, ids.first != bos { ids.insert(bos, at: 0) }
         return ids
+    }
+
+    private func continuedPromptIDs(
+        _ promptText: String, reuseCache: Bool, position: Int
+    ) throws -> [Int]? {
+        guard reuseCache, let tokenizer, !processedText.isEmpty,
+              position == processedTokens.count,
+              promptText.utf8.starts(with: processedText.utf8) else { return nil }
+        let suffix = try tokenizer.encode(
+            String(decoding: promptText.utf8.dropFirst(processedText.utf8.count), as: UTF8.self))
+        guard !suffix.isEmpty else { return nil }
+        return processedTokens + suffix
     }
 
     static func deriveAssistantSuffix(prefix: String, suffix: String) -> String {
@@ -868,6 +987,11 @@ public actor CoreMLEngine: LLMEngine {
         let roleOpen = String(prefix[..<userRange.lowerBound])
         guard !roleOpen.isEmpty, let modelRange = suffix.range(of: roleOpen + "model") else { return suffix }
         return String(suffix[..<modelRange.lowerBound])
+    }
+
+    static func requireNonEmptyPrompt(_ promptIDs: [Int]) throws {
+        guard promptIDs.isEmpty else { return }
+        throw LLMEngineError.generationFailed(reason: "empty prompt")
     }
 
     static func commonPrefixLength(_ a: [Int], _ b: [Int]) -> Int {
@@ -894,7 +1018,8 @@ public actor CoreMLEngine: LLMEngine {
             }
             let verifyHead = try await CoreMLChain.loadCompiled(bundleURL: bundleURL, name: mtp.verifyLmhead, configuration: cfg)
             try v1.installMTP(drafter: drafter, verifyChunks: verify, verifyHead: verifyHead)
-        } else if let v2 = speculative as? CoreMLChainV2, !v2.mtpLoaded, let drafterURL = v2.drafterURL {
+        } else if let v2 = speculative as? CoreMLChainV2, !v2.mtpLoaded, !v2.config.isHybrid,
+                  let drafterURL = v2.drafterURL {
 
             let drafterCfg = MLModelConfiguration()
             drafterCfg.computeUnits = Self.resolveDrafterComputeUnits(
@@ -910,6 +1035,15 @@ public actor CoreMLEngine: LLMEngine {
                     name: preURL.lastPathComponent, configuration: drafterCfg)
             }
             try v2.installMTP(drafter: drafter, drafterPre: drafterPre)
+        } else if let v2 = speculative as? CoreMLChainV2, !v2.mtpLoaded, let mtpURL = v2.mtpHeadURL {
+
+            let headCfg = MLModelConfiguration()
+            headCfg.computeUnits = Self.resolveDrafterComputeUnits(
+                default: loadedUnits == .all ? .cpuAndGPU : loadedUnits)
+            let mtpHead = try await CoreMLChain.loadCompiled(
+                bundleURL: mtpURL.deletingLastPathComponent(),
+                name: mtpURL.lastPathComponent, configuration: headCfg)
+            try v2.installMTPHead(mtpHead)
         }
     }
 

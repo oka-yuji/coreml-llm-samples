@@ -91,17 +91,17 @@ enum ASRPrompt {
     }
 
     static func segments(
-        bos: Int, userTokens: [Int], instructionTokens: [Int], modelTokens: [Int], audio: SoftTokenRows
+        bos: Int?, userTokens: [Int], instructionTokens: [Int], modelTokens: [Int], audio: SoftTokenRows
     ) -> [PromptSegment] {
-        let pre = [bos, turnStart] + userTokens + instructionTokens + [boa]
+        let pre = (bos.map { [$0] } ?? []) + [turnStart] + userTokens + instructionTokens + [boa]
         let post = [eoa, turnEnd, newline, turnStart] + modelTokens
         return [.tokens(pre), .audio(audio), .tokens(post)]
     }
 
     static func flatIDs(
-        bos: Int, userTokens: [Int], instructionTokens: [Int], modelTokens: [Int], audioRows: Int
+        bos: Int?, userTokens: [Int], instructionTokens: [Int], modelTokens: [Int], audioRows: Int
     ) -> [Int] {
-        [bos, turnStart] + userTokens + instructionTokens + [boa]
+        (bos.map { [$0] } ?? []) + [turnStart] + userTokens + instructionTokens + [boa]
             + Array(repeating: ChunkedSpeculativeChain.audioPlaceholderID, count: audioRows)
             + [eoa, turnEnd, newline, turnStart] + modelTokens
     }

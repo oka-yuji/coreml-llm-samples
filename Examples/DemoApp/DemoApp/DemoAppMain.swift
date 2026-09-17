@@ -23,7 +23,7 @@ struct DemoApp: App {
 @main
 enum DemoAppMain {
     static func main() {
-        // Credential cleanup for builds that had a token field.
+
         UserDefaults.standard.removeObject(forKey: "huggingface_token")
         #if os(macOS)
         if CommandLine.arguments.contains("--selftest") {
@@ -34,6 +34,12 @@ enum DemoAppMain {
         }
         if CommandLine.arguments.contains("--live-selftest") {
             LiveCameraSelfTest.run()
+        }
+        if AgentSelfTest.isRequested {
+            AgentSelfTest.run()
+        }
+        if AgentSelfTest.isEndToEndRequested {
+            AgentSelfTest.runEndToEnd()
         }
         #endif
         DemoApp.main()

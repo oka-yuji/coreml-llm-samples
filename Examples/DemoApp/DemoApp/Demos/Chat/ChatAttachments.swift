@@ -88,8 +88,9 @@ struct AttachImageButton: View {
 
     var body: some View {
         #if os(iOS)
+        let size = glyphSize
         PhotosPicker(selection: $pickedItem, matching: .images, photoLibrary: .shared()) {
-            glyph
+            Self.glyph(size: size)
         }
         .buttonStyle(.plain)
         .disabled(isDisabled)
@@ -99,7 +100,7 @@ struct AttachImageButton: View {
             Task { await stage(item) }
         }
         #else
-        Button { showImporter = true } label: { glyph }
+        Button { showImporter = true } label: { Self.glyph(size: glyphSize) }
             .buttonStyle(.plain)
             .disabled(isDisabled)
             .accessibilityLabel("Attach image")
@@ -109,9 +110,9 @@ struct AttachImageButton: View {
         #endif
     }
 
-    private var glyph: some View {
+    private nonisolated static func glyph(size: CGFloat) -> some View {
         Image(systemName: "photo.on.rectangle")
-            .font(.system(size: glyphSize))
+            .font(.system(size: size))
             .foregroundStyle(Color.secondary)
     }
 

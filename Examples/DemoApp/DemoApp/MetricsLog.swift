@@ -34,6 +34,8 @@ struct MetricsRecord: Codable {
     var cycleSeconds: Double?
     var cycleIndex: Int?
     var captionLanguage: String?
+    var captionMode: String?
+    var imageRows: Int?
     var decodeTokPerSec: Double?
     var perTokenMillis: [Double]?
     var perTokenMinMs: Double?
@@ -64,6 +66,50 @@ struct MetricsRecord: Codable {
     var batteryState: String?
 
     var models: [String]?
+
+    var citationsTotal: Int?
+    var citationsSeen: Int?
+    var citationMeanOverlap: Double?
+
+    var agentSession: String?
+    var agentTurn: Int?
+    var agentStep: Int?
+    var agentEffort: String?
+    var agentToolCalls: [String]?
+    var agentRerenderDiverged: Bool?
+    var agentThinkingChars: Int?
+    var agentAnswerChars: Int?
+
+    var toolName: String?
+    var toolArg: String?
+    var toolSeconds: Double?
+    var toolResultChars: Int?
+    var toolError: Bool?
+}
+
+struct AgentMetricsContext {
+    var session: String?
+    var turn: Int?
+    var step: Int?
+    var effort: String?
+    var toolCalls: [String]?
+    var rerenderDiverged: Bool?
+    var thinkingChars: Int?
+    var answerChars: Int?
+}
+
+extension MetricsRecord {
+    mutating func apply(_ agent: AgentMetricsContext?) {
+        guard let agent else { return }
+        agentSession = agent.session
+        agentTurn = agent.turn
+        agentStep = agent.step
+        agentEffort = agent.effort
+        agentToolCalls = agent.toolCalls
+        agentRerenderDiverged = agent.rerenderDiverged
+        agentThinkingChars = agent.thinkingChars
+        agentAnswerChars = agent.answerChars
+    }
 }
 
 enum MetricsLog {
@@ -81,9 +127,15 @@ enum MetricsLog {
     @MainActor
     static func message(
         metrics: GenerationMetrics, modelID: String?, hfRevision: String?,
-        computeUnits: String?, bundleFolder: String?, modelLoadSeconds: Double?
+        computeUnits: String?, bundleFolder: String?, modelLoadSeconds: Double?,
+        citationsTotal: Int? = nil, citationsSeen: Int? = nil, citationMeanOverlap: Double? = nil,
+        agent: AgentMetricsContext? = nil
     ) {
         var record = base(kind: "message")
+        record.apply(agent)
+        record.citationsTotal = citationsTotal
+        record.citationsSeen = citationsSeen
+        record.citationMeanOverlap = citationMeanOverlap
         record.modelID = modelID
         record.hfRevision = hfRevision
         record.computeUnits = computeUnits
@@ -121,6 +173,23 @@ enum MetricsLog {
     }
 
     @MainActor
+    static func agentTool(
+        context: AgentMetricsContext, name: String, arg: String?, seconds: Double,
+        resultChars: Int, isError: Bool, modelID: String?, bundleFolder: String?
+    ) {
+        var record = base(kind: "agent-tool")
+        record.apply(context)
+        record.modelID = modelID
+        record.bundleFolder = bundleFolder
+        record.toolName = name
+        record.toolArg = arg.map { String($0.prefix(200)) }
+        record.toolSeconds = seconds
+        record.toolResultChars = resultChars
+        record.toolError = isError
+        append(record)
+    }
+
+    @MainActor
     static func liveCycle(
         report: LiveCycleReport, modelID: String?, hfRevision: String?,
         computeUnits: String?, bundleFolder: String?
@@ -132,6 +201,8 @@ enum MetricsLog {
         record.bundleFolder = bundleFolder
         record.cycleIndex = report.index
         record.captionLanguage = report.language.rawValue
+        record.captionMode = report.mode.rawValue
+        record.imageRows = report.imageRows
         record.promptTokens = report.promptTokens
         record.generatedTokens = report.generatedTokens
         record.captureSeconds = report.captureSeconds
@@ -217,23 +288,30 @@ enum MetricsLog {
             thermalStateStart: thermalName(), batteryLevel: level, batteryState: state)
     }
 
+    private static let queue = DispatchQueue(label: "coreml-llm-samples.metrics-log")
+
     private static func append(_ record: MetricsRecord) {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.sortedKeys]
-        guard var data = try? encoder.encode(record) else { return }
-        data.append(0x0A)
+        guard var encoded = try? encoder.encode(record) else { return }
+        encoded.append(0x0A)
+        let data = encoded
         let url = fileURL
-        Task.detached(priority: .utility) { writeLine(data, to: url) }
+        queue.async { writeLine(data, to: url) }
+    }
+
+    static func flush() async {
+        await withCheckedContinuation { continuation in
+            queue.async { continuation.resume() }
+        }
     }
 
     private static func writeLine(_ data: Data, to url: URL) {
-        if let handle = try? FileHandle(forWritingTo: url) {
-            defer { try? handle.close() }
-            _ = try? handle.seekToEnd()
-            try? handle.write(contentsOf: data)
-        } else {
-            try? data.write(to: url, options: .atomic)
-        }
+        let descriptor = open(url.path(percentEncoded: false), O_WRONLY | O_APPEND | O_CREAT, 0o644)
+        guard descriptor >= 0 else { return }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: false)
+        try? handle.write(contentsOf: data)
+        close(descriptor)
         excludeFromBackup(url)
     }
 

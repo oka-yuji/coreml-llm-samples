@@ -27,7 +27,11 @@ final class ModelRowState {
     }
 
     var bundleDirectory: URL {
-        ModelStorage.bundleDirectory(for: model.bundleFolderName)
+
+        if !model.isDownloadable, let located = ModelStorage.locateBundle(folderName: model.bundleFolderName) {
+            return located
+        }
+        return ModelStorage.bundleDirectory(for: model.bundleFolderName)
     }
 }
 
@@ -39,7 +43,7 @@ final class ModelsViewModel {
     var availableDiskSpace: UInt64 = 0
 
     init() {
-        rows = LLMModels.downloadable().map { ModelRowState(model: $0) }
+        rows = LLMModels.supported().map { ModelRowState(model: $0) }
         refresh()
     }
 
@@ -51,11 +55,18 @@ final class ModelsViewModel {
         rows.contains { $0.isDownloading }
     }
 
+    var hasDeletableDownloads: Bool {
+        rows.contains { $0.model.isDownloadable && $0.isDownloaded }
+    }
+
     func refresh() {
         for row in rows {
             let directory = row.bundleDirectory
-            row.isDownloaded = ModelStorage.isComplete(bundleDirectory: directory)
-            row.diskSize = row.isDownloaded ? ModelStorage.directorySize(at: directory) : 0
+
+            row.isDownloaded = row.model.isDownloadable
+                ? ModelStorage.isComplete(bundleDirectory: directory)
+                : ModelStorage.locateBundle(folderName: row.model.bundleFolderName) != nil
+            row.diskSize = row.isDownloaded ? ModelStorage.directorySize(at: directory.resolvingSymlinksInPath()) : 0
         }
         modelsDirectorySize = ModelStorage.directorySize(at: ModelStorage.modelsRoot())
         availableDiskSpace = ModelStorage.availableDiskSpace()
@@ -122,14 +133,17 @@ final class ModelsViewModel {
     }
 
     func delete(_ id: String) {
-        guard let row = row(for: id) else { return }
+        guard let row = row(for: id), row.model.isDownloadable else { return }
         try? ModelStorage.deleteBundle(for: row.model.bundleFolderName)
         refresh()
     }
 
     func deleteAll() {
         guard !isBusy else { return }
-        try? ModelStorage.deleteAll()
+
+        for row in rows where row.model.isDownloadable {
+            try? ModelStorage.deleteBundle(for: row.model.bundleFolderName)
+        }
         refresh()
     }
 

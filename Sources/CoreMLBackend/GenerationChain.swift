@@ -8,7 +8,7 @@ protocol GenerationChain: AnyObject {
 
     func reset() throws
 
-    func rewind(to position: Int)
+    func rewind(to position: Int) throws
 
     func prefill(_ promptIDs: [Int]) throws -> Int
 
@@ -70,6 +70,8 @@ protocol SpeculativeDecoding: AnyObject {
     var supportsMTP: Bool { get }
 
     var mtpLoaded: Bool { get }
+
+    var maxAcceptedPerRound: Int { get }
 
     func mtpRound(prediction: Int, context: [Int]) throws -> MTPRound
 }

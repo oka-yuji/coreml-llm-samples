@@ -10,6 +10,7 @@ struct Options {
     var maxTokens = 0
     var mtp = true
     var stats = false
+    var thinking = false
     var compute: String?
     var kvSave: String?
     var kvRestore: String?
@@ -45,6 +46,7 @@ func parseArguments(_ argv: [String]) -> Options {
             opts.maxTokens = n
         case "--no-mtp": opts.mtp = false
         case "--stats": opts.stats = true
+        case "--thinking": opts.thinking = true
         case "--compute": opts.compute = value(after: name, inline: inline)
         case "--kv-save": opts.kvSave = value(after: name, inline: inline)
         case "--kv-restore": opts.kvRestore = value(after: name, inline: inline)
@@ -69,8 +71,15 @@ func printUsage() {
       --prompt "<text>"   Generate one response for <text> and exit. Omit for an interactive REPL.
       --max-tokens <n>    Max tokens per turn. Default: 0 = unlimited (until EOS or context is full).
       --no-mtp            Disable speculative decoding. Default: ON when the bundle supports it.
+                          On qwen3_5 hybrid bundles that ship a static verify function, the
+                          non-speculative path runs the same verify kernel at the same fixed
+                          width (padded with dummy rows) and writes slot 0 of every recurrent
+                          state back, so speculation ON and OFF emit byte-identical tokens.
+                          Speculation drafts verify.S - 1 tokens per round with the built-in
+                          MTP head (mtp.mlmodelc) and needs no extra flags.
       --compute <units>   all | cpuAndGPU | cpuAndNeuralEngine | cpuOnly. Overrides the manifest.
       --stats             Print TTFT, decode ms/tok, tok/s, and draft acceptance after generation.
+      --thinking          Use the bundle's thinking prompt suffix (manifest promptSuffixThinking).
       --kv-save <dir>     Prefill --prompt once, dump the KV cache to <dir>, and exit.
       --kv-restore <dir>  Restore a KV cache from <dir> and continue decoding (no prefill), then exit.
       --kv-spec           Use speculative decoding for the --kv-restore continuation.
@@ -208,6 +217,10 @@ func runMain() async throws {
     err("  loading Core ML models (\(preference.rawValue))…\n")
     try await engine.load(bundle, options: LoadOptions(computeUnits: preference))
     err("  models loaded in \(String(format: "%.1f", fmtSeconds(ContinuousClock().now - loadStart)))s\n")
+    if opts.thinking {
+        let ok = await engine.setThinking(true)
+        err("  thinking mode: \(ok ? "ON" : "unsupported by this bundle")\n")
+    }
 
     let specAvailable = await engine.supportsSpeculation
 

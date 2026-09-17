@@ -44,6 +44,12 @@ public struct ModelManifest: Sendable, Codable, Hashable {
 
     public var promptSuffix: String?
 
+    public var assistantSuffix: String?
+
+    public var promptSuffixThinking: String?
+
+    public var eos: [Int]?
+
     public var sidecarStage: String?
 
     public var computeUnits: String?
@@ -58,6 +64,9 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         drafterRelativePath: String? = nil,
         promptPrefix: String? = nil,
         promptSuffix: String? = nil,
+        assistantSuffix: String? = nil,
+        promptSuffixThinking: String? = nil,
+        eos: [Int]? = nil,
         sidecarStage: String? = nil,
         computeUnits: String? = nil
     ) {
@@ -70,6 +79,9 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         self.drafterRelativePath = drafterRelativePath
         self.promptPrefix = promptPrefix
         self.promptSuffix = promptSuffix
+        self.assistantSuffix = assistantSuffix
+        self.promptSuffixThinking = promptSuffixThinking
+        self.eos = eos
         self.sidecarStage = sidecarStage
         self.computeUnits = computeUnits
     }

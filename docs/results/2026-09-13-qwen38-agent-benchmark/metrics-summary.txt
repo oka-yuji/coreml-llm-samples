@@ -1,0 +1,74 @@
+F window: timestamp >= 2026-09-13T09:21:14Z, agentSession set, smoke session(s) ['20260913-182206'] excluded
+agent sessions (= runs) seen: 48
+generation (kind=message) records: 148
+agent-tool records: 131
+
+=== E1 root-fix indicators (both ideally 0) ===
+'[v2] cache reuse unavailable' log lines    : F    0   E    3
+  F runs with the line                      : none
+  E runs with the line                      : ['N1_low_r1.logx1', 'N1_low_r2.logx1', 'N1_low_r3.logx1']
+steps agentStep>=2 with reusedTokens==0     : F 0/100   E 3/103
+  F offending steps                         : none
+  E offending steps                         : ['20260913-160024#4', '20260913-162850#5', '20260913-165702#4']
+
+=== write_note numbered saves (d2aa75f: a colliding title gets ' 2.md' instead of an error) ===
+write_note saves (result 'saved to ...')     : F   12   E   12
+  of which landed on a numbered name         : F    6   E    6
+  write_note results that were not a save    : F    0   E    0
+  raw ' N.md' regex count (instruction form) : F    6   E    6
+  F numbered: N2_low_r2.log: Apple M4 チップ 要点 2.md  (title: Apple M4 チップ 要点)
+  F numbered: N2_low_r3.log: Apple M4 チップ 要点 3.md  (title: Apple M4 チップ 要点)
+  F numbered: N2_off_r1.log: Apple M4 チップ 要点 4.md  (title: Apple M4 チップ 要点)
+  F numbered: N3_low_r2.log: Apple Neural Engine Summary 2.md  (title: Apple Neural Engine Summary)
+  F numbered: N3_low_r3.log: Apple Neural Engine Summary 3.md  (title: Apple Neural Engine Summary)
+  F numbered: N3_off_r1.log: Apple Neural Engine Summary 4.md  (title: Apple Neural Engine Summary)
+
+=== E2 (934aab1) reuse mode of '[v2] hybrid MTP', by agent step ===
+C: no 'reuse=' field in any log (145 MTP lines without it — binary predates 934aab1)
+D: no 'reuse=' field in any log (200 MTP lines without it — binary predates 934aab1)
+E: no 'reuse=' field in any log (151 MTP lines without it — binary predates 934aab1)
+F: 148 labelled MTP lines (0 without the field) -> {'none': 48, 'text': 100}
+   step  1: n=  48  none=48
+   step  2: n=  48  text=48
+   step  3: n=  28  text=28
+   step  4: n=  16  text=16
+   step  5: n=   3  text=3
+   step  6: n=   3  text=3
+   step  7: n=   2  text=2
+   step 1      : {'none': 48}
+   step >= 2   : {'text': 100}   (DoD: text only; tokens+none = 0)
+   offending (step>=2 not 'text'): none
+   steps with no MTP line (rounds==0): 0 []
+   steps with >1 MTP line: none
+
+decodeTokPerSec        n= 148 min=     12.42 med=     16.65 mean=     16.44 max=     19.65
+ttftSeconds            n= 148 min=      0.68 med=      6.88 mean=      9.08 max=     46.40
+prefillSeconds         n= 148 min=      0.43 med=      6.49 mean=      8.71 max=     46.00
+peakFootprintMB        n= 148 min=  55617.18 med=  55661.78 mean=  55664.02 max=  55715.68
+promptTokens           n= 148 min=    835.00 med=   1715.00 mean=   2586.28 max=   9309.00
+reusedTokens           n= 148 min=      0.00 med=    948.00 mean=   1361.83 max=   9264.00
+generatedTokens        n= 148 min=     30.00 med=    148.50 mean=    248.20 max=   1439.00
+specAcceptanceRate     n= 148 min=      0.64 med=      0.86 mean=      0.85 max=      0.96
+
+finishReason: {'eos': 148}
+computeUnits: {'cpuAndGPU': 148}
+thermalStateEnd: {'nominal': 118, 'fair': 30}
+agentEffort: {'low': 111, 'off': 37}
+
+finishReason == 'cap' steps        : 0/148
+agentRerenderDiverged == true      : 0/148
+'[agent] re-render diverges' lines  : 0  in no run
+'cannot rewind' lines               : 0  in no run
+
+[e2e] outcome over the 48 graded runs: {'answered': 48}
+  low   : {'answered': 36}
+  off   : {'answered': 12}
+
+--- same stats over the E window, for comparison ---
+E decodeTokPerSec      n= 151 min=     11.71 med=     16.29 mean=     16.04 max=     19.22
+E ttftSeconds          n= 151 min=      0.69 med=      6.86 mean=      9.27 max=     50.08
+E peakFootprintMB      n= 151 min=  55626.14 med=  55674.71 mean=  55699.04 max=  56811.83
+E promptTokens         n= 151 min=    835.00 med=   1715.00 mean=   2483.52 max=   7487.00
+E reusedTokens         n= 151 min=      0.00 med=    948.00 mean=   1244.03 max=   7446.00
+E finishReason=='cap' steps        : 1/151
+E agentRerenderDiverged == true    : 1/151

@@ -75,15 +75,20 @@ enum ModelsSelfTest {
         case "cancel":
             return await cancelCommand(repoID: repoID, revision: revision, destination: destination, seconds: seconds)
         case "delete":
-            try? ModelStorage.deleteBundle(for: repoID)
+            try? ModelStorage.deleteBundle(for: folderName)
             let exists = FileManager.default.fileExists(atPath: destination.path(percentEncoded: false))
             out("EXISTS_AFTER_DELETE=\(exists)")
             return exists ? 1 : 0
         case "deleteall":
-            try? ModelStorage.deleteAll()
-            let remaining = (try? FileManager.default.contentsOfDirectory(atPath: ModelStorage.modelsRoot().path(percentEncoded: false)))?.count ?? 0
-            out("MODELS_ROOT_ENTRIES=\(remaining)")
-            return remaining == 0 ? 0 : 1
+            let folders = LLMModels.downloadable().map(\.bundleFolderName)
+            for folder in folders { try? ModelStorage.deleteBundle(for: folder) }
+            let remaining = folders.filter {
+                FileManager.default.fileExists(
+                    atPath: ModelStorage.bundleDirectory(for: $0).path(percentEncoded: false))
+            }
+            out("DELETEALL_FOLDERS=\(folders.count)")
+            out("REMAINING_FOLDERS=\(remaining.count)")
+            return remaining.isEmpty ? 0 : 1
         case "verify":
             let complete = ModelStorage.isComplete(bundleDirectory: destination)
             let stats = onDiskStats(destination)

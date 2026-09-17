@@ -1,0 +1,19 @@
+# F 計測 (2026-09-13) 凍結物の sha256
+samples HEAD      : 934aab1143b51c7b9d7c18605160346b9950ac0b  (2026-09-13T18:17:10+09:00)
+samples 作業ツリー: 0 変更 (0 = clean)
+
+58af6ba041ed1a0ce47e535acf463d3a1a4b8eb78842767b31a2b1bbbd80853e  tasks.json
+b14978253c35236fb69f6cfe42d11d7c898bb6dec9f728008207c493beb25e12  grade.py
+15cc36cd0fdf3aea16523292c294850ec3b868ac2b1b99b4002d066ce6f32f5b  run_round.sh
+0e6cdcd3bd4e7c600fd392938052c8c7a95568d9436672ee8d26bddf512343cf  campaign48.sh
+a2dd94769c5e6c4fc982282eb7fe7e044803a6f2b5b7e60edaba77b9a9cc02bc  quiet_gate.sh
+275b5668f883470fb2504225776af4fd8bf106770e2ddd09e2b23c565520fc66  memguard_app2.sh
+e75f199bca328b059d26001efc3fddd2f863bc54a009cbdb26fdcfe9bed2d649  aggregate_f.py
+
+DemoApp Release バイナリ:
+258fc1bfe53d7a3dc25aa7a26805ea9900275fdbaa636eb99ae3030752b06149  DemoApp
+  mtime: 2026-09-13 18:00:43   size: 15662960
+  '[v2] hybrid MTP ... reuse=%@' 書式文字列: 1 件 (E2 934aab1 由来)
+  --agent-selftest: 41 PASS / 0 FAIL / 1 総合PASS
+
+注) tasks.json は C/D/E と同一 sha (58af6ba0...) であること: 確認済み

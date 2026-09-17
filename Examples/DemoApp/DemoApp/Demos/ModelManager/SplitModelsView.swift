@@ -10,9 +10,9 @@ struct SplitModelsView: View {
 
     var body: some View {
         List {
-            Section("Downloadable models") {
+            Section("Models") {
                 if vm.rows.isEmpty {
-                    Text("No downloadable models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
+                    Text("No models for this platform yet. Side-load a bundle into the app's Documents (see docs/e2b-speculative-device.md), then load it from the Chat screen.")
                         .font(.callout)
                         .foregroundStyle(.secondary)
                 } else {
@@ -70,7 +70,7 @@ struct SplitModelsView: View {
             } label: {
                 Label("Delete All", systemImage: "trash")
             }
-            .disabled(vm.modelsDirectorySize == 0 || vm.isBusy)
+            .disabled(!vm.hasDeletableDownloads || vm.isBusy)
         }
     }
 
@@ -92,7 +92,7 @@ struct SplitModelsView: View {
     }
 
     private func deleteAll() {
-        for row in vm.rows where chatVM.loadedPath == row.bundleDirectory.path {
+        for row in vm.rows where row.model.isDownloadable && chatVM.loadedPath == row.bundleDirectory.path {
             chatVM.unload()
         }
         vm.deleteAll()
@@ -116,7 +116,9 @@ struct ModelRow: View {
                 .font(.caption2)
                 .foregroundStyle(.secondary)
 
-            if row.isDownloading {
+            if !row.model.isDownloadable {
+                localBundleView
+            } else if row.isDownloading {
                 downloadingView
             } else if row.isDownloaded {
                 downloadedView
@@ -132,6 +134,25 @@ struct ModelRow: View {
                 }
                 .font(.caption)
             }
+        }
+    }
+
+    @ViewBuilder
+    private var localBundleView: some View {
+        if row.isDownloaded {
+            HStack {
+                Label("On this Mac \u{00B7} \(ByteFormatting.formatBytes(row.diskSize))", systemImage: "internaldrive")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Button("Load in Chat", action: onLoad)
+                    .controlSize(.small)
+                    .buttonStyle(.bordered)
+            }
+        } else {
+            Text("Not on this device - put the bundle at ~/Library/Application Support/DemoApp/models/\(row.model.bundleFolderName)/")
+                .font(.caption)
+                .foregroundStyle(.secondary)
         }
     }
 

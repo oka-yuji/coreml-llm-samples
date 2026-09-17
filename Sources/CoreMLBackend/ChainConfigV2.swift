@@ -39,6 +39,14 @@ struct ChainConfigV2: Codable, Sendable {
 
     var wslide: Int?
 
+    var verifyMeta: VerifyMeta?
+
+    struct VerifyMeta: Codable, Sendable {
+        var function: String
+        var S: Int
+        var mode: String?
+    }
+
     struct LadderFunction: Codable, Sendable {
         var fullWindow: Int
         enum CodingKeys: String, CodingKey { case fullWindow = "full_window" }
@@ -103,6 +111,7 @@ struct ChainConfigV2: Codable, Sendable {
         case ctx32k
         case kind, functions, nMax = "N_MAX", wslide = "WSLIDE"
         case defaultFunction = "default_function"
+        case verifyMeta = "verify"
     }
 
     var CTX: Int { ctxStored ?? nMax ?? SLIDING }
@@ -119,7 +128,11 @@ struct ChainConfigV2: Codable, Sendable {
 
     var isRing: Bool { ctx32k?.mode == "ctx32k-ring" }
 
+    var isHybrid: Bool { layerTypes.contains("linear_attention") }
+
     var isLadder: Bool { kind == "multifunction_ctx_ladder" }
+
+    var hasStaticVerify: Bool { (verifyMeta?.S ?? 0) >= 2 && !isLadder }
 
     var usesSplitOnehot: Bool { isRing || isLadder }
 

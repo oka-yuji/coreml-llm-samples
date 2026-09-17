@@ -18,6 +18,10 @@ struct HFTokenizer: Tokenizing {
     }
 
     func decode(_ ids: [Int]) throws -> String {
-        tokenizer.decode(tokens: ids, skipSpecialTokens: true)
+        try decode(ids, skipSpecialTokens: true)
+    }
+
+    func decode(_ ids: [Int], skipSpecialTokens: Bool) throws -> String {
+        tokenizer.decode(tokens: ids, skipSpecialTokens: skipSpecialTokens)
     }
 }

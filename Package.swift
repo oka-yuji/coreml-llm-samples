@@ -29,5 +29,9 @@ let package = Package(
             name: "corellm-chat",
             dependencies: ["CoreMLBackend", "LLMCore"]
         ),
+        .testTarget(
+            name: "CoreMLBackendTests",
+            dependencies: ["CoreMLBackend", "LLMCore"]
+        ),
     ]
 )

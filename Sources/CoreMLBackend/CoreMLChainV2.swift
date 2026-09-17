@@ -103,6 +103,7 @@ final class CoreMLChainV2 {
     private let usesPLE: Bool
     private var tokidBuffers: [String: MLMultiArray] = [:]
 
+    private let chunkInputNames: [Set<String>]
     private let needsSharedKV: [Bool]
     private let statefulChunk: [Bool]
     private let hasSharedKV: Bool
@@ -132,8 +133,54 @@ final class CoreMLChainV2 {
 
     let drafterPreURL: URL?
 
-    var supportsMTP: Bool { drafterURL != nil || pldEnabled }
+    var supportsMTP: Bool {
+        if config.isHybrid { return mtpHeadURL != nil && chunksVerify != nil }
+        return storeKName != nil && (drafterURL != nil || pldEnabled)
+    }
+
+    var maxAcceptedPerRound: Int { config.isHybrid ? verifyS : draftLen + 1 }
     private(set) var mtpLoaded = false
+
+    let mtpHeadURL: URL?
+    private var mtpHead: MLModel?
+    private var mtpState: MLState?
+    private var mtpBufs: [Int: (embed: MLMultiArray, hidden: MLMultiArray)] = [:]
+    private(set) var mtpRounds = 0
+    private(set) var mtpRollbacks = 0
+    private(set) var mtpDraftTried: [Int] = []
+    private(set) var mtpDraftHit: [Int] = []
+    private(set) var mtpWritebacks = 0
+    private(set) var mtpWritebackSeconds: Double = 0
+
+    private let chunksVerify: [MLModel]?
+    private let verifyS: Int
+    private let verifySlots: [[(output: String, state: String)]]
+    private var verifySlotArrays: [[String: MLMultiArray]] = []
+
+    var staticVerifyReady: Bool { chunksVerify != nil && verifyS >= 2 }
+    var verifyWidth: Int { verifyS }
+
+    struct MTPHeadStats {
+        let rounds: Int
+        let rollbacks: Int
+        let tried: [Int]
+        let hit: [Int]
+        let writebacks: Int
+        let writebackSeconds: Double
+
+        var writebackMillisPerCall: Double? {
+            writebacks > 0 ? writebackSeconds * 1000 / Double(writebacks) : nil
+        }
+
+        var positionRates: [Double?] {
+            zip(hit, tried).map { $1 > 0 ? Double($0) / Double($1) : nil }
+        }
+    }
+
+    func mtpHeadStatsSnapshot() -> MTPHeadStats {
+        MTPHeadStats(rounds: mtpRounds, rollbacks: mtpRollbacks, tried: mtpDraftTried, hit: mtpDraftHit,
+                     writebacks: mtpWritebacks, writebackSeconds: mtpWritebackSeconds)
+    }
 
     private(set) var draftLen: Int
     private let baseDraftLen: Int
@@ -210,8 +257,8 @@ final class CoreMLChainV2 {
     private var storeSKF: MLMultiArray?
     private var storeSVF: MLMultiArray?
 
-    private let storeKName: (sliding: String, full: String)
-    private let storeVName: (sliding: String, full: String)
+    private let storeKName: (sliding: String, full: String)?
+    private let storeVName: (sliding: String, full: String)?
 
     private var ladderStoreSlidingK: MLMultiArray?
     private var ladderStoreSlidingV: MLMultiArray?
@@ -287,6 +334,63 @@ final class CoreMLChainV2 {
             head = models[config.chunks.count]
             chunks128 = nil
         }
+        if let vm = config.verifyMeta, config.hasStaticVerify {
+            var verify: [MLModel] = []
+            var loadError: (any Error)?
+            do {
+                for name in config.chunks {
+                    let cfg = MLModelConfiguration()
+                    cfg.computeUnits = computeUnits
+                    cfg.functionName = vm.function
+                    verify.append(try await CoreMLChain.loadCompiled(
+                        bundleURL: bundleURL, name: name, configuration: cfg))
+                }
+            } catch {
+                loadError = error
+            }
+            let slots = verify.map { model in
+                model.modelDescription.outputDescriptionsByName.keys
+                    .filter { $0.hasSuffix("_slots") }
+                    .sorted()
+                    .map { (output: $0, state: String($0.dropLast("_slots".count))) }
+            }
+            let unusable: String? = loadError.map { "\(vm.function) failed to load (\($0))" }
+                ?? (config.usesSplitOnehot
+                    ? "this bundle splits onehot (ring / ladder); static verify needs a single onehot"
+                    : nil)
+                ?? (slots.allSatisfy(\.isEmpty)
+                    ? "the verify function exposes no <state>_slots output" : nil)
+                ?? (vm.S < 2 ? "verify S=\(vm.S) leaves no room for a draft" : nil)
+            if let unusable {
+                FileHandle.standardError.write(Data(
+                    "[v2] verify function unusable: \(unusable); decoding with main\n".utf8))
+                chunksVerify = nil
+                verifySlots = []
+                verifyS = 0
+            } else {
+                for (ci, chunkSlots) in slots.enumerated() {
+                    for slot in chunkSlots {
+                        let slotType = verify[ci].modelDescription
+                            .outputDescriptionsByName[slot.output]?.multiArrayConstraint?.dataType
+                        let stateType = chunks[ci].modelDescription
+                            .stateDescriptionsByName[slot.state]?.stateConstraint?.dataType
+                        guard slotType == .float16, stateType == .float16 else {
+                            throw LLMEngineError.incompatibleBundle(
+                                reason: "slot write-back copies raw fp16 bytes, but \(slot.output) is "
+                                    + "\(String(describing: slotType)) and state \(slot.state) is "
+                                    + "\(String(describing: stateType))")
+                        }
+                    }
+                }
+                chunksVerify = verify
+                verifySlots = slots
+                verifyS = vm.S
+            }
+        } else {
+            chunksVerify = nil
+            verifySlots = []
+            verifyS = 0
+        }
         loadModelsSeconds = (clock.now - loadStart) / .seconds(1)
 
         embedSidecar = try V2Sidecar.make(bundleURL: bundleURL, spec: config.sidecars.embed)
@@ -296,7 +400,9 @@ final class CoreMLChainV2 {
         } else {
             pleSidecar = nil
         }
-        let sharedFlags = chunks.map { $0.modelDescription.inputDescriptionsByName.keys.contains("sks") }
+        let inputNames = chunks.map { Set($0.modelDescription.inputDescriptionsByName.keys) }
+        chunkInputNames = inputNames
+        let sharedFlags = inputNames.map { $0.contains("sks") }
         needsSharedKV = sharedFlags
         statefulChunk = sharedFlags.map { !$0 }
         hasSharedKV = sharedFlags.contains(true)
@@ -355,13 +461,38 @@ final class CoreMLChainV2 {
         treeEnabled = ["1", "true", "yes"].contains((env["CORELLM_MTP_TREE"] ?? "").lowercased())
         treeActive = treeEnabled
 
-        let storeS = config.storeLayers["sliding_attention"] ?? 46
-        let storeF = config.storeLayers["full_attention"] ?? 47
-        storeKName = (sliding: "k_\(storeS)_out", full: "k_\(storeF)_out")
-        storeVName = (sliding: "v_\(storeS)_out", full: "v_\(storeF)_out")
+        if let storeS = config.storeLayers["sliding_attention"]
+            ?? config.layerTypes.lastIndex(of: "sliding_attention"),
+           let storeF = config.storeLayers["full_attention"]
+            ?? config.layerTypes.lastIndex(of: "full_attention") {
+            storeKName = (sliding: "k_\(storeS)_out", full: "k_\(storeF)_out")
+            storeVName = (sliding: "v_\(storeS)_out", full: "v_\(storeF)_out")
+        } else {
+            storeKName = nil
+            storeVName = nil
+        }
+
+        let mtpCandidate = bundleURL.appending(path: "mtp.mlmodelc")
+        mtpHeadURL = fm.fileExists(atPath: mtpCandidate.path(percentEncoded: false)) ? mtpCandidate : nil
+        mtpDraftTried = [Int](repeating: 0, count: max(1, verifyS - 1))
+        mtpDraftHit = [Int](repeating: 0, count: max(1, verifyS - 1))
 
         states = chunks.map { $0.makeState() }
         position = 0
+
+        if config.isHybrid {
+            let spec = mtpHeadURL == nil
+                ? "no mtp.mlmodelc (speculative decoding disabled)"
+                : (chunksVerify != nil
+                   ? "built-in MTP head (lossless: static verify + slot write-back)"
+                   : "mtp.mlmodelc present but the bundle has no usable static verify block (speculation disabled)")
+            let loadedFns = ["main"] + (chunksVerify != nil ? ["verify(S=\(verifyS))"] : [])
+            let path = chunksVerify != nil ? "verify" : "main"
+            FileHandle.standardError.write(Data(
+                ("[v2] hybrid bundle (linear_attention): \(spec); "
+                 + "loaded functions: \(loadedFns.joined(separator: "+")); decode path = \(path); "
+                 + "rewind restricted to no-op (conv_state/rec_state cannot be rewound)\n").utf8))
+        }
 
         let warmStart = clock.now
         _ = try decodeStep(tokenID: 2)
@@ -393,10 +524,20 @@ final class CoreMLChainV2 {
         drafterPreRounds = 0; drafterFullRounds = 0
         pldRounds = 0; drafterFallbackRounds = 0; pldDraftedTokens = 0; pldAcceptedTokens = 0
         treeAltFired = 0; treeAltRecovered = 0
-
+        mtpState = mtpHead?.makeState()
+        mtpRounds = 0; mtpRollbacks = 0
+        mtpWritebacks = 0; mtpWritebackSeconds = 0
+        verifySlotArrays.removeAll(keepingCapacity: true)
+        for i in mtpDraftTried.indices { mtpDraftTried[i] = 0; mtpDraftHit[i] = 0 }
     }
 
-    func rewind(to newPosition: Int) {
+    func rewind(to newPosition: Int) throws {
+        if config.isHybrid, newPosition != position {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "a hybrid (linear attention) bundle cannot rewind from \(position) to \(newPosition): "
+                    + "conv_state / rec_state are recurrent and cannot be rolled back. "
+                    + "reset() and prefill the whole conversation instead")
+        }
         position = max(0, min(newPosition, config.effectiveContextLength))
         storeSKS = nil; storeSVS = nil; storeSKF = nil; storeSVF = nil
 
@@ -421,12 +562,162 @@ final class CoreMLChainV2 {
         mtpLoaded = true
     }
 
+    func installMTPHead(_ model: MLModel) throws {
+        guard !mtpLoaded, config.isHybrid, mtpHeadURL != nil else { return }
+        guard chunksVerify != nil, !verifySlots.allSatisfy(\.isEmpty) else {
+            throw LLMEngineError.incompatibleBundle(
+                reason: "the verify function exposes no <state>_slots output; "
+                    + "partial acceptance could not write the linear state back")
+        }
+        mtpHead = model
+        mtpState = model.makeState()
+        lastHiddenBuffer = try MLMultiArray(shape: [NSNumber(value: config.H)], dataType: .float16)
+        _ = try mtpBuf(1)
+        mtpLoaded = true
+    }
+
+    @discardableResult
+    func verifyForward(tokens: [Int], basePosition: Int) throws -> MLMultiArray {
+        guard let models = chunksVerify, verifyS >= 2, let last = tokens.last else {
+            throw LLMEngineError.generationFailed(
+                reason: "this bundle has no static verify function (no verify block in its config)")
+        }
+        precondition(tokens.count <= verifyS, "verify is fixed at S=\(verifyS) rows (got \(tokens.count))")
+        let rows = tokens + [Int](repeating: last, count: verifyS - tokens.count)
+        let hin = try hiddenBuffer(for: verifyS)
+        hin.withF16 { buf in
+            for (r, tok) in rows.enumerated() {
+                embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)
+            }
+        }
+        let feats = try host.filled(base: basePosition, count: verifyS)
+        guard let onehot = feats.onehot else {
+            throw LLMEngineError.generationFailed(
+                reason: "static verify expects a single onehot input (ring / ladder bundles are unsupported)")
+        }
+        verifySlotArrays = Array(repeating: [:], count: models.count)
+        var hidden: MLMultiArray = hin
+        for ci in models.indices {
+            let output = try models[ci].prediction(
+                from: MLDictionaryFeatureProvider(dictionary: [
+                    "hidden_in": hidden, "onehot": onehot,
+                    "cos_f": feats.cosF, "sin_f": feats.sinF, "mask_f": feats.maskF,
+                ]),
+                using: states[ci])
+            guard let h = output.featureValue(for: "hidden")?.multiArrayValue else {
+                throw LLMEngineError.generationFailed(reason: "verify chunk \(ci) did not return hidden")
+            }
+            hidden = h
+            for slot in verifySlots[ci] {
+                guard let arr = output.featureValue(for: slot.output)?.multiArrayValue else {
+                    throw LLMEngineError.generationFailed(
+                        reason: "verify chunk \(ci) did not return \(slot.output)")
+                }
+                verifySlotArrays[ci][slot.output] = arr
+            }
+        }
+        return hidden
+    }
+
+    @discardableResult
+    func writeBackSlot(_ j: Int) -> Double {
+        precondition(!verifySlotArrays.isEmpty, "writeBackSlot was called before any verify pass")
+        precondition(j >= 0 && j < verifyS, "slot \(j) is out of range (S=\(verifyS))")
+        let t0 = ContinuousClock().now
+        for ci in verifySlots.indices {
+            for slot in verifySlots[ci] {
+                guard let src = verifySlotArrays[ci][slot.output] else {
+                    preconditionFailure("writeBackSlot: no slot array for \(slot.output)")
+                }
+                let perElems = src.strides[0].intValue
+                let perBytes = perElems * 2
+                src.withUnsafeBytes { s in
+                    states[ci].withMultiArray(for: slot.state) { arr in
+                        precondition(arr.count == perElems,
+                                     "one \(slot.output) slot is \(perElems) elements but state "
+                                         + "\(slot.state) is \(arr.count)")
+                        arr.withUnsafeMutableBytes { d, _ in
+                            precondition(d.count >= perBytes && s.count >= (j + 1) * perBytes,
+                                         "\(slot.output) write-back is out of bounds (slot=\(j) "
+                                             + "per=\(perBytes)B src=\(s.count)B dst=\(d.count)B)")
+                            _ = memcpy(d.baseAddress!, s.baseAddress! + j * perBytes, perBytes)
+                        }
+                    }
+                }
+            }
+        }
+        let dt = (ContinuousClock().now - t0) / .seconds(1)
+        mtpWritebacks += 1
+        mtpWritebackSeconds += dt
+        return dt
+    }
+
+    func commitVerified(_ accepted: Int, writeBackState: Bool = true) {
+        precondition(accepted >= 1 && accepted <= verifyS,
+                     "accepted \(accepted) is outside 1...\(verifyS)")
+        if writeBackState && accepted < verifyS { writeBackSlot(accepted - 1) }
+        position += accepted
+    }
+
+    private func mtpBuf(_ s: Int) throws -> (embed: MLMultiArray, hidden: MLMultiArray) {
+        if let b = mtpBufs[s] { return b }
+        let shape = [NSNumber(value: s), NSNumber(value: config.H)]
+        let b = (embed: try MLMultiArray(shape: shape, dataType: .float16),
+                 hidden: try MLMultiArray(shape: shape, dataType: .float16))
+        mtpBufs[s] = b
+        return b
+    }
+
+    private func mtpPredict(
+        hidden: MLMultiArray, tokens: [Int], basePosition: Int
+    ) throws -> (head: MLMultiArray, next: MLMultiArray) {
+        guard let model = mtpHead, let state = mtpState else {
+            throw LLMEngineError.generationFailed(reason: "the MTP head is not loaded")
+        }
+        let s = tokens.count
+        let buf = try mtpBuf(s)
+        buf.embed.withF16 { dst in
+            for (r, t) in tokens.enumerated() {
+                embedSidecar.read(row: t, into: dst.baseAddress! + r * config.H)
+            }
+        }
+        buf.hidden.withF16 { dst in
+            hidden.withF16 { src in
+                dst.baseAddress!.update(from: src.baseAddress!, count: s * config.H)
+            }
+        }
+        let feats = try host.filled(base: basePosition, count: s)
+        var dictionary: [String: Any] = [
+            "embed_in": buf.embed, "hidden_in": buf.hidden,
+            "cos_f": feats.cosF, "sin_f": feats.sinF, "mask_f": feats.maskF,
+        ]
+        if let onehot = feats.onehot { dictionary["onehot"] = onehot }
+        let out = try model.prediction(
+            from: MLDictionaryFeatureProvider(dictionary: dictionary), using: state)
+        guard let hh = out.featureValue(for: "hidden_head")?.multiArrayValue,
+              let hn = out.featureValue(for: "hidden_next")?.multiArrayValue else {
+            throw LLMEngineError.generationFailed(
+                reason: "the MTP head did not return hidden_head / hidden_next")
+        }
+        return (head: hh, next: hn)
+    }
+
+    private func mtpFillPrefill(
+        hidden: MLMultiArray, tokens: [Int], basePosition: Int
+    ) throws {
+        guard !tokens.isEmpty, mtpLoaded, config.isHybrid else { return }
+        _ = try mtpPredict(hidden: hidden, tokens: tokens, basePosition: basePosition)
+    }
+
     private func allocateLadderStoreBuffers() throws {
         let last = chunks.count - 1
-        let sIdx = config.layerTypes.lastIndex(of: "sliding_attention")
-            ?? config.storeLayers["sliding_attention"] ?? 46
-        let fIdx = config.layerTypes.lastIndex(of: "full_attention")
-            ?? config.storeLayers["full_attention"] ?? 47
+        guard let sIdx = config.layerTypes.lastIndex(of: "sliding_attention")
+                ?? config.storeLayers["sliding_attention"],
+              let fIdx = config.layerTypes.lastIndex(of: "full_attention")
+                ?? config.storeLayers["full_attention"] else {
+            throw LLMEngineError.generationFailed(
+                reason: "the ladder store layers (sliding/full) cannot be resolved from layer_types / store_layers; MTP is impossible")
+        }
         let names = (slidingK: "k_\(sIdx)", slidingV: "v_\(sIdx)", fullK: "k_\(fIdx)", fullV: "v_\(fIdx)")
         ladderStoreStateNames = names
 
@@ -575,7 +866,9 @@ final class CoreMLChainV2 {
     private func prefillRows(
         _ promptIDs: [Int], blockSize: Int, softRows: [SoftRowRef?]?
     ) throws -> Int {
-        precondition(!promptIDs.isEmpty, "prefill needs at least 1 token")
+        guard !promptIDs.isEmpty else {
+            throw LLMEngineError.generationFailed(reason: "empty prompt")
+        }
         precondition(softRows == nil || softRows!.count == promptIDs.count)
 
         let start = position
@@ -601,10 +894,16 @@ final class CoreMLChainV2 {
             lastHidden = try forwardChunks(
                 tokens: Array(promptIDs[pos..<pos + s]), basePosition: base,
                 softRows: softSlice(softRows, pos, pos + s))
+            if mtpLoaded, config.isHybrid, let h = lastHidden {
+                let rows = min(s, promptIDs.count - pos - 1)
+                try mtpFillPrefill(
+                    hidden: h, tokens: rows > 0 ? Array(promptIDs[(pos + 1)..<(pos + 1 + rows)]) : [],
+                    basePosition: base)
+            }
             lastRow = s - 1
             pos += s
+            position = start + pos
         }
-        position = start + promptIDs.count
 
         guard let lastHidden else {
             throw LLMEngineError.generationFailed(reason: "prefill: hidden is empty")
@@ -624,7 +923,13 @@ final class CoreMLChainV2 {
             throw LLMEngineError.generationFailed(
                 reason: "context length \(config.effectiveContextLength) exceeded")
         }
-        let hidden = try forwardChunks(tokens: [tokenID], basePosition: position)
+        let hidden: MLMultiArray
+        if chunksVerify != nil, position + verifyS <= config.effectiveContextLength {
+            hidden = try verifyForward(tokens: [tokenID], basePosition: position)
+            writeBackSlot(0)
+        } else {
+            hidden = try forwardChunks(tokens: [tokenID], basePosition: position)
+        }
         let next = try lmheadArgmax(hidden)
         if mtpLoaded, let lastHiddenBuffer {
             lastToken = tokenID
@@ -725,11 +1030,12 @@ final class CoreMLChainV2 {
                 dictionary["skf"] = sharedKV["skf"]
                 dictionary["svf"] = sharedKV["svf"]
             }
-            let provider = try MLDictionaryFeatureProvider(dictionary: dictionary)
+            let provider = try MLDictionaryFeatureProvider(
+                dictionary: dictionary.filter { chunkInputNames[ci].contains($0.key) })
             let output = statefulChunk[ci]
                 ? try activeChunks[ci].prediction(from: provider, using: states[ci])
                 : try activeChunks[ci].prediction(from: provider)
-            if hasSharedKV {
+            if hasSharedKV, let storeKName, let storeVName {
                 if let k = output.featureValue(for: storeKName.sliding)?.multiArrayValue { sharedKV["sks"] = k }
                 if let v = output.featureValue(for: storeVName.sliding)?.multiArrayValue { sharedKV["svs"] = v }
                 if let k = output.featureValue(for: storeKName.full)?.multiArrayValue { sharedKV["skf"] = k }
@@ -740,7 +1046,7 @@ final class CoreMLChainV2 {
             }
             hidden = h
 
-            if mtpLoaded && ci == activeChunks.count - 1 {
+            if mtpLoaded, ci == activeChunks.count - 1, let storeKName, let storeVName {
                 storeSKS = output.featureValue(for: storeKName.sliding)?.multiArrayValue
                 storeSVS = output.featureValue(for: storeVName.sliding)?.multiArrayValue
                 storeSKF = output.featureValue(for: storeKName.full)?.multiArrayValue
@@ -772,6 +1078,7 @@ final class CoreMLChainV2 {
     }
 
     func mtpRound(prediction: Int, context: [Int] = []) throws -> MTPRound {
+        if config.isHybrid { return try mtpRoundStaticVerify(prediction: prediction) }
 
         if config.isLadder, mtpLoaded, drafter != nil, ladderStoreStateNames != nil {
             try captureLadderStoreKV()
@@ -859,8 +1166,7 @@ final class CoreMLChainV2 {
                 mainTokens: drafts, altToken: altToken, basePosition: base, altSlot: altSlot)
             let targets = try lmheadArgmaxRows(treeHidden, count: drafts.count + 1)
 
-            var accepted = 1
-            while accepted < drafts.count && drafts[accepted] == targets[accepted - 1] { accepted += 1 }
+            let accepted = acceptedPrefix(drafts, targets)
 
             if accepted == 1 && altToken == targets[0] {
 
@@ -888,10 +1194,7 @@ final class CoreMLChainV2 {
         let verifyHidden = try forwardChunks(tokens: drafts, basePosition: base)
         let targets = try lmheadArgmaxRows(verifyHidden, count: drafts.count)
 
-        var accepted = 1
-        while accepted < drafts.count && drafts[accepted] == targets[accepted - 1] {
-            accepted += 1
-        }
+        let accepted = acceptedPrefix(drafts, targets)
 
         position = base + accepted
         lastToken = drafts[accepted - 1]
@@ -901,6 +1204,53 @@ final class CoreMLChainV2 {
         return MTPRound(
             emitted: Array(drafts[0..<accepted]), next: targets[accepted - 1],
             accepted: accepted, drafted: drafted)
+    }
+
+    private func acceptedPrefix(_ drafts: [Int], _ targets: [Int]) -> Int {
+        var accepted = 1
+        while accepted < drafts.count && drafts[accepted] == targets[accepted - 1] { accepted += 1 }
+        guard let stop = drafts[0..<accepted].firstIndex(where: config.eosIDs.contains) else {
+            return accepted
+        }
+        return stop + 1
+    }
+
+    private func mtpRoundStaticVerify(prediction: Int) throws -> MTPRound {
+        guard mtpLoaded, mtpHead != nil, let lastHiddenBuffer, position >= 1, verifyS >= 2,
+              position + verifyS <= config.effectiveContextLength else {
+            let next = try decodeStep(tokenID: prediction)
+            return MTPRound(emitted: [prediction], next: next, accepted: 0, drafted: 0)
+        }
+        let base = position
+
+        var drafts = [prediction]
+        var token = prediction
+        var chainHidden: MLMultiArray = lastHiddenBuffer
+        var pos = base - 1
+        for _ in 1..<verifyS {
+            let out = try mtpPredict(hidden: chainHidden, tokens: [token], basePosition: pos)
+            token = try lmheadArgmax(out.head)
+            drafts.append(token)
+            chainHidden = out.next
+            pos += 1
+        }
+
+        let hidden = try verifyForward(tokens: drafts, basePosition: base)
+        let targets = try lmheadArgmaxRows(hidden, count: drafts.count)
+        let accepted = acceptedPrefix(drafts, targets)
+
+        if accepted < drafts.count { mtpRollbacks += 1 }
+        commitVerified(accepted)
+        lastToken = drafts[accepted - 1]
+        copyRow(from: hidden, row: accepted - 1, into: lastHiddenBuffer)
+
+        mtpRounds += 1
+        let triedUpTo = min(accepted, drafts.count - 1)
+        for i in 1...triedUpTo where i - 1 < mtpDraftTried.count { mtpDraftTried[i - 1] += 1 }
+        for i in 1..<accepted where i - 1 < mtpDraftHit.count { mtpDraftHit[i - 1] += 1 }
+
+        return MTPRound(emitted: Array(drafts[0..<accepted]), next: targets[accepted - 1],
+                        accepted: accepted, drafted: drafts.count)
     }
 
     private func draftStep(
@@ -1232,6 +1582,8 @@ extension CoreMLChainV2 {
         lastToken = manifest.processedTokens.last ?? 0
         storeSKS = nil; storeSVS = nil; storeSKF = nil; storeSVF = nil
         ladderStoreSyncedRows = 0
+        mtpState = mtpHead?.makeState()
+        verifySlotArrays.removeAll(keepingCapacity: true)
         return manifest
     }
 }

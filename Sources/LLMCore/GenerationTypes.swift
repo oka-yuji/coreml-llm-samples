@@ -6,16 +6,20 @@ public struct GenerationRequest: Sendable {
 
     public var reuseCache: Bool
 
+    public var rawPrompt: String?
+
     public init(
         prompt: String,
         config: GenerationConfig = GenerationConfig(),
         history: [ChatTurn] = [],
-        reuseCache: Bool = false
+        reuseCache: Bool = false,
+        rawPrompt: String? = nil
     ) {
         self.prompt = prompt
         self.config = config
         self.history = history
         self.reuseCache = reuseCache
+        self.rawPrompt = rawPrompt
     }
 }
 
@@ -40,18 +44,22 @@ public struct GenerationConfig: Sendable, Hashable, Codable {
 
     public var multiTokenPrediction: Bool
 
+    public var emitSpecialTokens: Bool
+
     public init(
         maxNewTokens: Int = 0,
         temperature: Double = 0,
         topP: Double? = nil,
         seed: UInt64? = nil,
-        multiTokenPrediction: Bool = false
+        multiTokenPrediction: Bool = false,
+        emitSpecialTokens: Bool = false
     ) {
         self.maxNewTokens = maxNewTokens
         self.temperature = temperature
         self.topP = topP
         self.seed = seed
         self.multiTokenPrediction = multiTokenPrediction
+        self.emitSpecialTokens = emitSpecialTokens
     }
 }
 

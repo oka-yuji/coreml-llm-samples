@@ -130,7 +130,7 @@ Select the **`DemoApp`** (macOS) scheme and Run. On the **Models** screen, *Gemm
 switches to the conversation screen. The entry is macOS-only: at 6.5 GB it does not fit an iPhone's
 memory budget, and the graph needs the GPU.
 
-## 7. Images and Live Camera (macOS)
+## 7. Images and the vision encoder (macOS)
 
 The Hugging Face repo carries `vision_fp16.mlmodelc` alongside the language chunks, so an in-app
 download installs it and image support turns itself on. The engine looks for the encoder **inside the
@@ -145,10 +145,15 @@ weights: 658 of 658 tensors are bit-identical, and only the projection into the 
 
 1. **Chat**: load the E4B bundle, attach an image, and ask about it. A 768x768 image costs 256 of the
    2,048 context tokens.
-2. **Live Camera**: press **Start**. When more than one vision-capable bundle is installed, a **Model**
-   menu appears above the status line — pick `gemma-4-e4b-speculative` before pressing Start.
-3. **Switching back to E2B**: pick it in that same menu. The choice is remembered across launches, and
-   the menu only lists bundles that run on the current platform, so E4B never appears on iOS.
+2. **Live Camera**: the camera demo is listed on iOS only, so on macOS the same loop runs headlessly
+   over a folder of frames:
+   `DemoApp.app/Contents/MacOS/DemoApp --live-selftest --bundle <bundle> --images a.jpg,b.jpg,c.jpg --cycles 3`.
+   Add `--mode speed|quality|auto` to choose the encoder sidecar and `--lang en|ja` for the caption
+   language.
+3. **Choosing a bundle**: `--bundle` picks one headlessly. On iOS, where the demo is on screen, a
+   **Model** menu appears above the status line when more than one vision-capable bundle is installed;
+   the choice is remembered across launches, and the menu only lists bundles that run on the current
+   platform, so E4B never appears there.
 
 On an M4 Max, a warm Live Camera cycle takes **1.44 s** in English and **1.63 s** in Japanese, and a
 single-shot image question answers in **0.75 s** to first token at 29.8–34.3 tok/s. The vision encoder
