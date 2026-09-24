@@ -22,6 +22,8 @@ final class ChatViewModel {
         var text: String
         var attachedImageURL: URL?
         var attachedAudioSeconds: Double?
+        /// RAG only: the numbered sources the answer was built from, plus any retrieval error.
+        var sources: [String] = []
 
         init(
             id: UUID = UUID(), role: Role, text: String, attachedImageURL: URL? = nil,
@@ -61,6 +63,16 @@ final class ChatViewModel {
     var maxTokens: Int = 0
 
     var speculative: Bool = SpeculationPolicy.defaultEnabled()
+
+    /// RAG mode: the app searches and reads first, then answers from what it found.
+    var ragEnabled: Bool = false
+    var ragWeb: Bool = true
+    var ragLocal: Bool = true
+
+    /// What retrieval found, shown in the status bar under the transcript.
+    var ragStatus: String = ""
+
+    var ragIsOn: Bool { ragEnabled && (ragWeb || ragLocal) }
 
     var preparingSpeculation: Bool = false
 
@@ -105,12 +117,24 @@ final class ChatViewModel {
     @ObservationIgnored private var loadedFolder: String?
     @ObservationIgnored private var loadedModelLoadSeconds: Double?
 
+    /// Per-model load times from the engine, for the self-test log.
+    @ObservationIgnored private(set) var loadBreakdown: [String] = []
+
     @ObservationIgnored private var presenter = StreamPresenter()
     @ObservationIgnored private var displayTask: Task<Void, Never>?
     @ObservationIgnored private var loadProgressTimer: Task<Void, Never>?
     @ObservationIgnored private var hasAttemptedAutoLoad = false
 
     @ObservationIgnored var generation: Task<Void, Never>?
+
+    /// Background prefill specialization started right after a load; nil when it is off.
+    @ObservationIgnored var prewarm: Task<Void, Never>?
+
+    /// One line describing how the prewarm went, once it has.
+    private(set) var prewarmSummary = ""
+
+    /// One line per specialized prefill function, for the self-test log.
+    private(set) var prewarmLog: [String] = []
 
     init() {}
 
@@ -233,7 +257,9 @@ final class ChatViewModel {
                 ? "Loaded (compiled for this device — future loads take a few seconds)."
                 : "Loaded."
             rememberLastLoadedBundle(folderName: url.lastPathComponent)
+            loadBreakdown = await newEngine.loadBreakdown
             phase = .ready
+            startPrefillPrewarm(newEngine)
         } catch {
             stopLoadProgressTimer()
             engine = nil
@@ -244,6 +270,40 @@ final class ChatViewModel {
             discardRecording()
             loadedPath = ""
             phase = .failed(String(describing: error))
+        }
+    }
+
+    /// Specializes the prefill functions in the background after a load, so the first long prompt
+    /// does not pay ~60 s for `prefill32`. Off unless `prefillPrewarm` / `CORELLM_PREFILL_PREWARM`
+    /// asks for it, because it costs the same time up front and holds the ANE busy while it runs.
+    private func startPrefillPrewarm(_ engine: CoreMLEngine) {
+        prewarm?.cancel()
+        prewarmSummary = ""
+        prewarmLog = []
+        // `Task` inherits this method's MainActor isolation, so the body can touch the view model
+        // directly; only `onStep`, which the engine actor calls, has to hop back.
+        prewarm = Task { [self] in
+            guard await engine.prefillPrewarmEnabled else { return }
+            let clock = ContinuousClock()
+            let start = clock.now
+            do {
+                let result = try await engine.prewarmPrefill(widths: nil) { step in
+                    let line = String(
+                        format: "Preparing prefill%d (%d/4)…", step.width, step.chunk + 1)
+                    Task { @MainActor in self.statusLine = line }
+                }
+                prewarmLog = result.steps.map {
+                    String(format: "[prewarm] prefill%d chunk=%d load=%.2fs avail=%.0f MiB",
+                           $0.width, $0.chunk, $0.seconds, $0.availableMB)
+                }
+                prewarmSummary = String(
+                    format: "prewarm %@ steps=%d in %.1fs",
+                    result.completed ? "complete" : "stopped early (low memory)",
+                    result.steps.count, (clock.now - start) / .seconds(1))
+            } catch {
+                prewarmSummary = "prewarm failed: \(error)"
+            }
+            statusLine = ""
         }
     }
 
@@ -287,6 +347,8 @@ final class ChatViewModel {
         guard canLoad else { return }
         generation?.cancel()
         generation = nil
+        prewarm?.cancel()
+        prewarm = nil
         stopLoadProgressTimer()
         stopDisplayLoop()
         presenter.reset()
@@ -451,12 +513,71 @@ final class ChatViewModel {
             return true
         }
 
+        if ragIsOn {
+            var settings = RAGSettings.fromDefaults()
+            settings.web = ragWeb
+            settings.local = ragLocal
+            generation = Task { [self] in
+                await consumeRAGTurn(
+                    engine: engine, question: userText, settings: settings, assistantID: assistantID)
+            }
+            return true
+        }
+
         let config = GenerationConfig(maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: speculative)
         let request = GenerationRequest(prompt: userText, config: config, history: history, reuseCache: true)
         generation = Task { [self] in
             await consume(engine: engine, request: request, userText: userText, assistantID: assistantID)
         }
         return true
+    }
+
+    /// Retrieve, then answer from what came back. The turn is not added to `history`: the prompt
+    /// already carries everything the model needs, and keeping the instruction at position 0 is
+    /// what lets the engine reuse its KV prefix from one question to the next.
+    private func consumeRAGTurn(
+        engine: CoreMLEngine, question: String, settings: RAGSettings, assistantID: UUID
+    ) async {
+        loadStatus = "資料を集めています…"
+        ragStatus = ""
+        let retrieval = await RAGRetriever.gather(question: question, settings: settings) { text in
+            (try? await engine.countTokens(text)) ?? RAGRetriever.estimateTokens(text)
+        }
+        guard !Task.isCancelled else {
+            finishStopped(userText: question, assistantText: "", assistantID: assistantID)
+            return
+        }
+        let footer = retrieval.notes.map { "⚠ " + $0 } + retrieval.citations
+        if let index = messages.firstIndex(where: { $0.id == assistantID }) {
+            messages[index].sources = footer
+        }
+        ragStatus = retrieval.summary
+        for line in retrieval.notes { AgentTools.log("[rag] " + line) }
+
+        guard !retrieval.sources.isEmpty else {
+            warming = false
+            presenter.append(RAGContext.noSourcesReply)
+            flushDisplay(id: assistantID)
+            statusLine = "[rag] " + (retrieval.notes.first ?? retrieval.summary)
+            phase = .ready
+            return
+        }
+
+        let prompt = RAGContext.prompt(
+            question: question, sources: retrieval.sources, today: RAGContext.today())
+        let promptTokens = (try? await engine.countTokens(prompt))
+            ?? RAGRetriever.estimateTokens(prompt)
+        let config = GenerationConfig(
+            maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: speculative)
+        let request = GenerationRequest(prompt: prompt, config: config, reuseCache: true)
+        await consume(
+            engine: engine, request: request, userText: question, assistantID: assistantID,
+            recordHistory: false)
+        let stats = String(
+            format: "sources %d  |  source tok %d  |  prompt(rag) %d tok  |  retrieval %.1fs",
+            retrieval.sources.count, retrieval.sourceTokens, promptTokens, retrieval.seconds)
+        statusLine += (statusLine.isEmpty ? "" : "  |  ") + stats
+        ragStatus = retrieval.summary
     }
 
     func stop() { generation?.cancel() }
@@ -487,6 +608,7 @@ final class ChatViewModel {
         statusLine = ""
         loadStatus = ""
         kvStatus = ""
+        ragStatus = ""
         isConversationFull = false
         attachedImageURL = nil
         imageContextActive = false
@@ -575,7 +697,8 @@ final class ChatViewModel {
         engine: CoreMLEngine,
         request: GenerationRequest,
         userText: String,
-        assistantID: UUID
+        assistantID: UUID,
+        recordHistory: Bool = true
     ) async {
         var assistantText = ""
         var metrics: GenerationMetrics?
@@ -637,8 +760,10 @@ final class ChatViewModel {
             return
         }
         flushDisplay(id: assistantID)
-        history.append(ChatTurn(role: .user, text: userText))
-        history.append(ChatTurn(role: .assistant, text: assistantText))
+        if recordHistory {
+            history.append(ChatTurn(role: .user, text: userText))
+            history.append(ChatTurn(role: .assistant, text: assistantText))
+        }
         if let metrics {
             statusLine = statsLine(metrics)
             MetricsLog.message(

@@ -134,6 +134,7 @@ struct SplitChatView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
+            RAGControls()
             Toggle("Speculation", isOn: $vm.speculative)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -284,6 +285,7 @@ private struct MessageRow: View {
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(isUser ? Color.accentColor.opacity(0.12) : Color.bubbleBackground))
+            RAGSourceFooter(sources: message.sources)
         }
     }
 }

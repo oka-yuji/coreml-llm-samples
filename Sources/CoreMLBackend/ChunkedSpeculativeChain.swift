@@ -2,6 +2,7 @@ import CoreML
 import CryptoKit
 import Foundation
 import LLMCore
+import os
 
 final class ChunkedSpeculativeChain {
     static let format = "coreml-corellm-r1"
@@ -40,6 +41,20 @@ final class ChunkedSpeculativeChain {
     private let storeF: Int
     private let sidecarStage: String
 
+    /// How the wide prefill functions are kept in memory.
+    /// `.resident` caches all four chunks' prefill function (the shipping default).
+    /// `.sequential` loads one chunk, runs it, and releases it, so at most one prefill chunk is
+    /// resident at a time. Only the load order changes; the numbers produced are the same.
+    enum PrefillMode: String, Sendable {
+        case resident
+        case sequential
+    }
+
+    let prefillMode: PrefillMode
+
+    /// Per-model load times from `init`, for the self-test log.
+    private(set) var loadBreakdown: [String] = []
+
     private let decodeModels: [MLModel]
     private let head: MLModel
     private var batchedVerifyHead: MLModel?
@@ -74,9 +89,13 @@ final class ChunkedSpeculativeChain {
     }
 
     init(bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
-         verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true) async throws {
+         verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true,
+         prefillMode: String? = nil, specializationStrategy: String? = nil) async throws {
         let config = try ChunkedChainConfig.load(from: bundleURL.appending(path: "convert_config.json"))
         self.config = config
+        self.prefillMode = Self.resolvePrefillMode(manifest: prefillMode)
+        // Set before the first `loadFunction` below: every model in this bundle gets the same hint.
+        Self.specializationStrategy = Self.resolveSpecialization(manifest: specializationStrategy)
         self.bundleURL = bundleURL
         self.computeUnits = computeUnits
         numLayers = config.numLayers
@@ -94,18 +113,30 @@ final class ChunkedSpeculativeChain {
         let stage = sidecarStage ?? config.defaultSidecarStage
         self.sidecarStage = stage
 
-        var models: [MLModel] = []
         var compiledURLs: [URL] = []
         for name in config.chunkPackages {
-            let compiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: name)
-            compiledURLs.append(compiled)
-            models.append(try Self.loadFunction(
-                compiledURL: compiled, functionName: config.decodeFunction, computeUnits: computeUnits))
+            compiledURLs.append(try await Self.compileIfNeeded(bundleURL: bundleURL, name: name))
         }
-        decodeModels = models
+        let loadClock = ContinuousClock()
+        let decodeStart = loadClock.now
+        let decode = try Self.loadFunctions(
+            compiledURLs: compiledURLs, functionName: config.decodeFunction,
+            computeUnits: computeUnits)
+        let decodeWall = (loadClock.now - decodeStart) / .seconds(1)
+        decodeModels = decode.models
         chunkCompiledURLs = compiledURLs
         let headCompiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: config.lmheadPackage)
+        let headStart = loadClock.now
         head = try Self.loadFunction(compiledURL: headCompiled, functionName: nil, computeUnits: computeUnits)
+        let headSeconds = (loadClock.now - headStart) / .seconds(1)
+        loadBreakdown = [
+            "[load] specialization=\(Self.specializationName())",
+            "[load] decode chunks "
+                + decode.seconds.enumerated()
+                    .map { String(format: "c%d=%.2fs", $0.offset, $0.element) }.joined(separator: " ")
+                + String(format: " wall=%.2fs", decodeWall),
+            String(format: "[load] lmhead=%.2fs", headSeconds),
+        ]
 
         let headCU = verifyHeadComputeUnits ?? Self.resolveVerifyHeadComputeUnits(engine: computeUnits)
         verifyHeadCU = headCU
@@ -203,23 +234,114 @@ final class ChunkedSpeculativeChain {
         }
     }
 
+    /// `CORELLM_PREFILL_MODE` wins over the manifest's `prefillMode`; anything unrecognised is `.resident`.
+    static func resolvePrefillMode(manifest: String?) -> PrefillMode {
+        let raw = ProcessInfo.processInfo.environment["CORELLM_PREFILL_MODE"] ?? manifest
+        return raw.flatMap { PrefillMode(rawValue: $0.lowercased()) } ?? .resident
+    }
+
+    /// `nil` leaves Core ML's own default in place, which is what shipped before this knob existed.
+    /// ponytail: process-wide, because a process loads one bundle at a time. Thread it through
+    /// `loadFunction` if two bundles ever need different strategies in one process.
+    nonisolated(unsafe) static var specializationStrategy: MLOptimizationHints.SpecializationStrategy?
+
+    /// `CORELLM_SPECIALIZATION` wins over the manifest's `specializationStrategy`;
+    /// anything unrecognised leaves the framework default alone.
+    static func resolveSpecialization(manifest: String?) -> MLOptimizationHints.SpecializationStrategy? {
+        let raw = ProcessInfo.processInfo.environment["CORELLM_SPECIALIZATION"] ?? manifest
+        switch raw?.lowercased() {
+        case "default": return .default
+        case "fastprediction", "fast": return .fastPrediction
+        default: return nil
+        }
+    }
+
+    static func specializationName() -> String {
+        switch specializationStrategy {
+        case .default: "default"
+        case .fastPrediction: "fastPrediction"
+        case nil: "(framework default)"
+        @unknown default: "unknown"
+        }
+    }
+
     static func loadFunction(compiledURL: URL, functionName: String?, computeUnits: MLComputeUnits) throws -> MLModel {
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits
         if let functionName { cfg.functionName = functionName }
+        if let strategy = specializationStrategy { cfg.optimizationHints.specializationStrategy = strategy }
         return try MLModel(contentsOf: compiledURL, configuration: cfg)
+    }
+
+    /// Loads one function out of several compiled chunks and reports how long each one took.
+    ///
+    /// Sequential on purpose. Loading two chunks at once was measured on an iPhone 15 (2026-09-24):
+    /// the loads really do overlap (74.2 s of per-chunk time inside a 50.0 s wall) but the wall time
+    /// matched the serial 50.6 s, because the ANE specialization behind them is serialized anyway.
+    /// All it buys is two chunks' weights in memory at the same time.
+    static func loadFunctions(
+        compiledURLs: [URL], functionName: String?, computeUnits: MLComputeUnits
+    ) throws -> (models: [MLModel], seconds: [Double]) {
+        let clock = ContinuousClock()
+        var models: [MLModel] = []
+        var seconds: [Double] = []
+        for url in compiledURLs {
+            let t0 = clock.now
+            models.append(try loadFunction(
+                compiledURL: url, functionName: functionName, computeUnits: computeUnits))
+            seconds.append((clock.now - t0) / .seconds(1))
+        }
+        return (models, seconds)
+    }
+
+    private func prefillFunctionName(_ N: Int) throws -> String {
+        guard let fn = config.allPrefillFunctions[N] else {
+            throw LLMEngineError.incompatibleBundle(reason: "chunked config: prefill N=\(N) has no function")
+        }
+        return fn
     }
 
     private func prefillChain(N: Int) throws -> [MLModel] {
         if let m = prefillModels[N] { return m }
-        guard let fn = config.allPrefillFunctions[N] else {
-            throw LLMEngineError.incompatibleBundle(reason: "chunked config: prefill N=\(N) has no function")
-        }
+        let fn = try prefillFunctionName(N)
         let models = try chunkCompiledURLs.map {
             try Self.loadFunction(compiledURL: $0, functionName: fn, computeUnits: computeUnits)
         }
         prefillModels[N] = models
         return models
+    }
+
+    /// Runs one chunk of a prefill pass.
+    ///
+    /// In `.sequential` the chunk's prefill function is loaded, used and released inside this call,
+    /// so the ANE only ever holds one prefill chunk. The outputs are copied before the model goes
+    /// away: a prediction's arrays are owned by the model that produced them, and the caller keeps
+    /// `hidden` (and, for the first two chunks, the KV) alive past this point.
+    private func prefillChunk(N: Int, chunk ci: Int, features: [String: Any]) throws -> MLFeatureProvider {
+        let input = try MLDictionaryFeatureProvider(dictionary: features)
+        if prefillMode == .resident {
+            return try prefillChain(N: N)[ci].prediction(from: input)
+        }
+        let fn = try prefillFunctionName(N)
+        return try autoreleasepool {
+            let model = try Self.loadFunction(
+                compiledURL: chunkCompiledURLs[ci], functionName: fn, computeUnits: computeUnits)
+            return try Self.detachedCopy(of: model.prediction(from: input))
+        }
+    }
+
+    private static func detachedCopy(of provider: MLFeatureProvider) throws -> MLFeatureProvider {
+        var copies: [String: MLFeatureValue] = [:]
+        for name in provider.featureNames {
+            guard let array = provider.featureValue(for: name)?.multiArrayValue,
+                  array.dataType == .float16 else { continue }
+            let owned = try MLMultiArray(shape: array.shape, dataType: .float16)
+            array.withF16 { src in
+                owned.withF16 { dst in dst.baseAddress!.update(from: src.baseAddress!, count: src.count) }
+            }
+            copies[name] = MLFeatureValue(multiArray: owned)
+        }
+        return try MLDictionaryFeatureProvider(dictionary: copies)
     }
 
     func reset() throws {
@@ -355,9 +477,63 @@ final class ChunkedSpeculativeChain {
 
     func materializePrefill(widths: [Int]) throws {
         for n in widths {
-            _ = try prefillChain(N: n)
+            // `.sequential` deliberately keeps no prefill model resident; only the host buffers
+            // are worth pre-allocating.
+            if prefillMode == .resident { _ = try prefillChain(N: n) }
             _ = try prefillBuffers(N: n)
         }
+    }
+
+    struct PrewarmStep: Sendable {
+        let width: Int
+        let chunk: Int
+        let seconds: Double
+        let availableMB: Double
+    }
+
+    /// Specializes the prefill functions ahead of the first long prompt, one function at a time.
+    ///
+    /// The expensive part of a first prefill is not the arithmetic, it is the ANE specialization
+    /// that `MLModel(contentsOf:)` performs and caches in the app's e5rt bundle cache — ~10-15 s
+    /// per chunk on an iPhone 15, ~0.2 s once the entry exists. Loading each function once puts the
+    /// entry there.
+    ///
+    /// Every model is released as soon as it has loaded, in **both** prefill modes. The cache entry
+    /// is the point, not residency: keeping all eight wide-prefill functions resident is what
+    /// SIGKILLed a 6 GB phone before, and `os_proc_available_memory()` cannot see it coming because
+    /// ANE weights are wired outside the app's jetsam accounting. `.resident` reloads its four
+    /// chunks on the first real prefill instead, warm, for about a second.
+    ///
+    /// Returns false if the headroom guard stopped it early.
+    @discardableResult
+    func prewarmPrefill(
+        widths: [Int], floorMB: Double = 400, onStep: (PrewarmStep) -> Void
+    ) throws -> Bool {
+        let clock = ContinuousClock()
+        for n in widths {
+            let fn = try prefillFunctionName(n)
+            _ = try prefillBuffers(N: n)
+            for (ci, url) in chunkCompiledURLs.enumerated() {
+                guard Self.availableMB() >= floorMB else { return false }
+                let seconds: Double = try autoreleasepool {
+                    let t0 = clock.now
+                    _ = try Self.loadFunction(
+                        compiledURL: url, functionName: fn, computeUnits: computeUnits)
+                    return (clock.now - t0) / .seconds(1)
+                }
+                onStep(PrewarmStep(width: n, chunk: ci, seconds: seconds, availableMB: Self.availableMB()))
+            }
+        }
+        return true
+    }
+
+    /// Headroom before jetsam. `.greatestFiniteMagnitude` off-device so the guard never fires there.
+    static func availableMB() -> Double {
+        #if os(iOS)
+        return Double(os_proc_available_memory()) / 1_048_576
+        #else
+        return .greatestFiniteMagnitude
+        #endif
     }
 
     private func softSlice(_ rowRefs: [SoftRowRef?], _ lo: Int, _ hi: Int) -> [SoftRowRef?]? {
@@ -367,7 +543,6 @@ final class ChunkedSpeculativeChain {
 
     @discardableResult
     func runPrefillPlain(_ ids: [Int], N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
-        let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = ids.count
         precondition(L <= N)
@@ -390,7 +565,7 @@ final class ChunkedSpeculativeChain {
                 features["sks"] = store[storeS]!.0; features["svs"] = store[storeS]!.1
                 features["skf"] = store[storeF]!.0; features["svf"] = store[storeF]!.1
             }
-            let out = try models[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
+            let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
                 throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
             }
@@ -413,7 +588,6 @@ final class ChunkedSpeculativeChain {
 
     @discardableResult
     func runPrefillOffset(_ block: [Int], p: Int, N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
-        let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = block.count
         precondition(L <= N && p + L <= CTX)
@@ -438,7 +612,7 @@ final class ChunkedSpeculativeChain {
                 features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
                 features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
             }
-            let out = try models[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
+            let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
                 throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) offset chunk \(ci) returned no hidden")
             }

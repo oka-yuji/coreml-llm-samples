@@ -186,11 +186,32 @@ TTFT 1.2s  |  12.5 tok/s  |  prompt 36 (+reused 24)  |  180 tok  |  draft 74%  |
   wired by the OS **outside** this number (about 1.5 GB for E2B), so the whole-device memory use is
   higher than the `mem` shown here — **roughly 2 GB total for a short chat, and 3 GB+ while a wide prefill working set is resident**.
 
-The one-time cost is paid at **model load**, not on the first reply: loading compiles the ANE kernels
-for this device (about 90 s on iPhone 17 Pro, ~120 s on iPhone 15). That compiled cache persists across
-process restarts and reboots, so later loads of the same bundle take only a few seconds — a warm relaunch
-is not slow. Later turns then reuse the KV cache. Sending your first medium-to-long prompt adds a separate
-one-time, per-width prefill specialization (see Troubleshooting below). When speculation is on at
+The one-time cost is paid at **model load**, not on the first reply: loading specializes the ANE kernels
+for this device. Measured on an iPhone 15 (iOS 26.6.2, 2026-09-24, round5 bundle): **64.9 s cold, 4.0-4.9 s
+warm**, and the cold number is almost entirely specialization — the four decode chunks take 50.6 s of it
+(about 11 s, 10 s, 15 s, 16 s, in proportion to their layer counts) and `lm_head` 11.9 s. Loading two
+chunks at once does not help: the loads genuinely overlap (74.2 s of per-chunk time inside a 50.0 s wall)
+but the wall matches the serial 50.6 s, because the specialization behind them is serialized in the ANE
+daemon. The specialized artifacts are keyed from
+`Library/Caches/<bundle id>/com.apple.e5rt.e5bundlecache` inside the app's own container — about 0.7 MB
+of metadata, not the weights. That is a `Caches` directory, so iOS may purge it: a warm relaunch is
+fast, but a load after a reboot or a reinstall can pay the cold cost again. Later turns then reuse the
+KV cache. Sending your first medium-to-long prompt adds a separate one-time, per-width prefill
+specialization (see Troubleshooting below).
+
+Three switches exist for measuring and shaping this; all three are **off by default** and none of them
+changes a single token of output (verified byte-identical across ten runs):
+
+| Setting | Environment variable | What it does |
+|---|---|---|
+| — | `CORELLM_CLEAR_E5RT_CACHE=1` | Deletes the app's own specialization cache at startup, so the next load is cold on demand — no reboot, no reinstall. Debug only. |
+| `specializationStrategy` | `CORELLM_SPECIALIZATION=default\|fastPrediction` | `fastPrediction` trades load time for prediction latency, exactly as Apple documents it: **+5.2 s cold load and +6.3 s on the first wide prefill, for about +4% decode** (14.2 -> 14.8 tok/s on an iPhone 15). Warm load is unchanged. |
+| `prefillPrewarm` | `CORELLM_PREFILL_PREWARM=32\|true` | Specializes the prefill functions in the background after the load, one function at a time, releasing each one immediately. `32` takes 53.7 s and turns the first long prompt's **57.6 s stall into 4.5 s**; the wired peak rises by 2 MiB. It relocates the wait rather than removing it, so it is opt-in. `true` also prewarms `prefill512`, which only ever runs for a **first** prompt of 512+ tokens. |
+
+Startup logs an `[e5rt]` block (where the cache is and how big) and each load logs a `[load]` breakdown
+(per-chunk and `lm_head` seconds), so these numbers can be re-measured on any device.
+
+When speculation is on at
 model load (the default on 8 GB and larger devices), the verify assets are specialized during that load,
 not mid-reply, so a spec turn does not stall part-way; on a low-memory device that defaults to off, that
 cost is paid the moment you turn speculation on instead.
@@ -214,5 +235,8 @@ conversation. Pasting a single prompt longer than the window shows the same mess
 
 **The first reply to a long prompt stalls for tens of seconds, then later replies are fast.** The first
 time you send a medium-to-long prompt, the engine specializes that prefill width on the Neural Engine — a
-one-time cost that is cached and survives relaunches. Short prompts, and later replies at a width already
-seen, do not pay it. This is kernel specialization, not the model re-reading your conversation.
+one-time cost that is cached and survives relaunches (about **58 s** on an iPhone 15 for `prefill32`,
+then 3.8 s). Short prompts, and later replies at a width already seen, do not pay it. This is kernel
+specialization, not the model re-reading your conversation. Set `CORELLM_PREFILL_PREWARM=32` to pay it in
+the background right after the model loads instead, with a progress line, which brings that first long
+reply down to about 4.5 s.

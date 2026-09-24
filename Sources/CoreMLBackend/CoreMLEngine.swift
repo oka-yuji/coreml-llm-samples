@@ -32,6 +32,12 @@ public actor CoreMLEngine: LLMEngine {
     private var loadedUnits: MLComputeUnits = .cpuOnly
     private var liveVisionEncoder: VisionEncoder?
 
+    /// Prefill widths to specialize in the background after a load, widest first. Resolved at load
+    /// from `CORELLM_PREFILL_PREWARM` or the manifest's `prefillPrewarm`; empty means off.
+    public private(set) var prefillPrewarmWidths: [Int] = []
+
+    public var prefillPrewarmEnabled: Bool { !prefillPrewarmWidths.isEmpty }
+
     public static let defaultLiveVisionComputeUnits: ComputeUnitPreference = {
         #if os(macOS)
         return .cpuAndGPU
@@ -95,7 +101,9 @@ public actor CoreMLEngine: LLMEngine {
             let r = try await ChunkedSpeculativeChain(
                 bundleURL: model.directoryURL, computeUnits: units,
                 sidecarStage: model.manifest.sidecarStage,
-                preloadVerifyAssets: options.preloadSpeculation)
+                preloadVerifyAssets: options.preloadSpeculation,
+                prefillMode: model.manifest.prefillMode,
+                specializationStrategy: model.manifest.specializationStrategy)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL,
                 eosTokenIDs: Set(r.config.eosIDs).union(model.manifest.eos ?? []))
@@ -132,7 +140,58 @@ public actor CoreMLEngine: LLMEngine {
         defaultPromptSuffix = promptSuffix
         thinkingSuffix = model.manifest.promptSuffixThinking
         processedTokens = []
+        prefillPrewarmWidths = Self.prewarmWidths(
+            ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? model.manifest.prefillPrewarm,
+            available: (chain as? ChunkedSpeculativeChain)?.config.prefillNs.sorted(by: >) ?? [])
         pendingLoadMetrics = LoadMetrics(duration: clock.now - start)
+    }
+
+    /// `nil`/`false` is off, `true` is every width the bundle has (widest first), and anything else
+    /// is a comma-separated width list, filtered to the widths this bundle actually provides.
+    static func prewarmWidths(_ raw: String?, available: [Int]) -> [Int] {
+        guard let raw = raw?.lowercased(), !raw.isEmpty,
+              !["0", "false", "no", "off"].contains(raw) else { return [] }
+        if ["1", "true", "yes", "on"].contains(raw) { return available }
+        let asked = Set(raw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) })
+        return available.filter { asked.contains($0) }
+    }
+
+    /// Per-model load times from the last chunked load, for the self-test log.
+    public var loadBreakdown: [String] {
+        (chain as? ChunkedSpeculativeChain)?.loadBreakdown ?? []
+    }
+
+    /// What `CORELLM_SPECIALIZATION` / the manifest resolved to, for the log line.
+    public nonisolated var specializationStrategyName: String {
+        ChunkedSpeculativeChain.specializationName()
+    }
+
+    public struct PrefillPrewarmStep: Sendable {
+        public let width: Int
+        public let chunk: Int
+        public let seconds: Double
+        public let availableMB: Double
+    }
+
+    /// Specializes the prefill functions in the background after the model loads, so the first
+    /// long prompt does not pay the one-off ANE cost. Widest first: `prefill512` is the one a long
+    /// prompt hits, `prefill32` the one every follow-up block hits. Returns false if the headroom
+    /// guard stopped it early.
+    @discardableResult
+    public func prewarmPrefill(
+        widths: [Int]? = nil, onStep: @Sendable (PrefillPrewarmStep) -> Void = { _ in }
+    ) throws -> (completed: Bool, steps: [PrefillPrewarmStep]) {
+        guard let chunked = chain as? ChunkedSpeculativeChain else { return (false, []) }
+        let widths = widths ?? prefillPrewarmWidths
+        var steps: [PrefillPrewarmStep] = []
+        let completed = try chunked.prewarmPrefill(widths: widths) { step in
+            let public_ = PrefillPrewarmStep(
+                width: step.width, chunk: step.chunk,
+                seconds: step.seconds, availableMB: step.availableMB)
+            steps.append(public_)
+            onStep(public_)
+        }
+        return (completed, steps)
     }
 
     @discardableResult
@@ -140,6 +199,13 @@ public actor CoreMLEngine: LLMEngine {
         guard let thinkingSuffix, let defaultPromptSuffix else { return false }
         promptSuffix = on ? thinkingSuffix : defaultPromptSuffix
         return true
+    }
+
+    /// What this bundle's tokenizer makes of `text`, without the chat template. The RAG demo uses
+    /// it to fit retrieved passages into a token budget before it builds the prompt.
+    public func countTokens(_ text: String) throws -> Int {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        return try tokenizer.encode(text).count
     }
 
     public func unload() {
