@@ -57,6 +57,12 @@ public struct ModelManifest: Sendable, Codable, Hashable {
     /// `resident` (default) or `sequential`. `CORELLM_PREFILL_MODE` overrides it.
     public var prefillMode: String?
 
+    /// Early exit: prefill the prompt only through the chunks that own KV (layers below
+    /// `first_shared`), then run the KV-sharing chunks once, as a decode step on the prompt's last
+    /// token. Their prefill functions are never loaded. `false`/absent is off.
+    /// `CORELLM_PREFILL_EARLY_EXIT` overrides it.
+    public var prefillEarlyExit: Bool?
+
     /// `default` (the Core ML default) or `fastPrediction`. `CORELLM_SPECIALIZATION` overrides it.
     public var specializationStrategy: String?
 
@@ -83,7 +89,8 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         computeUnits: String? = nil,
         prefillMode: String? = nil,
         specializationStrategy: String? = nil,
-        prefillPrewarm: String? = nil
+        prefillPrewarm: String? = nil,
+        prefillEarlyExit: Bool? = nil
     ) {
         self.name = name
         self.architecture = architecture
@@ -102,6 +109,7 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         self.prefillMode = prefillMode
         self.specializationStrategy = specializationStrategy
         self.prefillPrewarm = prefillPrewarm
+        self.prefillEarlyExit = prefillEarlyExit
     }
 }
 

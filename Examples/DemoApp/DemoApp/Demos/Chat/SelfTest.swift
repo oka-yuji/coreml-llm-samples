@@ -21,6 +21,9 @@ enum SelfTest {
         /// `--tag <name>`: echoed as the first log line so a harness can tell this run's log from
         /// the previous run's, which is still on disk until the app rewrites it.
         var tag: String?
+        /// `--fresh`: every `--prompts` turn starts a new conversation (no history, no KV reuse),
+        /// so a long list of independent prompts fits in one launch.
+        var fresh = false
 
         /// `--rag "質問1|質問2"` answers each question in RAG mode. `--rag-web` / `--rag-local`
         /// pick the sources (`0`/`no`/`off` turns one off); both are on by default.
@@ -57,6 +60,7 @@ enum SelfTest {
             prompts: value("--prompts").map { $0.split(separator: "|").map(String.init) } ?? [],
             wiredTailSeconds: value("--wired-tail").flatMap { Double($0) } ?? 0,
             tag: value("--tag"),
+            fresh: args.contains("--fresh"),
             rag: value("--rag").map { $0.split(separator: "|").map(String.init) } ?? [],
             ragWeb: !["0", "no", "off", "false"].contains(value("--rag-web") ?? ""),
             ragLocal: !["0", "no", "off", "false"].contains(value("--rag-local") ?? ""))
@@ -127,7 +131,9 @@ enum SelfTest {
             + " specialization="
             + (ProcessInfo.processInfo.environment["CORELLM_SPECIALIZATION"] ?? "(manifest default)")
             + " prewarm="
-            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? "(manifest default)"))
+            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? "(manifest default)")
+            + " earlyExit="
+            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"] ?? "(manifest default)"))
         if let prewarm = vm.prewarm {
             let wiredBefore = MetricsLog.sysWiredBytes().map { Double($0) / 1_048_576 }
             let sampler = WiredSampler()
@@ -169,6 +175,12 @@ enum SelfTest {
         var tailTaken = false
         for (index, turn) in opts.turns.enumerated() {
             let mib = 1_048_576.0
+            if opts.fresh, index > 0 {
+                vm.reset()
+                // `reset()` clears the engine from an unawaited task; wait for it, so this turn
+                // cannot reuse the previous turn's KV.
+                await vm.engineHandle?.engine.resetConversation()
+            }
             let wiredBefore = MetricsLog.sysWiredBytes()
             let sampler = WiredSampler()
             vm.input = turn
@@ -189,6 +201,9 @@ enum SelfTest {
                 errln("[rag] turn=\(index) answer=\(reply.replacing("\n", with: " "))")
             }
             sink.out(reply)
+            // One line per turn, JSON-quoted, so replies with newlines can be diffed turn by turn.
+            errln("[reply] turn=\(index) "
+                + ((try? JSONEncoder().encode(reply)).map { String(decoding: $0, as: UTF8.self) } ?? "null"))
             let wiredAfter = MetricsLog.sysWiredBytes()
             let series = sampler.snapshot()
             if let before = wiredBefore, let after = wiredAfter {
@@ -213,6 +228,9 @@ enum SelfTest {
                 errln("[wired] turn=\(index) unavailable (host_statistics64 refused)")
             }
             errln("[selftest] \(vm.statusLine)")
+            if let engine = vm.engineHandle?.engine {
+                errln("[load] prefill functions so far: \(await engine.prefillLoadSummary)")
+            }
             if !tailTaken, opts.wiredTailSeconds > 0,
                let prompt = Self.firstNumber(in: vm.statusLine, after: "prompt "), prompt >= 512 {
                 tailTaken = true

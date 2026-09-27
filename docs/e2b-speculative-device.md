@@ -199,14 +199,15 @@ fast, but a load after a reboot or a reinstall can pay the cold cost again. Late
 KV cache. Sending your first medium-to-long prompt adds a separate one-time, per-width prefill
 specialization (see Troubleshooting below).
 
-Three switches exist for measuring and shaping this; all three are **off by default** and none of them
-changes a single token of output (verified byte-identical across ten runs):
+Four switches exist for measuring and shaping this; all four are **off by default** and none of them
+changes a single token of output (each verified byte-identical on an iPhone 15):
 
 | Setting | Environment variable | What it does |
 |---|---|---|
 | — | `CORELLM_CLEAR_E5RT_CACHE=1` | Deletes the app's own specialization cache at startup, so the next load is cold on demand — no reboot, no reinstall. Debug only. |
 | `specializationStrategy` | `CORELLM_SPECIALIZATION=default\|fastPrediction` | `fastPrediction` trades load time for prediction latency, exactly as Apple documents it: **+5.2 s cold load and +6.3 s on the first wide prefill, for about +4% decode** (14.2 -> 14.8 tok/s on an iPhone 15). Warm load is unchanged. |
 | `prefillPrewarm` | `CORELLM_PREFILL_PREWARM=32\|true` | Specializes the prefill functions in the background after the load, one function at a time, releasing each one immediately. `32` takes 53.7 s and turns the first long prompt's **57.6 s stall into 4.5 s**; the wired peak rises by 2 MiB. It relocates the wait rather than removing it, so it is opt-in. `true` also prewarms `prefill512`, which only ever runs for a **first** prompt of 512+ tokens. |
+| `prefillEarlyExit` | `CORELLM_PREFILL_EARLY_EXIT=1` | Layers 15–34 own no KV cache (they read the shared KV of layers 13 and 14), so the prompt is prefilled through `chunk_0_8` and `chunk_8_15` only, and the last prompt token then runs once through the two later chunks with their `decode` function. Those chunks' prefill functions are never loaded. With sequential prefill on an iPhone 15: **TTFT 8.5 -> 3.3 s at 242 prompt tokens and 19.3 -> 7.0 s at 681**, and the wired peak drops by 155 MiB; decode speed is unchanged. |
 
 Startup logs an `[e5rt]` block (where the cache is and how big) and each load logs a `[load]` breakdown
 (per-chunk and `lm_head` seconds), so these numbers can be re-measured on any device.

@@ -103,7 +103,8 @@ public actor CoreMLEngine: LLMEngine {
                 sidecarStage: model.manifest.sidecarStage,
                 preloadVerifyAssets: options.preloadSpeculation,
                 prefillMode: model.manifest.prefillMode,
-                specializationStrategy: model.manifest.specializationStrategy)
+                specializationStrategy: model.manifest.specializationStrategy,
+                prefillEarlyExit: model.manifest.prefillEarlyExit)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL,
                 eosTokenIDs: Set(r.config.eosIDs).union(model.manifest.eos ?? []))
@@ -159,6 +160,12 @@ public actor CoreMLEngine: LLMEngine {
     /// Per-model load times from the last chunked load, for the self-test log.
     public var loadBreakdown: [String] {
         (chain as? ChunkedSpeculativeChain)?.loadBreakdown ?? []
+    }
+
+    /// Every prefill function the chunked chain has loaded so far (`chunk#function xN`), for the
+    /// self-test log. Early exit should never list a KV-sharing chunk here.
+    public var prefillLoadSummary: String {
+        (chain as? ChunkedSpeculativeChain)?.prefillLoadSummary ?? "n/a"
     }
 
     /// What `CORELLM_SPECIALIZATION` / the manifest resolved to, for the log line.
