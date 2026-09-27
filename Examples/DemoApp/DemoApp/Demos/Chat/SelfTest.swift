@@ -14,6 +14,8 @@ enum SelfTest {
         var maxTokens: Int
         var stopAfterSeconds: Double?
         /// `--prompts "a|b|c"` runs several turns in one launch (one process, one model load).
+        /// `--prompts-file <path>` reads the turns from a file instead, separated by `===PROMPT===`
+        /// lines, so prompts may contain `|` and newlines (Documents-relative on iOS).
         var prompts: [String] = []
         /// `--wired-tail <seconds>`: after the first turn whose prompt reaches the plain prefill
         /// width, keep sampling wired for this long to see how fast it comes back.
@@ -57,7 +59,10 @@ enum SelfTest {
             followUp: value("--followup"),
             maxTokens: value("--max-tokens").flatMap { Int($0) } ?? 128,
             stopAfterSeconds: value("--stop-after").flatMap { Double($0) },
-            prompts: value("--prompts").map { $0.split(separator: "|").map(String.init) } ?? [],
+            prompts: value("--prompts-file")
+                .map { (try? String(contentsOfFile: resolve($0), encoding: .utf8))?
+                    .components(separatedBy: "\n===PROMPT===\n") ?? [] }
+                ?? value("--prompts").map { $0.split(separator: "|").map(String.init) } ?? [],
             wiredTailSeconds: value("--wired-tail").flatMap { Double($0) } ?? 0,
             tag: value("--tag"),
             fresh: args.contains("--fresh"),
