@@ -67,9 +67,10 @@ struct Round5FixtureSuite {
 // Early exit (`prefillEarlyExit`) against the full prefill, on the same bundle and compute units:
 // every prompt length must give the same first token and greedy continuation, and the KV-sharing
 // chunks' prefill functions must never load. The lengths cover each way a prompt can end: decode
-// steps only (21), 32-row blocks ending exactly on a block (224), blocks plus decode steps (250),
-// the plain 512 block alone (512), plain plus decode steps (530), and plain plus one 32-row block
-// (544). Same CORELLM_ROUND5_BUNDLE gate as above; leave CORELLM_PREFILL_EARLY_EXIT unset.
+// steps only (21), 32-row blocks ending exactly on a block (224), blocks plus a padded 32-row block
+// for the remainder (250), the plain 512 block alone (512), plain plus a padded 32-row block (530),
+// and plain plus one 32-row block (544). Same CORELLM_ROUND5_BUNDLE gate as above; leave
+// CORELLM_PREFILL_EARLY_EXIT unset.
 @Suite
 struct Round5EarlyExitSuite {
 
