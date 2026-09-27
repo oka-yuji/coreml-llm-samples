@@ -43,8 +43,9 @@ final class ChunkedSpeculativeChain {
 
     /// How the wide prefill functions are kept in memory.
     /// `.resident` caches all four chunks' prefill function (the shipping default).
-    /// `.sequential` loads one chunk, runs it, and releases it, so at most one prefill chunk is
-    /// resident at a time. Only the load order changes; the numbers produced are the same.
+    /// `.sequential` loads one chunk, runs the whole prompt through it, and releases it before the
+    /// next chunk (`feedChunkMajor`), so at most one prefill chunk is resident at a time. Only the
+    /// load order changes; the numbers produced are the same.
     enum PrefillMode: String, Sendable {
         case resident
         case sequential
@@ -486,6 +487,7 @@ final class ChunkedSpeculativeChain {
             throw LLMEngineError.generationFailed(
                 reason: "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded")
         }
+        if prefillMode == .sequential { return try feedChunkMajor(ids: ids, rowRefs: rowRefs) }
         let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
         var idx = 0
         var last = 0
@@ -525,6 +527,124 @@ final class ChunkedSpeculativeChain {
             }
         }
         guard prefillEarlyExit else { return last }
+        return try runTailDecode(
+            hidden: rowBuffer, tokenID: ids[ids.count - 1], softRow: rowRefs[ids.count - 1],
+            position: position - 1)
+    }
+
+    /// `.sequential`'s prompt prefill, chunk-major: the blocks and the sub-block tail the loop
+    /// above would walk, but each chunk's prefill function loads once, runs every block, and is
+    /// released before the next chunk's loads; the tail then takes that chunk's `decode`, one token
+    /// at a time. Each block's and tail token's hidden waits for the next chunk (N×1536 fp16 per
+    /// block, ~2 MB at 681 tokens). Every step gets the inputs block-by-block order gave it, except
+    /// that a KV-sharing chunk finds later rows of layers 13/14 already written, in slots its mask hides.
+    private func feedChunkMajor(ids: [Int], rowRefs: [SoftRowRef?]) throws -> Int {
+        let start = position
+        guard start + ids.count <= CTX else {
+            throw LLMEngineError.generationFailed(reason: "context length \(CTX) exceeded")
+        }
+        let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
+        var blocks: [(N: Int, idx: Int)] = []
+        var idx = 0
+        while idx < ids.count {
+            let remaining = ids.count - idx
+            guard let N = start + idx == 0 && remaining >= config.plainN ? config.plainN
+                : offsetNs.first(where: { remaining >= $0 && start + idx + $0 <= CTX }) else { break }
+            blocks.append((N, idx))
+            idx += N
+        }
+        let tail = Array(idx..<ids.count)
+        var hidden: [MLMultiArray] = []  // per block, out of the latest chunk
+        var tailHidden: [MLMultiArray] = []  // per tail token, likewise
+        var store: [Int: (MLMultiArray, MLMultiArray)] = [:]  // the plain block's layer 13/14 KV
+        var filled: [Int: Int] = [:]  // width -> the block whose host inputs its buffers hold
+        for ci in 0..<(prefillEarlyExit ? ownKVChunks : config.chunkBounds.count) {
+            let (a, b) = (config.chunkBounds[ci][0], config.chunkBounds[ci][1])
+            var bi = 0
+            while bi < blocks.count {
+                let N = blocks[bi].N
+                let plain = N == config.plainN
+                let bufs = try prefillBuffers(N: N)
+                try autoreleasepool {
+                    let model = try loadPrefillFunction(N: N, chunk: ci)
+                    while bi < blocks.count, blocks[bi].N == N {
+                        try Task.checkCancellation()
+                        let i0 = blocks[bi].idx
+                        let p = start + i0
+                        // Host inputs depend only on the block: a width's buffers that still hold
+                        // it (the plain block, a lone 32 block) are not refilled for the next chunk.
+                        // ponytail: several 32 blocks are refilled once per chunk (~35 ms each in a
+                        // Debug build on a Mac, far less in Release); keep per-block copies if that shows.
+                        if filled[N] != bi {
+                            fillTokenInputs(bufs: bufs, ids: Array(ids[i0..<(i0 + N)]), N: N,
+                                            softRows: softSlice(rowRefs, i0, i0 + N))
+                            writeRoPE(cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { p + $0 })
+                            writeRoPE(cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { p + $0 })
+                            if plain {
+                                fillPlainMask(bufs.maskPlainS, sliding: true, N: N, L: N)
+                                fillPlainMask(bufs.maskPlainF, sliding: false, N: N, L: N)
+                            } else {
+                                fillOffsetOnehot(bufs.onehot, p: p, N: N, L: N)
+                                fillOffsetMask(bufs.maskOffS, sliding: true, p: p, N: N, L: N)
+                                fillOffsetMask(bufs.maskOffF, sliding: false, p: p, N: N, L: N)
+                            }
+                            filled[N] = bi
+                        }
+                        var features: [String: Any] = [
+                            "hidden_in": ci == 0 ? bufs.ie : hidden[bi], "inputs_embeds": bufs.ie, "tokid": bufs.tk,
+                            "cos_s": bufs.cosS, "sin_s": bufs.sinS, "cos_f": bufs.cosF, "sin_f": bufs.sinF,
+                        ]
+                        if plain {
+                            features["mask_s"] = bufs.maskPlainS; features["mask_f"] = bufs.maskPlainF
+                            if a >= firstShared {
+                                features["sks"] = store[storeS]!.0; features["svs"] = store[storeS]!.1
+                                features["skf"] = store[storeF]!.0; features["svf"] = store[storeF]!.1
+                            }
+                        } else {
+                            features["mask_s"] = bufs.maskOffS; features["mask_f"] = bufs.maskOffF
+                            features["onehot"] = bufs.onehot
+                            if a < firstShared {
+                                for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
+                            } else {
+                                features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
+                                features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+                            }
+                        }
+                        let input = try MLDictionaryFeatureProvider(dictionary: features)
+                        let out = try autoreleasepool { try Self.detachedCopy(of: model.prediction(from: input)) }
+                        guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
+                            throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
+                        }
+                        if ci == 0 { hidden.append(h) } else { hidden[bi] = h }
+                        if a < firstShared {
+                            for i in a..<b {
+                                guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
+                                      let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
+                                    throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
+                                }
+                                if plain && (i == storeS || i == storeF) { store[i] = (k, v) }
+                                writebackKV(dst: kbuf[i], src: k, p: p, L: N, hd: config.headDim(ofLayer: i))
+                                writebackKV(dst: vbuf[i], src: v, p: p, L: N, hd: config.headDim(ofLayer: i))
+                            }
+                        }
+                        bi += 1
+                    }
+                }
+            }
+            for (j, t) in tail.enumerated() {
+                try Task.checkCancellation()
+                fillDecodeHost(pos: start + t)
+                fillDecodeToken(tokenID: ids[t], softRow: rowRefs[t])
+                copyFlat(from: ci == 0 ? embedsBuffer : tailHidden[j], to: hiddenBuffer, count: H)
+                try runDecodeChunk(ci)
+                if ci == 0 { tailHidden.append(try MLMultiArray(shape: [NSNumber(value: H)], dataType: .float16)) }
+                copyFlat(from: hiddenBuffer, to: tailHidden[j], count: H)
+            }
+        }
+        position = start + ids.count
+        if let row = tailHidden.last { copyFlat(from: row, to: rowBuffer, count: H) }
+        else { copyRow(from: hidden[blocks.count - 1], row: blocks[blocks.count - 1].N - 1, to: rowBuffer) }
+        guard prefillEarlyExit else { return try lmhead(rowBuffer) }
         return try runTailDecode(
             hidden: rowBuffer, tokenID: ids[ids.count - 1], softRow: rowRefs[ids.count - 1],
             position: position - 1)
