@@ -4,6 +4,14 @@
 クローンしてすぐ動く共有 Swift ランタイムを同梱し、ベンチマークはすべて測定条件と出典つきで示し、変換は
 参照実装に対して **bit 単位一致**でゲートします。この検証の徹底がハウススタイルです — 根拠は各モデルカードに。
 
+## Maintainer
+
+**岡 優志（おかゆうじ / okayuji）** — iOS / オンデバイスAI / Core MLエンジニア。
+
+- GitHub: [oka-yuji](https://github.com/oka-yuji)
+- Hugging Face: [okayuji](https://huggingface.co/okayuji)
+- Company: [株式会社Tukuru](https://www.tukuru-app.com/)
+
 [English →](README.md)
 
 ---
