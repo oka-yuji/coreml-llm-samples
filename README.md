@@ -11,6 +11,9 @@ verification discipline is the house style — the receipts are in each model ca
 
 - GitHub: [oka-yuji](https://github.com/oka-yuji)
 - Hugging Face: [okayuji](https://huggingface.co/okayuji)
+- Profile: [岡 優志 / okayuji](https://www.tukuru-app.com/okayuji.html)
+- Zenn: [oka_yuuji](https://zenn.dev/oka_yuuji)
+- X: [oka_yuuji](https://x.com/oka_yuuji)
 - Company: [株式会社Tukuru](https://www.tukuru-app.com/)
 
 [日本語版 →](README.ja.md)
