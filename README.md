@@ -5,6 +5,14 @@ runtime you can clone and run, every benchmark is quoted with its measurement co
 source, and every conversion is gated **bit-exact** against its reference implementation. That
 verification discipline is the house style — the receipts are in each model card.
 
+## Maintainer
+
+**岡 優志（おかゆうじ / okayuji）** — iOS / on-device AI / Core ML engineer.
+
+- GitHub: [oka-yuji](https://github.com/oka-yuji)
+- Hugging Face: [okayuji](https://huggingface.co/okayuji)
+- Company: [株式会社Tukuru](https://www.tukuru-app.com/)
+
 [日本語版 →](README.ja.md)
 
 ---
