@@ -41,7 +41,31 @@ final class MapperTTS: NSObject, AVSpeechSynthesizerDelegate {
         return "\(voice.name) (\(quality))"
     }
 
-    func speak(_ text: String) async {
+    /// Did the last utterance report back on its own, or did it have to be timed out?
+    private(set) var lastSpeakTimedOut = false
+    private(set) var isSpeaking = false
+
+    /// Speaks and waits for `didFinish` — but never forever.
+    ///
+    /// When the session is configured for `.playAndRecord` the synthesizer can stay
+    /// silent and never call its delegate, and an unbounded wait here freezes the
+    /// whole dialog: no speech, no microphone, no crash. That is the exact symptom
+    /// this timeout exists to prevent.
+    func speak(_ text: String, timeout: Duration = .seconds(8)) async {
+        isSpeaking = true
+        defer { isSpeaking = false }
+        lastSpeakTimedOut = false
+        let watchdog = Task { [weak self] in
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, self.pending != nil else { return }
+                self.lastSpeakTimedOut = true
+                self.synthesizer.stopSpeaking(at: .immediate)
+                self.pending?.continuation.resume()
+                self.pending = nil
+            }
+        }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let utterance = AVSpeechUtterance(string: text)
             utterance.voice = Self.voice
@@ -51,6 +75,7 @@ final class MapperTTS: NSObject, AVSpeechSynthesizerDelegate {
             pending = (ObjectIdentifier(utterance), continuation)
             synthesizer.speak(utterance)
         }
+        watchdog.cancel()
     }
 
     func stop() {
@@ -110,7 +135,9 @@ final class MapperDialogController {
         var seconds: Double
     }
 
-    var stage: Stage = .idle
+    var stage: Stage = .idle {
+        didSet { refreshDiagnostics() }
+    }
     var currentField = ""
     var entries: [Entry] = []
     var results: [MapperFieldResult] = []
@@ -118,6 +145,16 @@ final class MapperDialogController {
     var voiceNote = ""
     /// Non-empty while a yes/no answer is expected, so the view can show those buttons.
     var confirmPrompt = ""
+    /// One line for the panel: permissions, on-device support, session, stage.
+    var diagnostics = ""
+    private var sessionState = "未設定"
+    private var ttsFailures = 0
+
+    func refreshDiagnostics() {
+        diagnostics = "権限: \(speech.permissionSummary) | 端末内認識: "
+            + (speech.supportsOnDevice ? "可" : "不可")
+            + " | セッション: \(sessionState) | 状態: \(stage.rawValue)"
+    }
     /// Text mode is the default: on-screen questions answered by tapping.
     ///
     /// The voice path is opt-in because `SFSpeechRecognizer`'s recognition task kills
@@ -129,7 +166,13 @@ final class MapperDialogController {
     /// Trace hook: the headless self-test prints these so a hang or a crash can be
     /// placed exactly.
     var onEvent: ((String) -> Void)?
-    private func note(_ message: String) { onEvent?(message) }
+    /// Kept for the panel as well, so a silent run can be read on the phone.
+    var events: [String] = []
+    private func note(_ message: String) {
+        events.append(message)
+        if events.count > 200 { events.removeFirst(events.count - 200) }
+        onEvent?(message)
+    }
 
     private var answerContinuation: CheckedContinuation<String, Never>?
     private let tts = MapperTTS()
@@ -140,6 +183,7 @@ final class MapperDialogController {
     init(speech: MapperSpeech, classifier: GLiNERClassifier) {
         self.speech = speech
         self.classifier = classifier
+        speech.onEvent = { [weak self] message in self?.note(message) }
     }
 
     var roundTripSummary: String {
@@ -185,12 +229,23 @@ final class MapperDialogController {
         results = []
         // Ask once, up front: a prompt appearing mid-question would skip the answer.
         note("mode: \(textOnlyMode ? "text" : "voice")")
+        ttsFailures = 0
+        events = []
+        sessionState = textOnlyMode ? "不要(タップ回答)" : "未設定"
         var granted = false
         if !textOnlyMode {
+            // Ask for both before the first question; a prompt appearing mid-question
+            // would eat the answer.
             granted = await speech.requestPermissionAndWait()
-            note("permission: granted=\(granted)")
-            if !granted { textOnlyMode = true }
+            note("permission: \(speech.permissionSummary) -> usable=\(granted)")
+            if !granted {
+                textOnlyMode = true
+                speech.usesPlayAndRecord = false
+                await tts.speak("設定でマイクと音声認識を許可してください。タップでお答えください。")
+                voiceNote = "マイクか音声認識が許可されていません。設定アプリで許可してください"
+            }
         }
+        refreshDiagnostics()
         voiceNote = textOnlyMode
             ? "画面の質問にタップで答えます(音声入力は実験扱い)"
             : "読み上げ: \(tts.voiceDescription)"
@@ -209,13 +264,16 @@ final class MapperDialogController {
                     .playAndRecord, mode: .spokenAudio,
                     options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
                 try session.setActive(true, options: .notifyOthersOnDeactivation)
+                sessionState = "有効 \(Int(session.sampleRate))Hz"
                 note("session: active, sampleRate=\(session.sampleRate) "
                      + "inputs=\(session.isInputAvailable)")
             } catch {
                 // Without the session there is no point speaking; fall back to text.
+                sessionState = "失敗(\(error.localizedDescription))"
                 textOnlyMode = true
                 speech.usesPlayAndRecord = false
                 voiceNote = "音声セッションを設定できませんでした: \(error.localizedDescription)"
+                note("session: FAILED \(error.localizedDescription)")
             }
         }
 
@@ -374,7 +432,21 @@ final class MapperDialogController {
 
     private func say(_ text: String) async {
         guard !textOnlyMode else { return }
+        note("    tts start: 「\(text)」")
         await tts.speak(text)
+        if tts.lastSpeakTimedOut {
+            note("    tts TIMED OUT — no didFinish; speech is not playing")
+            ttsFailures += 1
+            // Two silent utterances mean the voice path is not working at all.
+            if ttsFailures >= 2, !textOnlyMode {
+                textOnlyMode = true
+                speech.usesPlayAndRecord = false
+                voiceNote = "読み上げが始まらないため、タップ回答に切り替えました"
+                note("    falling back to text mode")
+            }
+        } else {
+            note("    tts done")
+        }
     }
 
     /// One answer: starts the recogniser and waits for the silence rule or the cap.

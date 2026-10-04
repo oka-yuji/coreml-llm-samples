@@ -30,6 +30,30 @@ final class MapperSpeech {
     /// Dialog mode also plays speech, so the session has to allow playback.
     var usesPlayAndRecord = false
 
+    /// e.g. "マイク=許可, 音声認識=未" — shown in the dialog panel.
+    var permissionSummary: String {
+        let speechWord: String = switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized: "許可"
+        case .notDetermined: "未"
+        default: "拒否"
+        }
+        #if os(iOS)
+        let micWord: String = switch AVAudioApplication.shared.recordPermission {
+        case .granted: "許可"
+        case .undetermined: "未"
+        default: "拒否"
+        }
+        #else
+        let micWord = "—"
+        #endif
+        return "マイク=\(micWord), 音声認識=\(speechWord)"
+    }
+
+    var supportsOnDevice: Bool { recognizer?.supportsOnDeviceRecognition ?? false }
+
+    /// Trace hook so the dialog can show what the recogniser is doing.
+    var onEvent: ((String) -> Void)?
+
     func refreshAvailability() {
         guard let recognizer else {
             statusText = "音声入力: ja-JP の認識器なし"
@@ -83,7 +107,14 @@ final class MapperSpeech {
         }
         #endif
         refreshAvailability()
-        return SFSpeechRecognizer.authorizationStatus() == .authorized
+        #if os(iOS)
+        // The microphone matters as much as the recogniser; returning true on the
+        // speech grant alone let the dialog start with no way to hear anything.
+        let micOK = AVAudioApplication.shared.recordPermission == .granted
+        #else
+        let micOK = true
+        #endif
+        return SFSpeechRecognizer.authorizationStatus() == .authorized && micOK
     }
 
     func start(onFinal: @escaping (String) -> Void) {
@@ -130,6 +161,7 @@ final class MapperSpeech {
             print("[speech] format rate=\(format.sampleRate) ch=\(format.channelCount)")
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 statusText = "音声入力: 入力フォーマットが無効です(サンプルレート \(format.sampleRate))"
+                onEvent?("    stt: invalid input format")
                 self.request = nil
                 return
             }
@@ -146,6 +178,7 @@ final class MapperSpeech {
             print("[speech] engine started")
         } catch {
             statusText = "音声入力: 開始失敗 \(error.localizedDescription)"
+            onEvent?("    stt start failed: \(error.localizedDescription)")
             self.request = nil
             return
         }
@@ -167,8 +200,10 @@ final class MapperSpeech {
                 guard let self else { return }
                 if let text, text != self.partialText {
                     self.partialText = text
+                    self.onEvent?("    stt partial: 「\(text)」")
                     self.armSilenceTimer()
                 }
+                if let failure { self.onEvent?("    stt error: \(failure)") }
                 // Only the finalised transcript goes into the text field.
                 if isFinal {
                     self.finish(with: self.partialText)
@@ -178,6 +213,7 @@ final class MapperSpeech {
             }
         }
         print("[speech] task created")
+        onEvent?("    stt: listening")
         isRecording = true
         statusText = "音声入力: 録音中(端末内)"
         armSilenceTimer()

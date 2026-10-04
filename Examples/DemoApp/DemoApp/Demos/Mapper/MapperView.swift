@@ -108,6 +108,15 @@ struct MapperView: View {
                 if model.isBusy { ProgressView().controlSize(.small) }
             }
 
+            #if os(iOS)
+            Toggle(isOn: $model.useVoiceDialog) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("音声で対話(読み上げ＋音声入力)").font(.caption)
+                    Text("OFF なら画面の質問にタップで答えます。既定は OFF")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            #endif
             Text(model.speech.statusText).font(.caption2).foregroundStyle(.secondary)
             Text(model.status).font(.caption).foregroundStyle(.secondary)
         }
@@ -172,6 +181,21 @@ struct MapperView: View {
                     }
                 }
                 Text(dialog.voiceNote).font(.caption2).foregroundStyle(.secondary)
+                // One line of diagnostics, so a silent voice run explains itself.
+                Text(dialog.diagnostics)
+                    .font(.system(size: 10, design: .monospaced))
+                    .foregroundStyle(.secondary)
+                    .textSelection(.enabled)
+                if !dialog.events.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(dialog.events.suffix(8), id: \.self) { event in
+                            Text(event)
+                                .font(.system(size: 9, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                        }
+                    }
+                }
                 ForEach(dialog.entries) { entry in
                     VStack(alignment: .leading, spacing: 1) {
                         Text("Q \(entry.question)").font(.caption)

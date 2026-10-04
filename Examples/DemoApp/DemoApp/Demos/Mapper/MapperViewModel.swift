@@ -23,6 +23,8 @@ final class MapperViewModel {
     #if os(iOS)
     /// Voice dialog: one field at a time. Built once the model is loaded.
     var dialog: MapperDialogController?
+    /// Off by default: the dialog answers by tapping unless this is switched on.
+    var useVoiceDialog = false
     #endif
 
     /// Experiment (see docs/results/2026-10-04-gliner25-mapper-demo.md): ask whether
@@ -214,6 +216,8 @@ final class MapperViewModel {
     func runDialog() async {
         if mapper == nil { await loadModel() }
         guard let dialog else { return }
+        dialog.textOnlyMode = !useVoiceDialog
+        dialog.refreshDiagnostics()
         await dialog.start()
         if !dialog.results.isEmpty {
             fields = MapperForm.fields.map { field in
