@@ -244,9 +244,17 @@ final class MapperDialogController {
 
     // MARK: - Questions
 
+    /// How a unit is pronounced. Display keeps the symbol; only speech is spelled out.
+    static let spokenUnits = [
+        "MPa": "メガパスカル", "kPa": "キロパスカル", "℃": "度",
+        "%": "パーセント", "mm": "ミリメートル",
+    ]
+
+    static func spoken(_ unit: String) -> String { spokenUnits[unit] ?? unit }
+
     static func question(for field: MapperForm.Field) -> String {
         switch field.kind {
-        case .number: "\(field.name)は？"
+        case .number(let unit): "\(field.name)は、何\(spoken(unit))ですか？"
         case .list(let options): "\(field.name)は、\(options.joined(separator: "、"))？"
         }
     }
@@ -375,7 +383,6 @@ final class MapperDialogController {
             note("  say done")
             if cancelled { return }
 
-            stage = .listening
             note("  listen start")
             let heard = await listen()
             note("  listen done: 「\(heard)」")
@@ -412,7 +419,8 @@ final class MapperDialogController {
     ///
     /// No 言及なし label: the answer is known to be about this field, so the only
     /// question left is which candidate (or which number) it carries.
-    private func decide(field: MapperForm.Field, heard: String) -> MapperFieldResult? {
+    /// Not private so the self-test can assert the number rules without speaking.
+    func decide(field: MapperForm.Field, heard: String) -> MapperFieldResult? {
         switch field.kind {
         case .list(let options):
             guard let scores = try? classifier.scores(
@@ -426,13 +434,23 @@ final class MapperDialogController {
                 topTwo: Array(ranked.prefix(2)), note: "")
         case .number(let unit):
             let normalised = Self.normaliseSpokenUnits(heard)
-            guard let candidate = MapperForm.numberCandidates(in: normalised).first else { return nil }
+            let candidates = MapperForm.numberCandidates(in: normalised)
+            guard !candidates.isEmpty else { return nil }
+            // Spoken corrections put the real answer last: "0.45、違った、0.54".
+            let corrected = Self.correctionWords.contains { normalised.contains($0) }
+            guard let candidate = corrected ? candidates.last : candidates.first else { return nil }
+            // A unit that is not this field's own usually means the number belongs
+            // somewhere else ("72度" answered to 吐出圧), so do not auto-fill it.
+            let mismatched = !candidate.unit.isEmpty && candidate.unit != unit
             return MapperFieldResult(
                 key: field.key, name: field.name, value: candidate.value,
                 unit: candidate.unit.isEmpty ? unit : candidate.unit,
-                score: 1, status: .autoFilled, topTwo: [], note: "")
+                score: 1, status: mismatched ? .review : .autoFilled, topTwo: [],
+                note: mismatched ? "単位が違うかもしれません" : (corrected ? "訂正を採用" : ""))
         }
     }
+
+    static let correctionWords = ["違った", "じゃなくて", "訂正", "間違えた", "ではなく"]
 
     /// Dictation writes units as words. Kana numerals ("れいてんよんご") stay out of
     /// scope, as in the batch path — only the unit is normalised, never the digits.
@@ -451,7 +469,8 @@ final class MapperDialogController {
     private func confirm(_ result: MapperFieldResult) async -> Bool {
         for _ in 0..<2 {
             if cancelled { return false }
-            await say("\(result.value)\(result.unit) で合っていますか？")
+            // Spoken form spells the unit out; the panel keeps the symbol.
+            await say("\(result.value) \(Self.spoken(result.unit)) で合っていますか？")
             if cancelled { return false }
             stage = .confirming
             confirmPrompt = "\(result.value)\(result.unit) で合っていますか？"
@@ -504,11 +523,10 @@ final class MapperDialogController {
     }
 
     private func readBackSheet() async {
-        let filled = results.filter { $0.status != .absent }
-        let blanks = results.count - filled.count
-        var parts = filled.map { "\($0.name) \($0.value)\($0.unit)" }
-        if blanks > 0 { parts.append("未入力 \(blanks) 件") }
-        await say(parts.isEmpty ? "入力がありませんでした。" : parts.joined(separator: "、"))
+        let blanks = results.filter { $0.status == .absent }.count
+        await say(blanks > 0
+            ? "記入が終わりました。未入力 \(blanks) 件です。"
+            : "記入が終わりました。")
     }
 
     private func say(_ text: String) async {
@@ -537,8 +555,10 @@ final class MapperDialogController {
     /// Objective-C exception, which Swift cannot catch and which takes the process
     /// with it. Letting the route settle first is what stopped it.
     private func listen() async -> String {
-        // Text mode never opens the microphone: the answer arrives from a tap.
+        // Text mode never opens the microphone: the answer arrives from a tap. The
+        // stage still has to move, because that is what puts the buttons on screen.
         if textOnlyMode {
+            stage = .listening
             return await withCheckedContinuation { continuation in
                 answerContinuation = continuation
             }
@@ -546,6 +566,9 @@ final class MapperDialogController {
         // Let speech playback give up the route before recording starts. The session
         // itself is left alone — re-setting the category here would drop the headset.
         try? await Task.sleep(for: .milliseconds(300))
+        // Only now is the microphone about to open, so only now does the panel claim
+        // to be listening.
+        stage = .listening
         partial = ""
         return await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
             var resumed = false

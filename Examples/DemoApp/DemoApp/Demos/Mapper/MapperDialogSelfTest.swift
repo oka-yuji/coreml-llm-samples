@@ -120,6 +120,33 @@ struct MapperDialogSelfTestView: View {
             return
         }
         log.record("step: dialog created")
+
+        // --- number rules: corrections win, a foreign unit is flagged ---
+        log.record("--- number answers ---")
+        let pressure = MapperForm.fields.first { $0.key == "discharge_pressure" }!
+        let temperature = MapperForm.fields.first { $0.key == "temperature" }!
+        let numberCases: [(MapperForm.Field, String, String, MapperFieldResult.Status)] = [
+            (pressure, "0.45メガパスカル", "0.45MPa", .autoFilled),
+            // A spoken correction: the last number is the answer, not the first.
+            (pressure, "0.45、違った、0.54メガパスカル", "0.54MPa", .autoFilled),
+            (pressure, "0.3じゃなくて0.7メガパスカル", "0.7MPa", .autoFilled),
+            // Wrong unit for this field — flagged rather than filled in silently.
+            (pressure, "72度", "72℃", .review),
+            (temperature, "72度", "72℃", .autoFilled),
+        ]
+        var numberFailures = 0
+        for (field, heard, expectedValue, expectedStatus) in numberCases {
+            let result = model.dialog?.decide(field: field, heard: heard)
+            let got = result.map { "\($0.value)\($0.unit)" } ?? "なし"
+            let status = result?.status
+            let ok = got == expectedValue && status == expectedStatus
+            if !ok { numberFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")\(field.name)「\(heard)」 -> \(got)"
+                       + "[\(status?.rawValue ?? "—")] (期待 \(expectedValue)[\(expectedStatus.rawValue)])"
+                       + (result?.note.isEmpty == false ? " note=\(result!.note)" : ""))
+        }
+        log.record("  numbers: \(numberCases.count - numberFailures)/\(numberCases.count) 一致")
+
         log.record("step: requesting permission")
         let granted = await model.speech.requestPermissionAndWait()
         log.record("step: permission granted=\(granted)")
