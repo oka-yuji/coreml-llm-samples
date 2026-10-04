@@ -7,18 +7,20 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02B541ED1A062831815772BB /* MapperHeadlessSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8076D46A118794FF4656AA1F /* MapperHeadlessSelfTest.swift */; };
 		0AFB484A7C94064D8093260B /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 55846AC1C62B384C5E553651 /* AudioRecorder.swift */; };
+		0E92BA2277179BD3C3B4850B /* MapperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEC587CD1203905F288D377 /* MapperView.swift */; };
 		0FCC675A07783051F8DC4EB2 /* LiveCameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFDDA8414C3CB5DF4F1DDDE /* LiveCameraViewModel.swift */; };
 		12EB880E73AA2A911E2DE81C /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
 		13BCAF9021621BA821C6FDFF /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5276F15BFB81348CFD00C13A /* CameraCapture.swift */; };
 		13DB13CF42A65B48E7F78B85 /* SingleModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */; };
 		17BB4B90EAE1C306C95AC591 /* LiveCameraSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D6FCE9C87771BEEC1DD6B5 /* LiveCameraSelfTest.swift */; };
+		1BE47CE62A30ADC7D1FB4F0E /* gliner_parity.json in Resources */ = {isa = PBXBuildFile; fileRef = 114B88D18C8CA38513C9AE01 /* gliner_parity.json */; };
 		1CB862214A5CBE682C98D3A2 /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */; };
+		1ED913411D82EAA1C70A03F1 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */; };
 		1FC56C8DEADFDCBB87F89AEA /* GUIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F562386F185691642C44B1E9 /* GUIDriver.swift */; };
 		2571C7BFDD45C331F1399D3D /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E551C28EBA72A6BB553D1E /* ModelStorage.swift */; };
 		27F66883752CA4A570119619 /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8D720AC0ECE7E978A46CAA /* ChatAttachments.swift */; };
-		0A11C4A7E0D14B2C9F3A5E63 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A11C4A7E0D14B2C9F3A5E61 /* ChatRAG.swift */; };
-		0A11C4A7E0D14B2C9F3A5E62 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A11C4A7E0D14B2C9F3A5E61 /* ChatRAG.swift */; };
 		28402BA6FD410E16045DF0AC /* SingleModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */; };
 		2D43FB0112FCBF7965D7CC1B /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A2A7192C4B48490635DF03 /* CameraPreview.swift */; };
 		3141AFE9B0B5BE531008DFAD /* AgentSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F02B9EA454BBC2DA0860913C /* AgentSelfTest.swift */; };
@@ -31,16 +33,21 @@
 		4630CC3684415D3996499255 /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */; };
 		467143D4F587CC45CF42ED9A /* AgentToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65266094A96BF876082D7EEC /* AgentToolCallParser.swift */; };
 		4F1283003B2FC67A6A4EA433 /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AE161CF01DF356F59F9ABA3 /* StreamPresenter.swift */; };
+		4F6828BF3C9326B551D5CC71 /* gliner_parity.json in Resources */ = {isa = PBXBuildFile; fileRef = 114B88D18C8CA38513C9AE01 /* gliner_parity.json */; };
 		50635734745959BD73C39972 /* LiveCameraSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1D6FCE9C87771BEEC1DD6B5 /* LiveCameraSelfTest.swift */; };
 		541B2F9C2D3DD23698E20517 /* AgentSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F02B9EA454BBC2DA0860913C /* AgentSelfTest.swift */; };
 		57D6857C51E920DC024ABB4A /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
 		5FF4C42E6FBA3B39734F975E /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4257A85A05752939D54D8DD6 /* MetricsLog.swift */; };
 		613D5A0E5A83DD704B6872D4 /* AgentTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = CEB723B3B0854B2E728DC0D0 /* AgentTools.swift */; };
+		62176256D71C78A366B5E36D /* MapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */; };
+		649D7A885DD2CB96631C2483 /* MapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */; };
 		65927BA897129CA4B2233034 /* GUIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = F562386F185691642C44B1E9 /* GUIDriver.swift */; };
 		6AA99C5A8FEFAB1C9A1FD460 /* SelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705477AA1FBAFD87161A30B3 /* SelfTestView.swift */; };
 		6E49407C10BD653EF149A498 /* LiveSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5891BC846BAFA12F12088E0D /* LiveSelfTestView.swift */; };
+		6F5B742E230BB3394CD484B6 /* MapperHeadlessSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8076D46A118794FF4656AA1F /* MapperHeadlessSelfTest.swift */; };
 		79A7364653127581F7C23C40 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = 5EAEC2F93FF5A70943C13A10 /* CoreMLBackend */; };
 		8238AA7B1F1A1A31B8F56A6C /* AgentPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FA5FB27187C443C7E5326A /* AgentPromptBuilder.swift */; };
+		8249C33ED42D245CDA18082F /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DD0FE2A53C3AB94EF3F0A0 /* MapperViewModel.swift */; };
 		83FC106BD6520C3AB9130495 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */; };
 		873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */; };
 		879445A39716E182BEFEC8A8 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6180203241A69AF78B1EA051 /* AgentView.swift */; };
@@ -55,6 +62,7 @@
 		9B8741C9A14EFC2D984505CB /* SelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705477AA1FBAFD87161A30B3 /* SelfTestView.swift */; };
 		9C117D56804C262B968AB12F /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9765414431F09807B3A394 /* ByteFormatting.swift */; };
 		A4703CA6D8C7C17496F80CE2 /* LiveCameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFDDA8414C3CB5DF4F1DDDE /* LiveCameraViewModel.swift */; };
+		B6862A0D27348F35A9921B3B /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */; };
 		B6DB1C559347B7765C6ABACC /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 478539791EBFF6E55276A500 /* LLMCore */; };
 		B8F35C74F2102797C6B9BF41 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2619A7AFA183FE8490939FDF /* HubDownloader.swift */; };
 		B987F2195569F7499334E13A /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6946403106441AB2ED7A4630 /* DemoRootView.swift */; };
@@ -62,16 +70,23 @@
 		BB2816A50CCFAFAD092794ED /* SplitModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */; };
 		BF18F932B1923EDF3D3AAB41 /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */; };
 		C1B24CAA8B36B70CB960A9E9 /* LiveSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5891BC846BAFA12F12088E0D /* LiveSelfTestView.swift */; };
+		C21AE7089E3473C2BEB00050 /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DD0FE2A53C3AB94EF3F0A0 /* MapperViewModel.swift */; };
 		C2D2747587DEFFBA0FC01492 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD58AC60D2EE1B6D37356EF4 /* AgentViewModel.swift */; };
+		C442E5CCC2E57FF29432B6D0 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = C4DBE5ACB499BE56C4E79C89 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */; };
 		C44FC37CF645D83809A21BEF /* LiveCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D9C59D776707FDEC11D3ED68 /* LiveCameraView.swift */; };
 		C9DF519AC833FDE454187B9A /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = AD58AC60D2EE1B6D37356EF4 /* AgentViewModel.swift */; };
 		D062D6474492FBD2F10ACCA4 /* AgentPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FA5FB27187C443C7E5326A /* AgentPromptBuilder.swift */; };
 		D2A2600481CAA5E4203408D2 /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9765414431F09807B3A394 /* ByteFormatting.swift */; };
+		D2AB0BD8286FA96202F28FBC /* MapperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEC587CD1203905F288D377 /* MapperView.swift */; };
+		D50EE46B5987FB44525ED263 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */; };
+		D9233481B629563D3EB701A7 /* tokenizer in Resources */ = {isa = PBXBuildFile; fileRef = ACE76544EDA10458985FC5D4 /* tokenizer */; };
 		DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6946403106441AB2ED7A4630 /* DemoRootView.swift */; };
 		DADD73CF0BAD3EEA7B78DF66 /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */; };
+		DD4756CA20133D75F138CAE1 /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */; };
 		DF84DB058C71D981795D3EF3 /* AgentToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65266094A96BF876082D7EEC /* AgentToolCallParser.swift */; };
 		DFA0256A139D0EF6D51130AF /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = E556E9D126D4364A57D7B8D2 /* LLMCore */; };
 		DFC6CB6403F4C38BCF7A11F0 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */; };
+		E379B8EDF2D3A4CA0019E077 /* tokenizer in Resources */ = {isa = PBXBuildFile; fileRef = ACE76544EDA10458985FC5D4 /* tokenizer */; };
 		EB0CEF1EEDF7B846F6F75962 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = B895059F5EBD906FCB751E1C /* CoreMLBackend */; };
 		EC7EB7E492A6EB8884CF1277 /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
 		ED05C4322265861099D573AB /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A2A7192C4B48490635DF03 /* CameraPreview.swift */; };
@@ -79,9 +94,11 @@
 		F3D467FDB9AABF8A5DED9590 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5276F15BFB81348CFD00C13A /* CameraCapture.swift */; };
 		F7419A36171D9CEF222FE436 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
 		FA7972DCB5F33B4FB4846D95 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2619A7AFA183FE8490939FDF /* HubDownloader.swift */; };
+		FC4053D70B5CC12C58FEE371 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = C4DBE5ACB499BE56C4E79C89 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		114B88D18C8CA38513C9AE01 /* gliner_parity.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = gliner_parity.json; sourceTree = "<group>"; };
 		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		16E551C28EBA72A6BB553D1E /* ModelStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStorage.swift; sourceTree = "<group>"; };
 		1950E1091BA4304F57D1FDC3 /* DemoApp-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "DemoApp-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -91,35 +108,42 @@
 		3986EDEFC61F7234B500496B /* SplitChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitChatView.swift; sourceTree = "<group>"; };
 		4257A85A05752939D54D8DD6 /* MetricsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsLog.swift; sourceTree = "<group>"; };
 		4A8D720AC0ECE7E978A46CAA /* ChatAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAttachments.swift; sourceTree = "<group>"; };
-		0A11C4A7E0D14B2C9F3A5E61 /* ChatRAG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRAG.swift; sourceTree = "<group>"; };
 		50CE2B8AF06DBC8D1E4A370B /* LLMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModels.swift; sourceTree = "<group>"; };
 		51DDF698F9A3A35A67384C75 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
 		5276F15BFB81348CFD00C13A /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
 		53FA5FB27187C443C7E5326A /* AgentPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPromptBuilder.swift; sourceTree = "<group>"; };
 		55846AC1C62B384C5E553651 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
 		5891BC846BAFA12F12088E0D /* LiveSelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSelfTestView.swift; sourceTree = "<group>"; };
+		60DD0FE2A53C3AB94EF3F0A0 /* MapperViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperViewModel.swift; sourceTree = "<group>"; };
 		6180203241A69AF78B1EA051 /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		65266094A96BF876082D7EEC /* AgentToolCallParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentToolCallParser.swift; sourceTree = "<group>"; };
 		6946403106441AB2ED7A4630 /* DemoRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRootView.swift; sourceTree = "<group>"; };
 		705477AA1FBAFD87161A30B3 /* SelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTestView.swift; sourceTree = "<group>"; };
+		7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSpeech.swift; sourceTree = "<group>"; };
+		8076D46A118794FF4656AA1F /* MapperHeadlessSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperHeadlessSelfTest.swift; sourceTree = "<group>"; };
 		96BE74A7623526708986F062 /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		9FDDE78A1F2C3AA789F5EBBF /* ModelsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsViewModel.swift; sourceTree = "<group>"; };
 		A1D6FCE9C87771BEEC1DD6B5 /* LiveCameraSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraSelfTest.swift; sourceTree = "<group>"; };
+		ACE76544EDA10458985FC5D4 /* tokenizer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tokenizer; path = "../../models/gliner2-5-multi-coreml/tokenizer"; sourceTree = SOURCE_ROOT; };
+		AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSelfTest.swift; sourceTree = "<group>"; };
 		AD58AC60D2EE1B6D37356EF4 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
+		BBEC587CD1203905F288D377 /* MapperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperView.swift; sourceTree = "<group>"; };
 		BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitModelsView.swift; sourceTree = "<group>"; };
 		C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSelfTest.swift; sourceTree = "<group>"; };
+		C4DBE5ACB499BE56C4E79C89 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */ = {isa = PBXFileReference; path = gliner2_multi_classification_fp16_L128_K8.mlpackage; sourceTree = "<group>"; };
 		CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAppMain.swift; sourceTree = "<group>"; };
 		CEB723B3B0854B2E728DC0D0 /* AgentTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTools.swift; sourceTree = "<group>"; };
 		CF9765414431F09807B3A394 /* ByteFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormatting.swift; sourceTree = "<group>"; };
 		D9C59D776707FDEC11D3ED68 /* LiveCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraView.swift; sourceTree = "<group>"; };
 		E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		E4A2A7192C4B48490635DF03 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRAG.swift; sourceTree = "<group>"; };
 		ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleModelsView.swift; sourceTree = "<group>"; };
 		F02B9EA454BBC2DA0860913C /* AgentSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSelfTest.swift; sourceTree = "<group>"; };
 		F562386F185691642C44B1E9 /* GUIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GUIDriver.swift; sourceTree = "<group>"; };
 		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
-		"TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_86A4FF8F-F554-416E-A13E-17EFA1392B19" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,9 +181,27 @@
 			path = Agent;
 			sourceTree = "<group>";
 		};
+		1EDD142B0B44475E34189BEA /* coreml-llm-samples */ = {
+			isa = PBXGroup;
+			children = (
+				2B7AD21A7063D4EBE8CFBA79 /* models */,
+			);
+			name = "coreml-llm-samples";
+			path = ../..;
+			sourceTree = "<group>";
+		};
+		2B7AD21A7063D4EBE8CFBA79 /* models */ = {
+			isa = PBXGroup;
+			children = (
+				C09AE17DBE879082683F0B1B /* gliner2-5-multi-coreml */,
+			);
+			path = models;
+			sourceTree = "<group>";
+		};
 		440193E401A4E83EEA00B144 = {
 			isa = PBXGroup;
 			children = (
+				1EDD142B0B44475E34189BEA /* coreml-llm-samples */,
 				F1DF8958A1BCF35E04E58873 /* DemoApp */,
 				9E76448A8A8689BB96FE5017 /* Packages */,
 				D4CC74EBFCAF08A1E61D64BF /* Products */,
@@ -171,7 +213,7 @@
 			children = (
 				55846AC1C62B384C5E553651 /* AudioRecorder.swift */,
 				4A8D720AC0ECE7E978A46CAA /* ChatAttachments.swift */,
-				0A11C4A7E0D14B2C9F3A5E61 /* ChatRAG.swift */,
+				EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */,
 				E3CA9B9D6773A6CFD8CCBCE1 /* ChatViewModel.swift */,
 				96BE74A7623526708986F062 /* SelfTest.swift */,
 				705477AA1FBAFD87161A30B3 /* SelfTestView.swift */,
@@ -188,9 +230,18 @@
 				1023144273CD5423540C7B8B /* Agent */,
 				5138FDD1E4F08E501221B1DB /* Chat */,
 				E94099E07D3E4F4484C4B471 /* LiveCamera */,
+				A225B6A5BF0D693802A15206 /* Mapper */,
 				BDCB1E5DB44A0564814718D2 /* ModelManager */,
 			);
 			path = Demos;
+			sourceTree = "<group>";
+		};
+		8A6DC9A1D63194403B4D017B /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				114B88D18C8CA38513C9AE01 /* gliner_parity.json */,
+			);
+			path = Fixtures;
 			sourceTree = "<group>";
 		};
 		9E76448A8A8689BB96FE5017 /* Packages */ = {
@@ -199,6 +250,19 @@
 				F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */,
 			);
 			name = Packages;
+			sourceTree = "<group>";
+		};
+		A225B6A5BF0D693802A15206 /* Mapper */ = {
+			isa = PBXGroup;
+			children = (
+				8076D46A118794FF4656AA1F /* MapperHeadlessSelfTest.swift */,
+				AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */,
+				7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */,
+				BBEC587CD1203905F288D377 /* MapperView.swift */,
+				60DD0FE2A53C3AB94EF3F0A0 /* MapperViewModel.swift */,
+				8A6DC9A1D63194403B4D017B /* Fixtures */,
+			);
+			path = Mapper;
 			sourceTree = "<group>";
 		};
 		BDCB1E5DB44A0564814718D2 /* ModelManager */ = {
@@ -214,6 +278,15 @@
 				BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */,
 			);
 			path = ModelManager;
+			sourceTree = "<group>";
+		};
+		C09AE17DBE879082683F0B1B /* gliner2-5-multi-coreml */ = {
+			isa = PBXGroup;
+			children = (
+				C4DBE5ACB499BE56C4E79C89 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */,
+				ACE76544EDA10458985FC5D4 /* tokenizer */,
+			);
+			path = "gliner2-5-multi-coreml";
 			sourceTree = "<group>";
 		};
 		D4CC74EBFCAF08A1E61D64BF /* Products */ = {
@@ -251,10 +324,10 @@
 			path = DemoApp;
 			sourceTree = "<group>";
 		};
-		"TEMP_61DAFAF3-FCE7-4110-A6D4-F0BD1ED24A0D" /* DemoApp */ = {
+		"TEMP_F38A4E73-EB96-427C-BF2C-DD89E525FA82" /* DemoApp */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */,
+				"TEMP_86A4FF8F-F554-416E-A13E-17EFA1392B19" /* Signing.xcconfig */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -267,6 +340,7 @@
 			buildConfigurationList = 6BF92CDD7C5A429EE9438DB2 /* Build configuration list for PBXNativeTarget "DemoApp" */;
 			buildPhases = (
 				06C44C80621A0C39B6AB7A54 /* Sources */,
+				F3621958ACE022B3E174CC1E /* Resources */,
 				631EEB8FD7848E1438134A16 /* Frameworks */,
 			);
 			buildRules = (
@@ -287,6 +361,7 @@
 			buildConfigurationList = DA73E4C951B701AE167EBD15 /* Build configuration list for PBXNativeTarget "DemoApp-iOS" */;
 			buildPhases = (
 				FDC7FFBC823BD8C804DC96C9 /* Sources */,
+				4A4DA403618F313F55ECBF52 /* Resources */,
 				4CC8E34047B95943DD214920 /* Frameworks */,
 			);
 			buildRules = (
@@ -342,6 +417,29 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		4A4DA403618F313F55ECBF52 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC4053D70B5CC12C58FEE371 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */,
+				1BE47CE62A30ADC7D1FB4F0E /* gliner_parity.json in Resources */,
+				D9233481B629563D3EB701A7 /* tokenizer in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F3621958ACE022B3E174CC1E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C442E5CCC2E57FF29432B6D0 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */,
+				4F6828BF3C9326B551D5CC71 /* gliner_parity.json in Resources */,
+				E379B8EDF2D3A4CA0019E077 /* tokenizer in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		06C44C80621A0C39B6AB7A54 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -358,7 +456,7 @@
 				13BCAF9021621BA821C6FDFF /* CameraCapture.swift in Sources */,
 				2D43FB0112FCBF7965D7CC1B /* CameraPreview.swift in Sources */,
 				3B35000AF2A0239792D28FAB /* ChatAttachments.swift in Sources */,
-				0A11C4A7E0D14B2C9F3A5E62 /* ChatRAG.swift in Sources */,
+				D50EE46B5987FB44525ED263 /* ChatRAG.swift in Sources */,
 				89A5606E1F6EB51E514D9B15 /* ChatViewModel.swift in Sources */,
 				873FFC0BCC919261A31F32A5 /* DemoAppMain.swift in Sources */,
 				DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */,
@@ -369,6 +467,11 @@
 				36D6CF46293977A4B646A40A /* LiveCameraView.swift in Sources */,
 				0FCC675A07783051F8DC4EB2 /* LiveCameraViewModel.swift in Sources */,
 				6E49407C10BD653EF149A498 /* LiveSelfTestView.swift in Sources */,
+				02B541ED1A062831815772BB /* MapperHeadlessSelfTest.swift in Sources */,
+				62176256D71C78A366B5E36D /* MapperSelfTest.swift in Sources */,
+				DD4756CA20133D75F138CAE1 /* MapperSpeech.swift in Sources */,
+				0E92BA2277179BD3C3B4850B /* MapperView.swift in Sources */,
+				C21AE7089E3473C2BEB00050 /* MapperViewModel.swift in Sources */,
 				5FF4C42E6FBA3B39734F975E /* MetricsLog.swift in Sources */,
 				2571C7BFDD45C331F1399D3D /* ModelStorage.swift in Sources */,
 				DADD73CF0BAD3EEA7B78DF66 /* ModelsSelfTest.swift in Sources */,
@@ -399,7 +502,7 @@
 				F3D467FDB9AABF8A5DED9590 /* CameraCapture.swift in Sources */,
 				ED05C4322265861099D573AB /* CameraPreview.swift in Sources */,
 				27F66883752CA4A570119619 /* ChatAttachments.swift in Sources */,
-				0A11C4A7E0D14B2C9F3A5E63 /* ChatRAG.swift in Sources */,
+				1ED913411D82EAA1C70A03F1 /* ChatRAG.swift in Sources */,
 				910DF033B78B0FE570A85DB8 /* ChatViewModel.swift in Sources */,
 				9841C54821A9E069A1BCFC23 /* DemoAppMain.swift in Sources */,
 				B987F2195569F7499334E13A /* DemoRootView.swift in Sources */,
@@ -410,6 +513,11 @@
 				C44FC37CF645D83809A21BEF /* LiveCameraView.swift in Sources */,
 				A4703CA6D8C7C17496F80CE2 /* LiveCameraViewModel.swift in Sources */,
 				C1B24CAA8B36B70CB960A9E9 /* LiveSelfTestView.swift in Sources */,
+				6F5B742E230BB3394CD484B6 /* MapperHeadlessSelfTest.swift in Sources */,
+				649D7A885DD2CB96631C2483 /* MapperSelfTest.swift in Sources */,
+				B6862A0D27348F35A9921B3B /* MapperSpeech.swift in Sources */,
+				D2AB0BD8286FA96202F28FBC /* MapperView.swift in Sources */,
+				8249C33ED42D245CDA18082F /* MapperViewModel.swift in Sources */,
 				8D555BCF6E073C3C3A198FEC /* MetricsLog.swift in Sources */,
 				F2A166E74426BAAF95F80FF9 /* ModelStorage.swift in Sources */,
 				1CB862214A5CBE682C98D3A2 /* ModelsSelfTest.swift in Sources */,
@@ -430,7 +538,7 @@
 /* Begin XCBuildConfiguration section */
 		041C67ECF87CA2F42B2A6BA2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_86A4FF8F-F554-416E-A13E-17EFA1392B19" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -488,7 +596,7 @@
 		};
 		17707D7259CA9368A4B03200 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_86A4FF8F-F554-416E-A13E-17EFA1392B19" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -567,6 +675,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Reads camera frames so the on-device model can describe what is in view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -592,6 +701,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -622,6 +732,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -656,6 +767,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Reads camera frames so the on-device model can describe what is in view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",

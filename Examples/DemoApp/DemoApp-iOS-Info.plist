@@ -4,6 +4,10 @@
 <dict>
 	<key>NSCameraUsageDescription</key>
 	<string>Reads camera frames so the on-device model can describe what is in view.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Records a short clip so the on-device model can transcribe it.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.</string>
 	<key>UIFileSharingEnabled</key>
 	<true/>
 </dict>

@@ -9,6 +9,7 @@ enum Demo: String, CaseIterable, Identifiable {
     case agent
     case liveCamera
     case models
+    case mapper
 
     var id: String { rawValue }
 
@@ -26,6 +27,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "Agent"
         case .liveCamera: return "Live Camera"
         case .models: return "Models"
+        case .mapper: return "Mapper"
         }
     }
 
@@ -35,6 +37,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "Search the web and run multi-step tasks with tool calls"
         case .liveCamera: return "Describe what the camera sees, frame after frame"
         case .models: return "Download and manage model bundles"
+        case .mapper: return "Map a spoken Japanese note onto an inspection sheet"
         }
     }
 
@@ -44,6 +47,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "sparkles"
         case .liveCamera: return "camera.viewfinder"
         case .models: return "square.and.arrow.down"
+        case .mapper: return "list.clipboard"
         }
     }
 
@@ -53,6 +57,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: AgentView()
         case .liveCamera: LiveCameraView()
         case .models: SplitModelsView()
+        case .mapper: MapperView()
         }
     }
 
@@ -62,6 +67,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: AgentView()
         case .liveCamera: LiveCameraView()
         case .models: SingleModelsView()
+        case .mapper: MapperView()
         }
     }
 }

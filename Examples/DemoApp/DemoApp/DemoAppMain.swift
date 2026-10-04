@@ -7,6 +7,8 @@ struct DemoApp: App {
             #if os(iOS)
             if SelfTest.isRequested {
                 SelfTestView()
+            } else if MapperHeadlessSelfTest.isRequested {
+                MapperHeadlessSelfTestView()
             } else if LiveCameraSelfTest.isRequested {
                 LiveSelfTestView()
             } else {
