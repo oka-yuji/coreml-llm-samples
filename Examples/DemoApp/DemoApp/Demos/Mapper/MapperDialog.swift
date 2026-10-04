@@ -452,24 +452,48 @@ final class MapperDialogController {
             let answer = await listen()
             confirmPrompt = ""
             if let yes = Self.yesNo(answer) { return yes }
-            // Keywords missed: let the classifier try the same two-way choice.
-            if let scores = try? classifier.scores(
-                text: answer, task: "はいかいいえか", labels: ["はい", "いいえ"]),
-                let best = GLiNERMapper.rank(labels: ["はい", "いいえ"], scores: scores).first,
-                best.score >= 0.6 {
-                return best.label == "はい"
-            }
+            // No classifier fallback here on purpose. It was being handed empty and
+            // ambiguous answers and turning them into a "yes", which silently accepts
+            // a wrong value — the one outcome an inspection sheet must not produce.
+            note("    confirm: 判定できず(「\(answer)」)")
             await say("はい か いいえ でお答えください。")
         }
+        // Two tries without a clear answer: treat as not confirmed.
+        note("    confirm: 未確認のため「いいえ」として扱います")
         return false
     }
 
+    /// Reads a spoken yes or no, or nil when it is neither.
+    ///
+    /// Order matters more than the word lists. "そうではない" contains "そう", so a
+    /// plain positive-first scan read a refusal as agreement. Negatives are therefore
+    /// checked before positives — except for the set phrases that contain a negative
+    /// word and still mean yes ("問題ありません", "問題ない", "大丈夫"), which are
+    /// matched first of all.
     static func yesNo(_ text: String) -> Bool? {
-        let positives = ["はい", "うん", "ok", "ＯＫ", "合ってる", "あってる", "そう", "正しい", "はーい"]
-        let negatives = ["いいえ", "違う", "ちがう", "やり直し", "もう一度", "だめ", "ダメ"]
-        let lowered = text.lowercased()
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        let lowered = trimmed.lowercased()
+
+        // (1) Positive phrases that contain a negative word.
+        let positivePhrases = ["問題ありません", "問題ない", "大丈夫"]
+        if positivePhrases.contains(where: lowered.contains) { return true }
+
+        // (2) Refusals.
+        let negatives = [
+            "いいえ", "いや", "違います", "ちがいます", "違う", "ちがう",
+            "ではない", "じゃない", "やり直し", "もう一度", "だめ", "ダメ",
+        ]
         if negatives.contains(where: lowered.contains) { return false }
+
+        // (3) Agreement.
+        let positives = [
+            "はい", "はーい", "うん", "ええ", "オッケー", "おっけー", "オーケー",
+            "ok", "ｏｋ", "合ってます", "あってます", "合ってる", "あってる",
+            "正しい", "それで", "いいです", "そう",
+        ]
         if positives.contains(where: lowered.contains) { return true }
+
         return nil
     }
 

@@ -79,11 +79,28 @@ struct MapperDialogSelfTestView: View {
         }
 
         // --- keyword and unit helpers ---
+        // Expected answers are asserted, not just printed: a wrong "yes" here means a
+        // wrong value is written into the sheet without anyone noticing.
         log.record("--- yes/no keywords ---")
-        for sample in ["はい", "うん", "合ってる", "そう", "OK", "いいえ", "違う", "もう一度", "えーっと"] {
-            let decision = MapperDialogController.yesNo(sample)
-            log.record("  「\(sample)」 -> \(decision.map { $0 ? "肯定" : "否定" } ?? "判定不能(分類にまわす)")")
+        let yesNoCases: [(String, Bool?)] = [
+            ("はい", true), ("うん", true), ("ええ", true), ("合ってる", true),
+            ("合ってます", true), ("オッケー", true), ("OK", true), ("それで", true),
+            ("そう", true), ("いいです", true),
+            ("問題ないです", true), ("問題ありません", true), ("大丈夫", true),
+            ("いいえ", false), ("いや、違う", false), ("違います", false),
+            ("ちがいます", false), ("そうではない", false), ("そうじゃない", false),
+            ("やり直し", false), ("もう一度", false), ("だめ", false),
+            ("", nil), ("えーっと", nil), ("わかりません", nil),
+        ]
+        var yesNoFailures = 0
+        for (sample, expected) in yesNoCases {
+            let got = MapperDialogController.yesNo(sample)
+            let word = { (value: Bool?) in value.map { $0 ? "肯定" : "否定" } ?? "判定不能" }
+            let ok = got == expected
+            if !ok { yesNoFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")「\(sample)」 -> \(word(got)) (期待 \(word(expected)))")
         }
+        log.record("  yes/no: \(yesNoCases.count - yesNoFailures)/\(yesNoCases.count) 一致")
         log.record("--- spoken unit normalisation ---")
         for sample in ["0.45メガパスカル", "72度", "摂氏72度", "0.5キロパスカル", "れいてんよんご"] {
             let normalised = MapperDialogController.normaliseSpokenUnits(sample)
