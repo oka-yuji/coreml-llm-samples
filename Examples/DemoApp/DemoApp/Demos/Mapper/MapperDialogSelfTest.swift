@@ -109,6 +109,47 @@ struct MapperDialogSelfTestView: View {
                        + (candidate.map { "\($0.value)\($0.unit)" } ?? "数値なし"))
         }
 
+        // --- exact option matches: these must not reach the classifier ---
+        log.record("--- option matches ---")
+        let oilLeak = MapperForm.fields.first { $0.key == "oil_leak" }!
+        let sound = MapperForm.fields.first { $0.key == "abnormal_sound" }!
+        let nextAction = MapperForm.fields.first { $0.key == "next_action" }!
+        let matchCases: [(MapperForm.Field, String, String?)] = [
+            (oilLeak, "なし", "なし"),
+            (oilLeak, "なし。", "なし"),
+            (oilLeak, "漏れていない", "なし"),
+            (oilLeak, "あり", "あり"),
+            (sound, "未点検", "未点検"),
+            (sound, "異常なし", "正常"),
+            (sound, "問題ありません", "正常"),
+            (nextAction, "グリスアップ", "給油"),
+            (nextAction, "掃除", "清掃"),
+            // Not a plain option name: the classifier should still decide these.
+            (sound, "少し音がする", nil),
+        ]
+        var matchFailures = 0
+        for (field, heard, expected) in matchCases {
+            let got = MapperDialogController.exactOption(for: field, heard: heard)
+            let ok = got == expected
+            if !ok { matchFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")\(field.name)「\(heard)」 -> "
+                       + "\(got ?? "モデルに回す") (期待 \(expected ?? "モデルに回す"))")
+        }
+        log.record("  matches: \(matchCases.count - matchFailures)/\(matchCases.count) 一致")
+
+        // --- a retry has to name the field, or the next answer lands on it ---
+        log.record("--- retry wording ---")
+        var wordingFailures = 0
+        for field in MapperForm.fields {
+            let question = MapperDialogController.question(for: field)
+            let retry = "では、もう一度。" + question
+            let ok = retry.contains(field.name)
+            if !ok { wordingFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")\(field.name): 「\(retry)」")
+        }
+        log.record("  retry wording: \(MapperForm.fields.count - wordingFailures)/"
+                   + "\(MapperForm.fields.count) 項目名を含む")
+
         // --- the real run, with silence for every answer ---
         log.record("--- running the dialog with no speaker (expect 6 skips) ---")
         log.record("step: loading model")
