@@ -131,8 +131,10 @@ struct MapperDialogSelfTestView: View {
             (pressure, "0.45、違った、0.54メガパスカル", "0.54MPa", .autoFilled),
             (pressure, "0.3じゃなくて0.7メガパスカル", "0.7MPa", .autoFilled),
             // Wrong unit for this field — flagged rather than filled in silently.
-            (pressure, "72度", "72℃", .review),
-            (temperature, "72度", "72℃", .autoFilled),
+            // 度 answered to 吐出圧 is the wrong quantity entirely.
+            (pressure, "72度", "72度", .review),
+            // 度 answered to 温度 is just how people say ℃.
+            (temperature, "72度", "72度", .autoFilled),
         ]
         var numberFailures = 0
         for (field, heard, expectedValue, expectedStatus) in numberCases {

@@ -252,6 +252,14 @@ final class MapperDialogController {
 
     static func spoken(_ unit: String) -> String { spokenUnits[unit] ?? unit }
 
+    /// "72度" and "72℃" are the same temperature. Treating them as different units
+    /// would flag the ordinary way of saying it as a mismatch.
+    static func sameUnit(_ a: String, _ b: String) -> Bool {
+        if a == b { return true }
+        let celsius: Set<String> = ["℃", "度"]
+        return celsius.contains(a) && celsius.contains(b)
+    }
+
     static func question(for field: MapperForm.Field) -> String {
         switch field.kind {
         case .number(let unit): "\(field.name)は、何\(spoken(unit))ですか？"
@@ -441,7 +449,7 @@ final class MapperDialogController {
             guard let candidate = corrected ? candidates.last : candidates.first else { return nil }
             // A unit that is not this field's own usually means the number belongs
             // somewhere else ("72度" answered to 吐出圧), so do not auto-fill it.
-            let mismatched = !candidate.unit.isEmpty && candidate.unit != unit
+            let mismatched = !candidate.unit.isEmpty && !Self.sameUnit(candidate.unit, unit)
             return MapperFieldResult(
                 key: field.key, name: field.name, value: candidate.value,
                 unit: candidate.unit.isEmpty ? unit : candidate.unit,
