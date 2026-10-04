@@ -212,13 +212,23 @@ final class MapperViewModel {
     #endif
 
     #if os(iOS)
+    /// The in-flight dialog, so a restart waits for the previous one to unwind
+    /// instead of racing it.
+    @ObservationIgnored private var dialogTask: Task<Void, Never>?
+
     /// Runs the voice dialog, then drops its six answers into the sheet.
     func runDialog() async {
         if mapper == nil { await loadModel() }
         guard let dialog else { return }
+        // A cancelled run needs a moment to return; starting on top of it would leave
+        // two state machines sharing one recogniser.
+        if let dialogTask { await dialogTask.value }
         dialog.textOnlyMode = !useVoiceDialog
         dialog.refreshDiagnostics()
-        await dialog.start()
+        let task = Task { await dialog.start() }
+        dialogTask = task
+        await task.value
+        dialogTask = nil
         if !dialog.results.isEmpty {
             fields = MapperForm.fields.map { field in
                 dialog.results.first { $0.key == field.key }

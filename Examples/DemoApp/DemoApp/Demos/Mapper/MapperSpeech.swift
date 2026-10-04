@@ -57,6 +57,12 @@ final class MapperSpeech {
     private var onFinal: ((String) -> Void)?
     private var silenceTimer: Timer?
     private var capTimer: Timer?
+    private var finalTimer: Timer?
+
+    /// Incremented on every `start`. Callbacks, timers and the level meter carry the
+    /// value they were created with and do nothing unless it still matches, so a
+    /// recogniser that reports late cannot touch the question that came after it.
+    private var generation = 0
 
     /// Dialog mode: stop once the transcript has not changed for this long, so the
     /// person does not have to press anything. nil keeps the manual stop button.
@@ -244,6 +250,8 @@ final class MapperSpeech {
         }
         print("[speech] guards ok, authorized; available=\(recognizer.isAvailable) "
               + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
+        generation += 1
+        let turn = generation
         self.onFinal = onFinal
         partialText = ""
         lastRecognitionError = nil
@@ -294,9 +302,8 @@ final class MapperSpeech {
             // runtime traps the moment the audio render thread calls it.
             nonisolated(unsafe) let sink = request
             let probe = AudioLevelProbe()
-            nonisolated(unsafe) let report = self.onEvent
             let route = routeDescription()
-            input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
+            input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable [weak self] buffer, _ in
                 sink.append(buffer)
                 guard let decibels = probe.add(buffer) else { return }
                 print(String(format: "[speech] level: %.0f dB", decibels))
@@ -305,7 +312,10 @@ final class MapperSpeech {
                 let line = quiet == 4
                     ? "    mic: 音が届いていません(\(route))"
                     : String(format: "    mic: %.0f dB", decibels)
-                Task { @MainActor in report?(line) }
+                Task { @MainActor in
+                    guard let self, self.generation == turn else { return }
+                    self.onEvent?(line)
+                }
             }
             print("[speech] tap installed")
             audioEngine.prepare()
@@ -332,7 +342,7 @@ final class MapperSpeech {
             let failure = error?.localizedDescription
             print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none")")
             Task { @MainActor in
-                guard let self else { return }
+                guard let self, self.generation == turn else { return }
                 if let text, text != self.partialText {
                     self.partialText = text
                     self.onEvent?("    stt partial: 「\(text)」")
@@ -359,16 +369,24 @@ final class MapperSpeech {
         // otherwise a slow start would be cut off after 1.2 s of thinking.
         capTimer?.invalidate()
         capTimer = Timer.scheduledTimer(withTimeInterval: maxDuration, repeats: false) { [weak self] _ in
-            Task { @MainActor in self?.stop() }
+            Task { @MainActor in
+                guard let self, self.generation == turn else { return }
+                self.stop()
+            }
         }
     }
 
     /// Restarted on every transcript change; firing means the person stopped talking.
     private func armSilenceTimer() {
         guard let silenceTimeout else { return }
+        let turn = generation
         silenceTimer?.invalidate()
         silenceTimer = Timer.scheduledTimer(withTimeInterval: silenceTimeout, repeats: false) {
-            [weak self] _ in Task { @MainActor in self?.stop() }
+            [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.generation == turn else { return }
+                self.stop()
+            }
         }
     }
 
@@ -383,6 +401,17 @@ final class MapperSpeech {
             audioEngine.inputNode.removeTap(onBus: 0)
         }
         statusText = "音声入力: 認識中…"
+        // `endAudio()` does not guarantee a final result ever arrives. Without a
+        // deadline the dialog waits for one forever and the whole run stalls.
+        let turn = generation
+        finalTimer?.invalidate()
+        finalTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
+            Task { @MainActor in
+                guard let self, self.generation == turn, self.isRecording else { return }
+                self.onEvent?("    stt: final が来ないので打ち切ります(2 秒)")
+                self.finish(with: self.partialText)
+            }
+        }
     }
 
     private func finish(with text: String) {
@@ -390,6 +419,7 @@ final class MapperSpeech {
         isRecording = false
         silenceTimer?.invalidate()
         capTimer?.invalidate()
+        finalTimer?.invalidate()
         if audioEngine.isRunning {
             audioEngine.stop()
             audioEngine.inputNode.removeTap(onBus: 0)

@@ -83,7 +83,15 @@ final class MapperTTS: NSObject, AVSpeechSynthesizerDelegate {
     /// silent and never call its delegate, and an unbounded wait here freezes the
     /// whole dialog: no speech, no microphone, no crash. That is the exact symptom
     /// this timeout exists to prevent.
-    func speak(_ text: String, timeout: Duration = .seconds(8)) async {
+    /// How long to allow for one utterance: long sentences legitimately take longer,
+    /// and timing the closing summary out would have been read as "speech is broken"
+    /// and dropped the run into text mode.
+    static func watchdogSeconds(for text: String) -> Double {
+        max(8, 3 + 0.35 * Double(text.count))
+    }
+
+    func speak(_ text: String) async {
+        let timeout = Duration.seconds(Self.watchdogSeconds(for: text))
         isSpeaking = true
         defer { isSpeaking = false }
         lastSpeakTimedOut = false
@@ -256,8 +264,15 @@ final class MapperDialogController {
 
     // MARK: - Run
 
+    /// True from the moment `start` is entered until it returns. `stage` is not
+    /// enough: it stays `.idle` through the permission prompt and the route setup, so
+    /// a second tap in that window would start a second dialog on the same microphone.
+    private(set) var isRunning = false
+
     func start() async {
-        guard stage == .idle || stage == .finished else { return }
+        guard !isRunning, stage == .idle || stage == .finished else { return }
+        isRunning = true
+        defer { isRunning = false }
         cancelled = false
         entries = []
         results = []
