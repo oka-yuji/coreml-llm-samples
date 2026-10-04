@@ -137,6 +137,59 @@ struct MapperDialogSelfTestView: View {
         }
         log.record("  matches: \(matchCases.count - matchFailures)/\(matchCases.count) 一致")
 
+        // --- an empty final must not throw away what was already heard ---
+        log.record("--- final resolution ---")
+        let finalCases: [(String?, String, String)] = [
+            // The device case: partial had the answer, final came back empty.
+            (nil, "未点検", "未点検"),
+            ("", "未点検", "未点検"),
+            ("   ", "0.25メガパスカル", "0.25メガパスカル"),
+            // A real final wins over the partial it supersedes.
+            ("20度", "20", "20度"),
+            // Nothing heard at all stays nothing.
+            ("", "", ""),
+            (nil, "", ""),
+        ]
+        var finalFailures = 0
+        for (text, partial, expected) in finalCases {
+            let got = MapperSpeech.resolveFinal(text: text, lastPartial: partial)
+            let ok = got == expected
+            if !ok { finalFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")final=\(text.map { "「\($0)」" } ?? "nil") "
+                       + "partial「\(partial)」 -> 「\(got)」(期待「\(expected)」)")
+        }
+        log.record("  final: \(finalCases.count - finalFailures)/\(finalCases.count) 一致")
+
+        // --- which answers skip the yes/no round trip ---
+        log.record("--- confirmation skipping ---")
+        func numberField(_ key: String) -> MapperForm.Field {
+            MapperForm.fields.first { $0.key == key }!
+        }
+        func sample(_ value: String, _ score: Float, _ note: String) -> MapperFieldResult {
+            MapperFieldResult(key: "k", name: "n", value: value, unit: "", score: score,
+                              status: .autoFilled, topTwo: [], note: note)
+        }
+        let skipCases: [(MapperForm.Field, MapperFieldResult, String?)] = [
+            (sound, sample("未点検", 1, "一致"), "一致"),
+            (sound, sample("正常", 0.92, ""), "自動(0.92)"),
+            (sound, sample("正常", 0.85, ""), "自動(0.85)"),
+            // Below the threshold: still worth asking.
+            (sound, sample("正常", 0.84, ""), nil),
+            // Numbers are always confirmed, however confident the reading looks.
+            (numberField("discharge_pressure"), sample("0.25", 1, ""), nil),
+            (numberField("temperature"), sample("20", 1, "一致"), nil),
+        ]
+        var skipFailures = 0
+        for (field, result, expected) in skipCases {
+            let got = MapperDialogController.autoAcceptReason(for: field, result: result)
+            let ok = got == expected
+            if !ok { skipFailures += 1 }
+            log.record("  \(ok ? "ok " : "NG ")\(field.name) \(result.value)"
+                       + String(format: "(%.2f)", result.score)
+                       + " -> \(got ?? "確認する") (期待 \(expected ?? "確認する"))")
+        }
+        log.record("  skipping: \(skipCases.count - skipFailures)/\(skipCases.count) 一致")
+
         // --- a retry has to name the field, or the next answer lands on it ---
         log.record("--- retry wording ---")
         var wordingFailures = 0
