@@ -22,8 +22,8 @@ final class MapperHeadlessLog {
     private(set) var finished = false
     @ObservationIgnored private let url: URL
 
-    init() {
-        url = ModelStorage.documentsDirectory().appending(path: MapperHeadlessSelfTest.fileName)
+    init(fileName: String = MapperHeadlessSelfTest.fileName) {
+        url = ModelStorage.documentsDirectory().appending(path: fileName)
         try? Data().write(to: url, options: .atomic)
     }
 

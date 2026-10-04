@@ -9,6 +9,8 @@ struct DemoApp: App {
                 SelfTestView()
             } else if MapperHeadlessSelfTest.isRequested {
                 MapperHeadlessSelfTestView()
+            } else if GemmaMapperSelfTest.isRequested {
+                GemmaMapperSelfTestView()
             } else if LiveCameraSelfTest.isRequested {
                 LiveSelfTestView()
             } else {

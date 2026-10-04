@@ -166,6 +166,16 @@ public struct MapperFieldResult: Sendable, Equatable {
     }
 }
 
+/// One scoring rule, used for every engine so the comparison is like-for-like:
+/// a mentioned field must carry exactly the expected value, and a field nobody
+/// mentioned must come out 未言及.
+public enum MapperScoring {
+    public static func matches(_ field: MapperFieldResult, expected: String?) -> Bool {
+        guard let expected else { return field.status == .absent }
+        return field.status != .absent && field.value == expected
+    }
+}
+
 public struct MapperOutcome: Sendable {
     public var fields: [MapperFieldResult]
     public var seconds: Double

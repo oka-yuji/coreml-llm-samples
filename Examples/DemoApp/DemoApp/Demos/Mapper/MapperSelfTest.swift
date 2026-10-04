@@ -155,20 +155,16 @@ struct MapperSelfTest: Sendable {
             var allMatch = true
             for field in outcome.fields {
                 let expected = testCase.expected[field.key]
-                let isMatch: Bool
-                if let expected {
-                    isMatch = field.status != .absent && field.value == expected
-                    // Reference metric: list fields only — a number field's labels are
-                    // field names, not values, so "top-2 label == expected value"
-                    // is not defined for them.
-                    if case .list = MapperForm.fields.first(where: { $0.key == field.key })?.kind {
-                        report.top2Total += 1
-                        if field.topTwo.contains(where: { $0.label == expected }) {
-                            report.top2Matched += 1
-                        }
+                let isMatch = MapperScoring.matches(field, expected: expected)
+                // Reference metric: list fields only — a number field's labels are
+                // field names, not values, so "top-2 label == expected value"
+                // is not defined for them.
+                if expected != nil,
+                    case .list = MapperForm.fields.first(where: { $0.key == field.key })?.kind {
+                    report.top2Total += 1
+                    if field.topTwo.contains(where: { $0.label == expected }) {
+                        report.top2Matched += 1
                     }
-                } else {
-                    isMatch = field.status == .absent
                 }
                 if isMatch {
                     matched[field.key, default: 0] += 1
