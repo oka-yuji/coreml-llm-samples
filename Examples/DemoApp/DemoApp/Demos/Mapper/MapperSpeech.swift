@@ -3,6 +3,42 @@ import Foundation
 import Observation
 import Speech
 
+/// Running RMS of the microphone, reported about twice a second.
+///
+/// It answers the question the recogniser cannot: when nothing is recognised, is
+/// the microphone delivering silence, or audio the recogniser cannot parse? Around
+/// -80 dB means nothing is arriving at all.
+///
+/// `@unchecked Sendable`: AVAudioEngine calls the tap from one render thread, and
+/// these fields are touched nowhere else.
+final class AudioLevelProbe: @unchecked Sendable {
+    private var lastReport = Date.distantPast
+    private var peak: Float = 0
+
+    private var quietRun = 0
+
+    /// Counts consecutive quiet reports; returns the running count.
+    func noteQuiet(_ isQuiet: Bool) -> Int {
+        quietRun = isQuiet ? quietRun + 1 : 0
+        return quietRun
+    }
+
+    /// Returns a dBFS value when it is time to report, otherwise nil.
+    func add(_ buffer: AVAudioPCMBuffer) -> Float? {
+        guard let channel = buffer.floatChannelData?[0] else { return nil }
+        var sum: Float = 0
+        let count = Int(buffer.frameLength)
+        for index in 0..<count { sum += channel[index] * channel[index] }
+        let rms = count > 0 ? (sum / Float(count)).squareRoot() : 0
+        peak = max(peak, rms)
+        guard Date().timeIntervalSince(lastReport) >= 0.5 else { return nil }
+        lastReport = Date()
+        let value = peak
+        peak = 0
+        return value > 0 ? 20 * log10(value) : -120
+    }
+}
+
 /// On-device Japanese dictation. Never falls back to the cloud: if the device has no
 /// on-device model for ja-JP the button is disabled and the screen says so, because
 /// the whole point of the demo is that nothing leaves the phone.
@@ -50,6 +86,88 @@ final class MapperSpeech {
     }
 
     var supportsOnDevice: Bool { recognizer?.supportsOnDeviceRecognition ?? false }
+
+    /// What the audio is actually flowing through — the detail that explains a
+    /// 24 kHz input or a silent microphone.
+    func routeDescription() -> String {
+        #if os(iOS)
+        let session = AVAudioSession.sharedInstance()
+        let inputs = session.currentRoute.inputs
+            .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
+        let outputs = session.currentRoute.outputs
+            .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
+        return "in=[\(inputs.isEmpty ? "none" : inputs)] out=[\(outputs.isEmpty ? "none" : outputs)] "
+            + "\(Int(session.sampleRate))Hz"
+        #else
+        return "n/a"
+        #endif
+    }
+
+    #if os(iOS)
+    static let bluetoothPorts: Set<AVAudioSession.Port> = [.bluetoothHFP, .bluetoothLE, .bluetoothA2DP]
+
+    /// Chooses the route for the dialog and waits until it is actually in effect.
+    ///
+    /// With a headset paired we keep **both** ends on it — adding `.defaultToSpeaker`
+    /// would send playback to the handset while recording stayed on the headset, which
+    /// is the worst of both. With no headset we pin the built-in mic and speaker.
+    ///
+    /// The wait matters: switching into HFP takes a moment, and recording started
+    /// mid-switch captures silence — which is what "No speech detected" looked like.
+    @discardableResult
+    func configureVoiceSession() async -> String {
+        let session = AVAudioSession.sharedInstance()
+        do {
+            // A record-capable category first, so availableInputs lists the headset.
+            try session.setCategory(
+                .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+
+            let bluetooth = session.availableInputs?.first { Self.bluetoothPorts.contains($0.portType) }
+            if let bluetooth {
+                try session.setCategory(
+                    .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
+                try? session.setPreferredInput(bluetooth)
+                onEvent?("    route: Bluetooth を使います(\(bluetooth.portName))")
+            } else {
+                try session.setCategory(
+                    .playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .duckOthers])
+                if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                    try? session.setPreferredInput(builtIn)
+                }
+                onEvent?("    route: 本体マイク／スピーカーを使います")
+            }
+            try session.setActive(true, options: .notifyOthersOnDeactivation)
+
+            // Wait for the chosen port to actually become the current input.
+            if let wanted = bluetooth?.portType {
+                let deadline = Date().addingTimeInterval(1.5)
+                while Date() < deadline,
+                    session.currentRoute.inputs.first?.portType != wanted {
+                    try? await Task.sleep(for: .milliseconds(100))
+                }
+            }
+            lastSessionError = nil
+        } catch {
+            lastSessionError = error.localizedDescription
+            onEvent?("    route: セッション設定に失敗 \(error.localizedDescription)")
+        }
+        logRoute("start")
+        return routeDescription()
+    }
+    #endif
+
+    private(set) var lastSessionError: String?
+    /// Why the last listen produced nothing, e.g. "No speech detected".
+    private(set) var lastRecognitionError: String?
+    /// True when the recogniser heard nothing at all, as opposed to failing.
+    var heardNothing: Bool { (lastRecognitionError ?? "").contains("No speech detected") }
+
+    func logRoute(_ label: String) {
+        let description = routeDescription()
+        print("[speech] route(\(label)): \(description)")
+        onEvent?("    route(\(label)): \(description)")
+    }
 
     /// Trace hook so the dialog can show what the recogniser is doing.
     var onEvent: ((String) -> Void)?
@@ -128,6 +246,7 @@ final class MapperSpeech {
               + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
         self.onFinal = onFinal
         partialText = ""
+        lastRecognitionError = nil
 
         let request = SFSpeechAudioBufferRecognitionRequest()
         request.shouldReportPartialResults = true
@@ -145,7 +264,12 @@ final class MapperSpeech {
             if !usesPlayAndRecord {
                 try session.setCategory(.record, mode: .measurement, options: .duckOthers)
             }
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            // The dialog already chose and settled the route in configureVoiceSession();
+            // re-setting the category here would undo the Bluetooth preference.
+            if !usesPlayAndRecord {
+                try session.setActive(true, options: .notifyOthersOnDeactivation)
+            }
+            logRoute("listen")
             print("[speech] session active")
             #endif
 
@@ -169,8 +293,19 @@ final class MapperSpeech {
             // @MainActor context and inferred main-actor-isolated, and the Swift 6
             // runtime traps the moment the audio render thread calls it.
             nonisolated(unsafe) let sink = request
+            let probe = AudioLevelProbe()
+            nonisolated(unsafe) let report = self.onEvent
+            let route = routeDescription()
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
                 sink.append(buffer)
+                guard let decibels = probe.add(buffer) else { return }
+                print(String(format: "[speech] level: %.0f dB", decibels))
+                // Four quiet readings in a row is about two seconds of nothing.
+                let quiet = probe.noteQuiet(decibels < -70)
+                let line = quiet == 4
+                    ? "    mic: 音が届いていません(\(route))"
+                    : String(format: "    mic: %.0f dB", decibels)
+                Task { @MainActor in report?(line) }
             }
             print("[speech] tap installed")
             audioEngine.prepare()
@@ -203,7 +338,10 @@ final class MapperSpeech {
                     self.onEvent?("    stt partial: 「\(text)」")
                     self.armSilenceTimer()
                 }
-                if let failure { self.onEvent?("    stt error: \(failure)") }
+                if let failure {
+                    self.lastRecognitionError = failure
+                    self.onEvent?("    stt error: \(failure)")
+                }
                 // Only the finalised transcript goes into the text field.
                 if isFinal {
                     self.finish(with: self.partialText)
@@ -216,7 +354,9 @@ final class MapperSpeech {
         onEvent?("    stt: listening")
         isRecording = true
         statusText = "音声入力: 録音中(端末内)"
-        armSilenceTimer()
+        // Deliberately not armed yet: the 1.2 s silence rule counts from the first
+        // partial result. Before anything is recognised only the hard cap applies,
+        // otherwise a slow start would be cut off after 1.2 s of thinking.
         capTimer?.invalidate()
         capTimer = Timer.scheduledTimer(withTimeInterval: maxDuration, repeats: false) { [weak self] _ in
             Task { @MainActor in self?.stop() }

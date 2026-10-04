@@ -22,24 +22,56 @@ final class MapperTTS: NSObject, AVSpeechSynthesizerDelegate {
         synthesizer.delegate = self
     }
 
-    /// Prefer an enhanced/premium ja-JP voice when the person has downloaded one;
-    /// the default compact voice is noticeably robotic.
-    static let voice: AVSpeechSynthesisVoice? = {
-        let japanese = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "ja-JP" }
-        return japanese.first { $0.quality == .premium }
-            ?? japanese.first { $0.quality == .enhanced }
-            ?? AVSpeechSynthesisVoice(language: "ja-JP")
-    }()
+    /// Identifier of the voice the person picked; empty means choose automatically.
+    static let preferenceKey = "mapper.voiceIdentifier"
 
-    var voiceDescription: String {
-        guard let voice = Self.voice else { return "ja-JP の音声なし" }
-        let quality = switch voice.quality {
+    /// Every ja-JP voice installed, best quality first and then by name.
+    static var japaneseVoices: [AVSpeechSynthesisVoice] {
+        AVSpeechSynthesisVoice.speechVoices()
+            .filter { $0.language == "ja-JP" }
+            .sorted {
+                qualityRank($0.quality) == qualityRank($1.quality)
+                    ? $0.name < $1.name
+                    : qualityRank($0.quality) > qualityRank($1.quality)
+            }
+    }
+
+    static func qualityRank(_ quality: AVSpeechSynthesisVoiceQuality) -> Int {
+        switch quality {
+        case .premium: 3
+        case .enhanced: 2
+        default: 1
+        }
+    }
+
+    static func qualityName(_ quality: AVSpeechSynthesisVoiceQuality) -> String {
+        switch quality {
         case .premium: "premium"
         case .enhanced: "enhanced"
         default: "default"
         }
-        return "\(voice.name) (\(quality))"
     }
+
+    static func label(for voice: AVSpeechSynthesisVoice) -> String {
+        "\(voice.name)(\(qualityName(voice.quality)))"
+    }
+
+    /// The saved voice if it is still installed, otherwise the best one available:
+    /// premium, then enhanced, then the compact default.
+    static var voice: AVSpeechSynthesisVoice? {
+        let saved = UserDefaults.standard.string(forKey: preferenceKey) ?? ""
+        if !saved.isEmpty, let match = japaneseVoices.first(where: { $0.identifier == saved }) {
+            return match
+        }
+        return japaneseVoices.first ?? AVSpeechSynthesisVoice(language: "ja-JP")
+    }
+
+    static var voiceLabel: String {
+        guard let voice else { return "ja-JP の音声なし" }
+        return label(for: voice)
+    }
+
+    var voiceDescription: String { Self.voiceLabel }
 
     /// Did the last utterance report back on its own, or did it have to be timed out?
     private(set) var lastSpeakTimedOut = false
@@ -68,6 +100,7 @@ final class MapperTTS: NSObject, AVSpeechSynthesizerDelegate {
         }
         await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
             let utterance = AVSpeechUtterance(string: text)
+            // Re-read each time: the picker can change it between questions.
             utterance.voice = Self.voice
             // A previous utterance that never reported back would strand its caller;
             // release it before taking over.
@@ -153,7 +186,8 @@ final class MapperDialogController {
     func refreshDiagnostics() {
         diagnostics = "権限: \(speech.permissionSummary) | 端末内認識: "
             + (speech.supportsOnDevice ? "可" : "不可")
-            + " | セッション: \(sessionState) | 状態: \(stage.rawValue)"
+            + " | 経路: \(sessionState) | 声: \(MapperTTS.voiceLabel)"
+            + " | 状態: \(stage.rawValue)"
     }
     /// Text mode is the default: on-screen questions answered by tapping.
     ///
@@ -257,23 +291,18 @@ final class MapperDialogController {
         // Changing it between speaking and listening is what made AVAudioEngine hand
         // back a stale input format and trap inside installTap.
         if !textOnlyMode {
-            do {
-                note("session: configuring playAndRecord/spokenAudio")
-                let session = AVAudioSession.sharedInstance()
-                try session.setCategory(
-                    .playAndRecord, mode: .spokenAudio,
-                    options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
-                try session.setActive(true, options: .notifyOthersOnDeactivation)
-                sessionState = "有効 \(Int(session.sampleRate))Hz"
-                note("session: active, sampleRate=\(session.sampleRate) "
-                     + "inputs=\(session.isInputAvailable)")
-            } catch {
-                // Without the session there is no point speaking; fall back to text.
-                sessionState = "失敗(\(error.localizedDescription))"
+            // Choose the route and let it settle before the first word is spoken:
+            // speaking during an HFP switch clips the start, and recording during one
+            // captures silence.
+            note("session: choosing route")
+            let route = await speech.configureVoiceSession()
+            if let failure = speech.lastSessionError {
+                sessionState = "失敗(\(failure))"
                 textOnlyMode = true
                 speech.usesPlayAndRecord = false
-                voiceNote = "音声セッションを設定できませんでした: \(error.localizedDescription)"
-                note("session: FAILED \(error.localizedDescription)")
+                voiceNote = "音声セッションを設定できませんでした: \(failure)"
+            } else {
+                sessionState = route
             }
         }
 
@@ -314,7 +343,14 @@ final class MapperDialogController {
             if cancelled { return }
             stage = .asking
             note("  say (attempt \(attempt))")
-            await say(attempt == 0 ? question : "聞き取れませんでした。もう一度お願いします。")
+            // Second pass: say why, so "nothing heard" and "did not understand" do
+            // not sound the same.
+            let prompt = attempt == 0
+                ? question
+                : (speech.heardNothing
+                    ? "もう一度お願いします。"
+                    : "聞き取れませんでした。もう一度お願いします。")
+            await say(prompt)
             note("  say done")
             if cancelled { return }
 
@@ -462,15 +498,9 @@ final class MapperDialogController {
                 answerContinuation = continuation
             }
         }
+        // Let speech playback give up the route before recording starts. The session
+        // itself is left alone — re-setting the category here would drop the headset.
         try? await Task.sleep(for: .milliseconds(300))
-        if !textOnlyMode {
-            let session = AVAudioSession.sharedInstance()
-            try? session.setActive(false, options: .notifyOthersOnDeactivation)
-            try? session.setCategory(
-                .playAndRecord, mode: .spokenAudio,
-                options: [.defaultToSpeaker, .duckOthers, .allowBluetoothHFP])
-            try? session.setActive(true, options: .notifyOthersOnDeactivation)
-        }
         partial = ""
         return await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
             var resumed = false

@@ -9,6 +9,8 @@ struct MapperView: View {
     #if os(iOS)
     @State private var photoItem: PhotosPickerItem?
     @State private var numberAnswer = ""
+    /// "" means pick the best installed voice automatically.
+    @AppStorage(MapperTTS.preferenceKey) private var voiceIdentifier = ""
     #endif
 
     var body: some View {
@@ -115,6 +117,19 @@ struct MapperView: View {
                     Text("OFF なら画面の質問にタップで答えます。既定は OFF")
                         .font(.caption2).foregroundStyle(.secondary)
                 }
+            }
+            if model.useVoiceDialog {
+                Picker("声", selection: $voiceIdentifier) {
+                    Text("自動(最高品質を選ぶ)").tag("")
+                    ForEach(MapperTTS.japaneseVoices, id: \.identifier) { voice in
+                        Text(MapperTTS.label(for: voice)).tag(voice.identifier)
+                    }
+                }
+                .pickerStyle(.menu)
+                .font(.caption)
+                Text("拡張・プレミアムの声は 設定 → アクセシビリティ → 読み上げコンテンツ → 声 → 日本語 "
+                     + "からダウンロードできます。入れると自動で使われます。")
+                    .font(.caption2).foregroundStyle(.secondary)
             }
             #endif
             Text(model.speech.statusText).font(.caption2).foregroundStyle(.secondary)
