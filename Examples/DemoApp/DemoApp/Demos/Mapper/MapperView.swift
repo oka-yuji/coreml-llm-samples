@@ -1,6 +1,9 @@
 import CoreMLBackend
 import SwiftUI
 #if os(iOS)
+import UIKit
+#endif
+#if os(iOS)
 import PhotosUI
 #endif
 
@@ -148,6 +151,10 @@ struct MapperView: View {
                     Text(dialog.stage.rawValue)
                         .font(.caption)
                         .foregroundStyle(dialog.stage == .listening ? .red : .secondary)
+                    Button("ログをコピー") {
+                        UIPasteboard.general.string = dialog.fullLog
+                    }
+                    .buttonStyle(.bordered).controlSize(.small)
                     if dialog.stage != .finished {
                         Button("中止") { dialog.cancel() }
                             .buttonStyle(.bordered).controlSize(.small)

@@ -120,6 +120,24 @@ final class MapperSpeech {
     ///
     /// The wait matters: switching into HFP takes a moment, and recording started
     /// mid-switch captures silence — which is what "No speech detected" looked like.
+    /// `try?` hid whether the preference was accepted at all; say so either way.
+    private func setPreferred(_ port: AVAudioSessionPortDescription, on session: AVAudioSession) {
+        do {
+            try session.setPreferredInput(port)
+            log("route: setPreferredInput(\(port.portName)) ok")
+        } catch {
+            log("route: setPreferredInput(\(port.portName)) 失敗 \(error.localizedDescription)")
+        }
+    }
+
+    private func setBuiltInRoute(on session: AVAudioSession) throws {
+        try session.setCategory(
+            .playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .duckOthers])
+        if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+            setPreferred(builtIn, on: session)
+        }
+    }
+
     @discardableResult
     func configureVoiceSession() async -> String {
         let session = AVAudioSession.sharedInstance()
@@ -127,36 +145,40 @@ final class MapperSpeech {
             // A record-capable category first, so availableInputs lists the headset.
             try session.setCategory(
                 .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try session.setActive(true)
 
             let bluetooth = session.availableInputs?.first { Self.bluetoothPorts.contains($0.portType) }
             if let bluetooth {
                 try session.setCategory(
                     .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
-                try? session.setPreferredInput(bluetooth)
-                onEvent?("    route: Bluetooth を使います(\(bluetooth.portName))")
+                setPreferred(bluetooth, on: session)
+                log("route: Bluetooth を使います(\(bluetooth.portName))")
             } else {
-                try session.setCategory(
-                    .playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .duckOthers])
-                if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
-                    try? session.setPreferredInput(builtIn)
-                }
-                onEvent?("    route: 本体マイク／スピーカーを使います")
+                try setBuiltInRoute(on: session)
+                log("route: 本体マイク／スピーカーを使います")
             }
-            try session.setActive(true, options: .notifyOthersOnDeactivation)
+            try session.setActive(true)
 
-            // Wait for the chosen port to actually become the current input.
+            // Wait for the chosen port to actually become the current input, then
+            // check it really happened — the wait expiring is not the same as success.
             if let wanted = bluetooth?.portType {
                 let deadline = Date().addingTimeInterval(1.5)
                 while Date() < deadline,
                     session.currentRoute.inputs.first?.portType != wanted {
                     try? await Task.sleep(for: .milliseconds(100))
                 }
+                if session.currentRoute.inputs.first?.portType != wanted {
+                    log("route: Bluetooth に切り替わらず → 本体に戻します")
+                    try setBuiltInRoute(on: session)
+                    try session.setActive(true)
+                }
             }
             lastSessionError = nil
         } catch {
             lastSessionError = error.localizedDescription
-            onEvent?("    route: セッション設定に失敗 \(error.localizedDescription)")
+            let nsError = error as NSError
+            log("route: セッション設定に失敗 \(error.localizedDescription) "
+                + "[\(nsError.domain) \(nsError.code)]")
         }
         logRoute("start")
         return routeDescription()
@@ -169,10 +191,16 @@ final class MapperSpeech {
     /// True when the recogniser heard nothing at all, as opposed to failing.
     var heardNothing: Bool { (lastRecognitionError ?? "").contains("No speech detected") }
 
+    /// Everything the recogniser does goes through here, so the phone shows exactly
+    /// what the console shows. Diagnosing this over a cable only worked because the
+    /// cable was attached; on a train it is the screen or nothing.
+    func log(_ message: String) {
+        print("[speech] \(message)")
+        onEvent?("    \(message)")
+    }
+
     func logRoute(_ label: String) {
-        let description = routeDescription()
-        print("[speech] route(\(label)): \(description)")
-        onEvent?("    route(\(label)): \(description)")
+        log("route(\(label)): \(routeDescription())")
     }
 
     /// Trace hook so the dialog can show what the recogniser is doing.
@@ -248,8 +276,8 @@ final class MapperSpeech {
             requestPermission()
             return
         }
-        print("[speech] guards ok, authorized; available=\(recognizer.isAvailable) "
-              + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
+        log("guards ok, authorized; available=\(recognizer.isAvailable) "
+            + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
         generation += 1
         let turn = generation
         self.onFinal = onFinal
@@ -261,7 +289,7 @@ final class MapperSpeech {
         // The contract of this demo: on-device only.
         request.requiresOnDeviceRecognition = true
         self.request = request
-        print("[speech] request created")
+        log("request created")
 
         do {
             #if os(iOS)
@@ -278,7 +306,7 @@ final class MapperSpeech {
                 try session.setActive(true, options: .notifyOthersOnDeactivation)
             }
             logRoute("listen")
-            print("[speech] session active")
+            log("session active")
             #endif
 
             // A fresh engine each turn, so no format is carried over from the last one.
@@ -288,12 +316,12 @@ final class MapperSpeech {
             // uses it); `inputFormat` can disagree with the hardware right after
             // speech playback, and AVAudioEngine raises an Objective-C exception for
             // that — which Swift cannot catch, so it kills the process.
-            print("[speech] engine created")
+            log("engine created")
             let format = input.outputFormat(forBus: 0)
-            print("[speech] format rate=\(format.sampleRate) ch=\(format.channelCount)")
+            log("format rate=\(format.sampleRate) ch=\(format.channelCount)")
             guard format.sampleRate > 0, format.channelCount > 0 else {
                 statusText = "音声入力: 入力フォーマットが無効です(サンプルレート \(format.sampleRate))"
-                onEvent?("    stt: invalid input format")
+                log("stt: invalid input format")
                 self.request = nil
                 return
             }
@@ -314,22 +342,23 @@ final class MapperSpeech {
                     : String(format: "    mic: %.0f dB", decibels)
                 Task { @MainActor in
                     guard let self, self.generation == turn else { return }
-                    self.onEvent?(line)
+                    self.log(line)
                 }
             }
-            print("[speech] tap installed")
+            log("tap installed")
             audioEngine.prepare()
             try audioEngine.start()
-            print("[speech] engine started")
+            log("engine started")
         } catch {
             statusText = "音声入力: 開始失敗 \(error.localizedDescription)"
-            onEvent?("    stt start failed: \(error.localizedDescription)")
+            log("stt start failed: \(error.localizedDescription) "
+                + "[\((error as NSError).domain) \((error as NSError).code)]")
             self.request = nil
             return
         }
 
-        print("[speech] creating recognition task (onDevice=\(request.requiresOnDeviceRecognition) "
-              + "available=\(recognizer.isAvailable) onDeviceSupported=\(recognizer.supportsOnDeviceRecognition))")
+        log("creating recognition task (onDevice=\(request.requiresOnDeviceRecognition) "
+            + "available=\(recognizer.isAvailable) onDeviceSupported=\(recognizer.supportsOnDeviceRecognition))")
         // Speech calls this from its own queue. `@Sendable` marks it nonisolated;
         // without it Swift 6 infers main-actor isolation from the enclosing context
         // and the runtime traps on entry — before a single line of the body runs,
@@ -340,17 +369,21 @@ final class MapperSpeech {
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal ?? false
             let failure = error?.localizedDescription
-            print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none")")
+            let failureDetail = (error as NSError?).map { "[\($0.domain) \($0.code)]" } ?? ""
+            print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none") \(failureDetail)")
             Task { @MainActor in
                 guard let self, self.generation == turn else { return }
+                if text == nil, failure == nil, !isFinal {
+                    self.onEvent?("    stt callback: (empty)")
+                }
                 if let text, text != self.partialText {
                     self.partialText = text
-                    self.onEvent?("    stt partial: 「\(text)」")
+                    self.log("stt partial: 「\(text)」")
                     self.armSilenceTimer()
                 }
                 if let failure {
                     self.lastRecognitionError = failure
-                    self.onEvent?("    stt error: \(failure)")
+                    self.log("stt error: \(failure) \(failureDetail)")
                 }
                 // Only the finalised transcript goes into the text field.
                 if isFinal {
@@ -360,8 +393,8 @@ final class MapperSpeech {
                 }
             }
         }
-        print("[speech] task created")
-        onEvent?("    stt: listening")
+        log("task created")
+        log("stt: listening")
         isRecording = true
         statusText = "音声入力: 録音中(端末内)"
         // Deliberately not armed yet: the 1.2 s silence rule counts from the first
@@ -408,7 +441,7 @@ final class MapperSpeech {
         finalTimer = Timer.scheduledTimer(withTimeInterval: 2, repeats: false) { [weak self] _ in
             Task { @MainActor in
                 guard let self, self.generation == turn, self.isRecording else { return }
-                self.onEvent?("    stt: final が来ないので打ち切ります(2 秒)")
+                self.log("stt: final が来ないので打ち切ります(2 秒)")
                 self.finish(with: self.partialText)
             }
         }

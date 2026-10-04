@@ -191,6 +191,12 @@ final class MapperDialogController {
     private var sessionState = "未設定"
     private var ttsFailures = 0
 
+    /// Diagnostics plus the whole event trail, for the copy button. Only eight lines
+    /// are on screen, and the useful one is usually further back.
+    var fullLog: String {
+        ([diagnostics, voiceNote] + events).joined(separator: "\n")
+    }
+
     func refreshDiagnostics() {
         diagnostics = "権限: \(speech.permissionSummary) | 端末内認識: "
             + (speech.supportsOnDevice ? "可" : "不可")
@@ -212,7 +218,7 @@ final class MapperDialogController {
     var events: [String] = []
     private func note(_ message: String) {
         events.append(message)
-        if events.count > 200 { events.removeFirst(events.count - 200) }
+        if events.count > 1000 { events.removeFirst(events.count - 1000) }
         onEvent?(message)
     }
 
