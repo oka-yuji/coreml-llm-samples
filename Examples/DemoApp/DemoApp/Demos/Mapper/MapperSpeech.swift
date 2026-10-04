@@ -93,7 +93,8 @@ final class MapperSpeech {
             requestPermission()
             return
         }
-        print("[speech] guards ok, authorized")
+        print("[speech] guards ok, authorized; available=\(recognizer.isAvailable) "
+              + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
         self.onFinal = onFinal
         partialText = ""
 
@@ -132,8 +133,12 @@ final class MapperSpeech {
                 self.request = nil
                 return
             }
-            input.installTap(onBus: 0, bufferSize: 1024, format: format) { buffer, _ in
-                request.append(buffer)
+            // @Sendable makes this nonisolated. Without it the closure is created in a
+            // @MainActor context and inferred main-actor-isolated, and the Swift 6
+            // runtime traps the moment the audio render thread calls it.
+            nonisolated(unsafe) let sink = request
+            input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable buffer, _ in
+                sink.append(buffer)
             }
             print("[speech] tap installed")
             audioEngine.prepare()
@@ -145,15 +150,19 @@ final class MapperSpeech {
             return
         }
 
-        print("[speech] creating recognition task (onDevice=\(request.requiresOnDeviceRecognition))")
-        task = recognizer.recognitionTask(with: request) { [weak self] result, error in
-            // Read everything here, on the callback's own thread, and hop to the main
-            // actor with plain values only. SFSpeechRecognitionResult is not Sendable,
-            // and carrying it across isolation is what killed the process.
+        print("[speech] creating recognition task (onDevice=\(request.requiresOnDeviceRecognition) "
+              + "available=\(recognizer.isAvailable) onDeviceSupported=\(recognizer.supportsOnDeviceRecognition))")
+        // Speech calls this from its own queue. `@Sendable` marks it nonisolated;
+        // without it Swift 6 infers main-actor isolation from the enclosing context
+        // and the runtime traps on entry — before a single line of the body runs,
+        // which is exactly what the device trace showed.
+        task = recognizer.recognitionTask(with: request) { @Sendable [weak self] result, error in
+            // Flatten to plain values here, on whatever thread Speech used, so nothing
+            // non-Sendable crosses into the main actor.
             let text = result?.bestTranscription.formattedString
             let isFinal = result?.isFinal ?? false
-            let failed = error != nil
-            print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failed)")
+            let failure = error?.localizedDescription
+            print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none")")
             Task { @MainActor in
                 guard let self else { return }
                 if let text, text != self.partialText {
@@ -163,7 +172,7 @@ final class MapperSpeech {
                 // Only the finalised transcript goes into the text field.
                 if isFinal {
                     self.finish(with: self.partialText)
-                } else if failed, self.isRecording {
+                } else if failure != nil, self.isRecording {
                     self.finish(with: self.partialText)
                 }
             }
