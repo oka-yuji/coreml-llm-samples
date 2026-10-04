@@ -13,6 +13,15 @@ enum Demo: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    /// `--demo mapper` opens straight onto a demo, so screenshots and scripted
+    /// runs do not depend on tapping a tab.
+    static var launchSelection: Demo? {
+        guard let index = CommandLine.arguments.firstIndex(of: "--demo"),
+            index + 1 < CommandLine.arguments.count
+        else { return nil }
+        return Demo(rawValue: CommandLine.arguments[index + 1])
+    }
+
     static var available: [Demo] {
         #if os(macOS)
         allCases.filter { $0 != .liveCamera }
@@ -75,7 +84,7 @@ enum Demo: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class DemoNavigator {
-    var selection: Demo? = .chat
+    var selection: Demo? = Demo.launchSelection ?? .chat
 }
 
 enum DeviceKind {

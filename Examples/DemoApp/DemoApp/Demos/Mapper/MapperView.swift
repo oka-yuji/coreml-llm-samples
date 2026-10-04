@@ -17,8 +17,10 @@ struct MapperView: View {
         }
         .navigationTitle("Mapper")
         .task {
-            model.speech.requestPermission()
             model.speech.refreshAvailability()
+            // `--map-now` / `--selftest-now` drive the screenshots.
+            if CommandLine.arguments.contains("--map-now") { await model.map() }
+            if CommandLine.arguments.contains("--selftest-now") { await model.runSelfTest() }
         }
         .alert("エラー", isPresented: .init(
             get: { model.errorText != nil }, set: { if !$0 { model.errorText = nil } })

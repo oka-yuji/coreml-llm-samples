@@ -31,11 +31,18 @@ final class MapperSpeech {
             isAvailable = false
             return
         }
-        let authorized = SFSpeechRecognizer.authorizationStatus() == .authorized
-        isAvailable = authorized
-        statusText = authorized
-            ? "音声入力: 端末内(ja-JP)で利用可"
-            : "音声入力: 権限待ち"
+        switch SFSpeechRecognizer.authorizationStatus() {
+        case .authorized:
+            isAvailable = true
+            statusText = "音声入力: 端末内(ja-JP)で利用可"
+        case .notDetermined:
+            // Ask on the first tap rather than on screen open.
+            isAvailable = true
+            statusText = "音声入力: 端末内(ja-JP)。最初のタップで許可を求めます"
+        default:
+            isAvailable = false
+            statusText = "音声入力: 許可されていません(設定で許可してください)"
+        }
     }
 
     func requestPermission() {
@@ -47,6 +54,11 @@ final class MapperSpeech {
 
     func start(onFinal: @escaping (String) -> Void) {
         guard !isRecording, let recognizer, recognizer.supportsOnDeviceRecognition else { return }
+        guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
+            // First tap: ask. The next tap starts recording.
+            requestPermission()
+            return
+        }
         self.onFinal = onFinal
         partialText = ""
 
