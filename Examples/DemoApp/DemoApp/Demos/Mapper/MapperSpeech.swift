@@ -269,7 +269,10 @@ final class MapperSpeech {
         return SFSpeechRecognizer.authorizationStatus() == .authorized && micOK
     }
 
-    func start(onFinal: @escaping (String) -> Void) {
+    /// - Parameter hints: words this answer is likely to contain, passed to the
+    ///   recogniser as `contextualStrings`. "20メガスカ" for "20 メガパスカル" is the
+    ///   kind of miss this is meant to reduce.
+    func start(hints: [String] = [], onFinal: @escaping (String) -> Void) {
         guard !isRecording, let recognizer, recognizer.supportsOnDeviceRecognition else { return }
         guard SFSpeechRecognizer.authorizationStatus() == .authorized else {
             // First tap: ask. The next tap starts recording.
@@ -288,6 +291,10 @@ final class MapperSpeech {
         request.shouldReportPartialResults = true
         // The contract of this demo: on-device only.
         request.requiresOnDeviceRecognition = true
+        if !hints.isEmpty {
+            request.contextualStrings = hints
+            log("hints: \(hints.joined(separator: "/"))")
+        }
         self.request = request
         log("request created")
 
@@ -303,7 +310,7 @@ final class MapperSpeech {
             // The dialog already chose and settled the route in configureVoiceSession();
             // re-setting the category here would undo the Bluetooth preference.
             if !usesPlayAndRecord {
-                try session.setActive(true, options: .notifyOthersOnDeactivation)
+                try session.setActive(true)
             }
             logRoute("listen")
             log("session active")

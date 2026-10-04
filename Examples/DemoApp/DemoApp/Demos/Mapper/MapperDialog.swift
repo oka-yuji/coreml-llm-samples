@@ -376,29 +376,40 @@ final class MapperDialogController {
         let started = Date()
 
         // Two attempts to get a usable answer, then the field is left empty.
+        var rejected = false
         for attempt in 0..<2 {
             if cancelled { return }
             stage = .asking
             note("  say (attempt \(attempt))")
-            // Second pass: say why, so "nothing heard" and "did not understand" do
-            // not sound the same.
-            let prompt = attempt == 0
-                ? question
-                : (speech.heardNothing
-                    ? "もう一度お願いします。"
-                    : "聞き取れませんでした。もう一度お願いします。")
-            await say(prompt)
+            // Always restate the question. A bare "もう一度お願いします。" leaves the
+            // person with nothing to answer: on the device log one of them replied
+            // 「いいえ」 again, and another answered the *next* field's question.
+            let reason: String
+            if attempt == 0 { reason = "" } else if rejected {
+                reason = "では、もう一度。"
+            } else if speech.heardNothing {
+                reason = "もう一度お願いします。"
+            } else {
+                reason = "聞き取れませんでした。もう一度。"
+            }
+            await say(reason + question)
             note("  say done")
             if cancelled { return }
 
             note("  listen start")
-            let heard = await listen()
+            let heard = await listen(hints: Self.hints(for: field))
             note("  listen done: 「\(heard)」")
             if cancelled { return }
             guard !heard.isEmpty else { continue }
 
             stage = .mapping
-            guard let result = decide(field: field, heard: heard) else { continue }
+            guard let result = decide(field: field, heard: heard) else {
+                note("    decided: なし(判定できず)")
+                continue
+            }
+            note("    decided: \(result.value)\(result.unit) "
+                 + String(format: "(%.2f) by ", result.score)
+                 + (result.note == "一致" ? "一致" : "モデル"))
 
             stage = .confirming
             let confirmed = await confirm(result)
@@ -411,7 +422,8 @@ final class MapperDialogController {
                 results.append(result)
                 return
             }
-            // Not confirmed: ask the same field again (the loop's second pass).
+            // Not confirmed: ask the same field again, saying so.
+            rejected = true
         }
 
         // Nothing usable after two tries.
@@ -431,6 +443,13 @@ final class MapperDialogController {
     func decide(field: MapperForm.Field, heard: String) -> MapperFieldResult? {
         switch field.kind {
         case .list(let options):
+            // Answered with the option itself: no judgement call to make.
+            if let exact = Self.exactOption(for: field, heard: heard) {
+                return MapperFieldResult(
+                    key: field.key, name: field.name, value: exact, unit: "",
+                    score: 1, status: .autoFilled, topTwo: [(label: exact, score: 1)],
+                    note: "一致")
+            }
             guard let scores = try? classifier.scores(
                 text: heard, task: field.name, labels: options) else { return nil }
             let ranked = GLiNERMapper.rank(labels: options, scores: scores)
@@ -460,6 +479,58 @@ final class MapperDialogController {
 
     static let correctionWords = ["違った", "じゃなくて", "訂正", "間違えた", "ではなく"]
 
+    /// Spoken forms that plainly mean one option.
+    ///
+    /// Kept here rather than in `MapperForm` so the batch mode's labels are untouched.
+    /// The point is not to be clever: when someone answers with the option itself, or
+    /// an everyday equivalent, the classifier should not get a vote — on the device
+    /// log it took "なし" and "未点検" and landed somewhere else, and the person then
+    /// had to refuse the confirmation.
+    static let optionAliases: [String: [String]] = [
+        "正常": ["異常なし", "問題なし", "問題ない", "問題ありません", "大丈夫", "異常ありません"],
+        "異常": ["異常あり", "おかしい", "変な音", "異常です"],
+        "未点検": ["点検していない", "まだ", "見ていない", "未確認"],
+        "あり": ["ある", "漏れている", "漏れてる"],
+        "給油": ["グリスアップ", "オイル補給"],
+        "交換": ["取り替え"],
+        "清掃": ["掃除"],
+    ]
+
+    /// "なし" means different things to different fields, so it is resolved per field.
+    static func aliases(for option: String, field: MapperForm.Field) -> [String] {
+        if option == "なし" {
+            switch field.key {
+            case "oil_leak": return ["ない", "漏れていない", "ありません"]
+            case "next_action": return ["ない", "不要", "特になし", "ありません"]
+            default: return []
+            }
+        }
+        return optionAliases[option] ?? []
+    }
+
+    /// The option the answer names outright, or nil to let the classifier decide.
+    static func exactOption(for field: MapperForm.Field, heard: String) -> String? {
+        guard case .list(let options) = field.kind else { return nil }
+        let strippable = CharacterSet.whitespacesAndNewlines.union(.punctuationCharacters)
+        let trimmed = heard.trimmingCharacters(in: strippable)
+        guard !trimmed.isEmpty else { return nil }
+        for option in options {
+            if trimmed == option { return option }
+            if aliases(for: option, field: field).contains(trimmed) { return option }
+        }
+        return nil
+    }
+
+    /// Words worth priming the recogniser with for this field.
+    static func hints(for field: MapperForm.Field) -> [String] {
+        switch field.kind {
+        case .list(let options):
+            return options + options.flatMap { aliases(for: $0, field: field) }
+        case .number(let unit):
+            return [spoken(unit), unit]
+        }
+    }
+
     /// Dictation writes units as words. Kana numerals ("れいてんよんご") stay out of
     /// scope, as in the batch path — only the unit is normalised, never the digits.
     static func normaliseSpokenUnits(_ text: String) -> String {
@@ -468,6 +539,8 @@ final class MapperDialogController {
             ("メガパスカル", "MPa"), ("メガパスカール", "MPa"), ("キロパスカル", "kPa"),
             ("パーセント", "%"), ("ミリメートル", "mm"), ("ミリメーター", "mm"),
             ("摂氏", ""), ("度シー", "℃"), ("度C", "℃"),
+            // Last: the longer spellings above must match before this one.
+            ("メガスカ", "MPa"), ("メガ", "MPa"),
         ] {
             out = out.replacingOccurrences(of: spoken, with: symbol)
         }
@@ -475,21 +548,25 @@ final class MapperDialogController {
     }
 
     private func confirm(_ result: MapperFieldResult) async -> Bool {
-        for _ in 0..<2 {
+        // Spoken form spells the unit out; the panel keeps the symbol.
+        let spokenValue = "\(result.value) \(Self.spoken(result.unit))"
+        for attempt in 0..<2 {
             if cancelled { return false }
-            // Spoken form spells the unit out; the panel keeps the symbol.
-            await say("\(result.value) \(Self.spoken(result.unit)) で合っていますか？")
+            // The second pass repeats the value rather than only asking for a yes or
+            // no — after a silence the person no longer has it in mind.
+            await say(attempt == 0
+                ? "\(spokenValue) で合っていますか？"
+                : "\(spokenValue) で合っていますか？ はい か いいえ でお答えください。")
             if cancelled { return false }
             stage = .confirming
             confirmPrompt = "\(result.value)\(result.unit) で合っていますか？"
-            let answer = await listen()
+            let answer = await listen(hints: ["はい", "いいえ"])
             confirmPrompt = ""
             if let yes = Self.yesNo(answer) { return yes }
             // No classifier fallback here on purpose. It was being handed empty and
             // ambiguous answers and turning them into a "yes", which silently accepts
             // a wrong value — the one outcome an inspection sheet must not produce.
             note("    confirm: 判定できず(「\(answer)」)")
-            await say("はい か いいえ でお答えください。")
         }
         // Two tries without a clear answer: treat as not confirmed.
         note("    confirm: 未確認のため「いいえ」として扱います")
@@ -562,7 +639,7 @@ final class MapperDialogController {
     /// while speech playback is still giving up the route makes it raise an
     /// Objective-C exception, which Swift cannot catch and which takes the process
     /// with it. Letting the route settle first is what stopped it.
-    private func listen() async -> String {
+    private func listen(hints: [String] = []) async -> String {
         // Text mode never opens the microphone: the answer arrives from a tap. The
         // stage still has to move, because that is what puts the buttons on screen.
         if textOnlyMode {
@@ -580,7 +657,7 @@ final class MapperDialogController {
         partial = ""
         return await withCheckedContinuation { (continuation: CheckedContinuation<String, Never>) in
             var resumed = false
-            speech.start { text in
+            speech.start(hints: hints) { text in
                 guard !resumed else { return }
                 resumed = true
                 continuation.resume(returning: text)
