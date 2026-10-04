@@ -218,8 +218,10 @@ final class MapperViewModel {
 
     /// Runs the voice dialog, then drops its six answers into the sheet.
     func runDialog() async {
+        let wasReady = mapper != nil
         if mapper == nil { await loadModel() }
         guard let dialog else { return }
+        dialog.modelWasReady = wasReady
         // A cancelled run needs a moment to return; starting on top of it would leave
         // two state machines sharing one recogniser.
         if let dialogTask { await dialogTask.value }

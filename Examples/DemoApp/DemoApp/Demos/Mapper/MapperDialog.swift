@@ -228,6 +228,9 @@ final class MapperDialogController {
     private let classifier: GLiNERClassifier
     private var cancelled = false
 
+    /// Set by the view model: true when the classifier was ready before the tap.
+    var modelWasReady = false
+
     init(speech: MapperSpeech, classifier: GLiNERClassifier) {
         self.speech = speech
         self.classifier = classifier
@@ -303,11 +306,16 @@ final class MapperDialogController {
         ttsFailures = 0
         events = []
         sessionState = textOnlyMode ? "不要(タップ回答)" : "未設定"
+        // Where the wait before the first question actually goes.
+        let tapped = Date()
+        func elapsed() -> Int { Int(Date().timeIntervalSince(tapped) * 1000) }
+        var timing = [modelWasReady ? "model 0ms(読み込み済み)" : "model(読み込みあり)"]
         var granted = false
         if !textOnlyMode {
             // Ask for both before the first question; a prompt appearing mid-question
             // would eat the answer.
             granted = await speech.requestPermissionAndWait()
+            timing.append("permission \(elapsed())ms")
             note("permission: \(speech.permissionSummary) -> usable=\(granted)")
             if !granted {
                 textOnlyMode = true
@@ -333,6 +341,7 @@ final class MapperDialogController {
             // captures silence.
             note("session: choosing route")
             let route = await speech.configureVoiceSession()
+            timing.append("route \(elapsed())ms")
             if let failure = speech.lastSessionError {
                 sessionState = "失敗(\(failure))"
                 textOnlyMode = true
@@ -343,6 +352,10 @@ final class MapperDialogController {
             }
         }
 
+        onFirstSpeech = { [weak self] in
+            timing.append("first tts \(elapsed())ms")
+            self?.note("timing: " + timing.joined(separator: " / "))
+        }
         for field in MapperForm.fields {
             if cancelled { break }
             note("field: \(field.name)")
@@ -614,7 +627,15 @@ final class MapperDialogController {
             : "記入が終わりました。")
     }
 
+    /// Fired once, just before the first question is spoken, so the run can report
+    /// where the time before it went.
+    private var onFirstSpeech: (() -> Void)?
+
     private func say(_ text: String) async {
+        if let report = onFirstSpeech {
+            onFirstSpeech = nil
+            report()
+        }
         guard !textOnlyMode else { return }
         note("    tts start: 「\(text)」")
         await tts.speak(text)

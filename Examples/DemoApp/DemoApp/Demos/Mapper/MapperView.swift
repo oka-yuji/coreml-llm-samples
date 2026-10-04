@@ -33,6 +33,10 @@ struct MapperView: View {
         .navigationTitle("Mapper")
         .task {
             model.speech.refreshAvailability()
+            // Load as soon as the screen is open rather than on the first tap. The
+            // wait is the same either way, but here it happens while the person is
+            // still reading, not after they have asked for something.
+            await model.loadModel()
             // `--map-now` / `--selftest-now` drive the screenshots.
             if CommandLine.arguments.contains("--map-now") { await model.map() }
             if CommandLine.arguments.contains("--selftest-now") { await model.runSelfTest() }
@@ -62,21 +66,48 @@ struct MapperView: View {
                     .font(.caption).foregroundStyle(.secondary).italic()
             }
 
-            HStack(spacing: 10) {
+            // Five controls do not fit across a phone. A grid that adapts wraps them
+            // instead of letting the row run off the edge, and it does so from the
+            // real width rather than a number guessed here.
+            LazyVGrid(
+                columns: [GridItem(.adaptive(minimum: 150), spacing: 8)],
+                alignment: .leading, spacing: 8
+            ) {
+                // The two ways to fill the sheet come first, so they are the ones
+                // found without looking.
+                Button {
+                    Task { await model.map() }
+                } label: {
+                    Label("マッピング", systemImage: "arrow.right.doc.on.clipboard")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(model.isBusy)
+
                 #if os(iOS)
+                Button {
+                    Task { await model.runDialog() }
+                } label: {
+                    Label("対話で入力", systemImage: "bubble.left.and.text.bubble.right")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+                .disabled(!model.speech.isAvailable || model.isBusy
+                          || model.dialog?.stage == .asking || model.dialog?.stage == .listening)
+
                 Button {
                     if model.speech.isRecording { model.speech.stop() } else { model.startDictation() }
                 } label: {
                     Label(model.speech.isRecording ? "停止" : "音声入力",
                           systemImage: model.speech.isRecording ? "stop.circle" : "mic")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .disabled(!model.speech.isAvailable || model.isBusy)
-                #endif
 
-                #if os(iOS)
                 PhotosPicker(selection: $photoItem, matching: .images) {
                     Label("写真から", systemImage: "photo")
+                        .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
                 .disabled(model.isBusy)
@@ -90,27 +121,13 @@ struct MapperView: View {
                     }
                 }
                 #endif
+            }
 
-                #if os(iOS)
-                Button {
-                    Task { await model.runDialog() }
-                } label: {
-                    Label("対話で入力", systemImage: "bubble.left.and.text.bubble.right")
+            if model.isBusy {
+                HStack(spacing: 6) {
+                    ProgressView().controlSize(.small)
+                    Text(model.status).font(.caption).foregroundStyle(.secondary)
                 }
-                .buttonStyle(.bordered)
-                .disabled(!model.speech.isAvailable || model.isBusy
-                          || model.dialog?.stage == .asking || model.dialog?.stage == .listening)
-                #endif
-
-                Button {
-                    Task { await model.map() }
-                } label: {
-                    Label("マッピング", systemImage: "arrow.right.doc.on.clipboard")
-                }
-                .buttonStyle(.borderedProminent)
-                .disabled(model.isBusy)
-
-                if model.isBusy { ProgressView().controlSize(.small) }
             }
 
             #if os(iOS)
