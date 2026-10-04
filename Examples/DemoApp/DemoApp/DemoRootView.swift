@@ -84,7 +84,9 @@ enum Demo: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class DemoNavigator {
-    var selection: Demo? = Demo.launchSelection ?? .chat
+    // Mapper is the demo being shown, so it is the one the app opens on. `--demo`
+    // still wins, for screenshots and scripted runs.
+    var selection: Demo? = Demo.launchSelection ?? .mapper
 }
 
 enum DeviceKind {
