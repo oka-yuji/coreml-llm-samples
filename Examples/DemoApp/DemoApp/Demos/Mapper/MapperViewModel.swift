@@ -20,6 +20,10 @@ final class MapperViewModel {
     var ocrText = ""
 
     private var mapper: GLiNERMapper?
+    #if os(iOS)
+    /// Voice dialog: one field at a time. Built once the model is loaded.
+    var dialog: MapperDialogController?
+    #endif
 
     /// Experiment (see docs/results/2026-10-04-gliner25-mapper-demo.md): ask whether
     /// each field is mentioned as its own binary question. Default OFF — the demo
@@ -60,6 +64,9 @@ final class MapperViewModel {
             }.value
             mapper = built
             mapper?.useMentionGate = useMentionGate
+            #if os(iOS)
+            dialog = MapperDialogController(speech: speech, classifier: built.classifier)
+            #endif
             metrics.modelLoadSeconds = seconds
             metrics.footprintAfterLoad = mapperMemoryFootprint()
             metrics.footprintPeak = metrics.footprintAfterLoad
@@ -199,6 +206,23 @@ final class MapperViewModel {
             status = "画像の読み取りに失敗"
         }
         isBusy = false
+    }
+    #endif
+
+    #if os(iOS)
+    /// Runs the voice dialog, then drops its six answers into the sheet.
+    func runDialog() async {
+        if mapper == nil { await loadModel() }
+        guard let dialog else { return }
+        await dialog.start()
+        if !dialog.results.isEmpty {
+            fields = MapperForm.fields.map { field in
+                dialog.results.first { $0.key == field.key }
+                    ?? MapperFieldResult(key: field.key, name: field.name, value: "", unit: "",
+                                         score: 0, status: .absent, topTwo: [], note: "")
+            }
+            status = "対話で入力しました。\(dialog.roundTripSummary)"
+        }
     }
     #endif
 

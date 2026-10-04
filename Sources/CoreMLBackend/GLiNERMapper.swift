@@ -155,6 +155,20 @@ public struct MapperFieldResult: Sendable, Equatable {
     /// e.g. "訂正の可能性" when two numbers landed on the same field.
     public var note: String
 
+    public init(
+        key: String, name: String, value: String, unit: String, score: Float,
+        status: Status, topTwo: [(label: String, score: Float)], note: String
+    ) {
+        self.key = key
+        self.name = name
+        self.value = value
+        self.unit = unit
+        self.score = score
+        self.status = status
+        self.topTwo = topTwo
+        self.note = note
+    }
+
     public var displayValue: String {
         guard !value.isEmpty else { return "—" }
         if case .number = MapperForm.fields.first(where: { $0.key == key })?.kind { return value + unit }
@@ -274,7 +288,7 @@ public struct GLiNERMapper: Sendable {
             fields: ordered, seconds: Date().timeIntervalSince(started), modelCalls: calls)
     }
 
-    static func rank(labels: [String], scores: [Float]) -> [(label: String, score: Float)] {
+    public static func rank(labels: [String], scores: [Float]) -> [(label: String, score: Float)] {
         zip(labels, scores).map { (label: $0.0, score: $0.1) }.sorted { $0.score > $1.score }
     }
 }

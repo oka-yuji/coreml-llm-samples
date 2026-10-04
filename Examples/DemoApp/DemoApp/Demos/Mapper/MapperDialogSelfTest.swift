@@ -1,0 +1,160 @@
+#if os(iOS)
+import AVFoundation
+import CoreMLBackend
+import Speech
+import SwiftUI
+
+/// Drives the voice dialog with nobody talking.
+///
+/// It cannot test recognition — that needs a human — but it does exercise
+/// everything around it: the ja-JP voice, the audio session switch, the silence cap,
+/// the "聞き取れませんでした" retry and the skip path, and it proves the state machine
+/// terminates instead of hanging. Run it before handing the phone to a person.
+///
+///     xcrun devicectl device process launch --console --device <udid> \
+///       com.coreml-llm-samples.DemoApp --mapper-dialog-selftest
+enum MapperDialogSelfTest {
+    static var isRequested: Bool { CommandLine.arguments.contains("--mapper-dialog-selftest") }
+    static let fileName = "mapper-dialog-selftest-output.txt"
+}
+
+struct MapperDialogSelfTestView: View {
+    @State private var log = MapperHeadlessLog(fileName: MapperDialogSelfTest.fileName)
+    @State private var model = MapperViewModel()
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 8) {
+                if log.finished {
+                    Image(systemName: "checkmark.circle").foregroundStyle(.green)
+                } else {
+                    ProgressView().controlSize(.small)
+                }
+                Text(log.finished ? "Dialog self-test finished" : "Dialog self-test running")
+                    .font(.headline)
+            }
+            ScrollView {
+                Text(log.lines.joined(separator: "\n"))
+                    .font(.system(size: 10, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+            }
+        }
+        .padding()
+        .task { await run() }
+    }
+
+    private func run() async {
+        log.record("=== Mapper dialog self-test — \(UIDevice.current.model) "
+                   + "iOS \(UIDevice.current.systemVersion) — \(Date().ISO8601Format()) ===")
+        log.record("NOTE: nobody is speaking, so every answer times out. This checks the "
+                   + "voice, the audio session, the retry/skip path and that it terminates.")
+
+        // --- permissions ---
+        let speechAuth = SFSpeechRecognizer.authorizationStatus()
+        log.record("speech authorization: \(speechAuth.rawValue) "
+                   + "(\(speechAuth == .authorized ? "authorized" : "NOT authorized"))")
+        log.record("microphone: \(AVAudioApplication.shared.recordPermission == .granted ? "granted" : "NOT granted")")
+        let recognizer = SFSpeechRecognizer(locale: Locale(identifier: "ja-JP"))
+        log.record("ja-JP recognizer: \(recognizer != nil ? "present" : "missing"), "
+                   + "onDevice=\(recognizer?.supportsOnDeviceRecognition ?? false)")
+
+        // --- voices ---
+        let japanese = AVSpeechSynthesisVoice.speechVoices().filter { $0.language == "ja-JP" }
+        log.record("ja-JP voices: \(japanese.count)")
+        for voice in japanese {
+            let quality = switch voice.quality {
+            case .premium: "premium"
+            case .enhanced: "enhanced"
+            default: "default"
+            }
+            log.record("  - \(voice.name) [\(quality)] \(voice.identifier)")
+        }
+        log.record("chosen: \(MapperTTS().voiceDescription)")
+
+        // --- questions, so the wording can be reviewed without listening ---
+        log.record("--- questions ---")
+        for field in MapperForm.fields {
+            log.record("  \(field.name): 「\(MapperDialogController.question(for: field))」")
+        }
+
+        // --- keyword and unit helpers ---
+        log.record("--- yes/no keywords ---")
+        for sample in ["はい", "うん", "合ってる", "そう", "OK", "いいえ", "違う", "もう一度", "えーっと"] {
+            let decision = MapperDialogController.yesNo(sample)
+            log.record("  「\(sample)」 -> \(decision.map { $0 ? "肯定" : "否定" } ?? "判定不能(分類にまわす)")")
+        }
+        log.record("--- spoken unit normalisation ---")
+        for sample in ["0.45メガパスカル", "72度", "摂氏72度", "0.5キロパスカル", "れいてんよんご"] {
+            let normalised = MapperDialogController.normaliseSpokenUnits(sample)
+            let candidate = MapperForm.numberCandidates(in: normalised).first
+            log.record("  「\(sample)」 -> 「\(normalised)」 -> "
+                       + (candidate.map { "\($0.value)\($0.unit)" } ?? "数値なし"))
+        }
+
+        // --- the real run, with silence for every answer ---
+        log.record("--- running the dialog with no speaker (expect 6 skips) ---")
+        log.record("step: loading model")
+        await model.loadModel()
+        log.record("step: model loaded (\(model.status))")
+        guard let dialog = model.dialog else {
+            log.record("dialog unavailable (model load failed)")
+            log.markFinished()
+            return
+        }
+        log.record("step: dialog created")
+        log.record("step: requesting permission")
+        let granted = await model.speech.requestPermissionAndWait()
+        log.record("step: permission granted=\(granted)")
+        log.record("step: speaking one test utterance")
+        await MapperTTS().speak("テストです")
+        log.record("step: test utterance done")
+        let started = Date()
+        dialog.onEvent = { log.record("  dialog| \($0)") }
+
+        // Scripted answers, standing in for recognised speech. They walk every branch
+        // of the state machine: a clean answer, a retry after nothing was heard, a
+        // rejected value that gets re-asked, and a field skipped after two silences.
+        var script = [
+            "0.45メガパスカル", "はい",          // 吐出圧: accepted first time
+            "", "72度", "はい",                   // 温度: nothing heard, then accepted
+            "なし", "いいえ", "あり", "はい",      // 油漏れ: rejected, re-asked, accepted
+            "正常", "はい",                       // 異音: accepted
+            "", "",                               // 振動: silent twice -> skipped
+            "給油", "はい",                       // 次回作業: accepted
+        ]
+        log.record("step: starting dialog with \(script.count) scripted answers")
+        let runner = Task { await dialog.start() }
+
+        // Feed an answer whenever the dialog is actually waiting for one.
+        while !runner.isCancelled, dialog.stage != .finished {
+            try? await Task.sleep(for: .milliseconds(80))
+            if !script.isEmpty, dialog.provideAnswer(script[0]) {
+                log.record("    fed| 「\(script.removeFirst())」")
+            }
+            if Date().timeIntervalSince(started) > 120 {
+                log.record("TIMED OUT waiting for the dialog")
+                dialog.cancel()
+                break
+            }
+        }
+        await runner.value
+        log.record("step: unused scripted answers: \(script.count)")
+        log.record(String(format: "dialog finished in %.1f s, stage=%@",
+                          Date().timeIntervalSince(started), dialog.stage.rawValue))
+        log.record("entries: \(dialog.entries.count)")
+        for entry in dialog.entries {
+            log.record(String(format: "  %@ | Q「%@」 heard「%@」 -> %@ confirm=%@ %.1fs",
+                              entry.field, entry.question, entry.heard, entry.decided,
+                              entry.confirmation, entry.seconds))
+        }
+        log.record("results: " + dialog.results.map {
+            "\($0.name)=\($0.value.isEmpty ? "未入力" : $0.value)"
+        }.joined(separator: " | "))
+        log.record(dialog.roundTripSummary)
+
+        log.record("=== done ===")
+        log.markFinished()
+    }
+}
+#endif

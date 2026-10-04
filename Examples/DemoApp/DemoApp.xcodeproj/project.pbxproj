@@ -50,6 +50,7 @@
 		720D7E46E1E5DC06BFD4B828 /* MapperOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD9BCB463AB5462C7934CC29 /* MapperOCR.swift */; };
 		794CC9B668A121ACC6D04908 /* GemmaMapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBD1D0DE4DC5229F29D983A /* GemmaMapperSelfTest.swift */; };
 		79A7364653127581F7C23C40 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = 5EAEC2F93FF5A70943C13A10 /* CoreMLBackend */; };
+		7EE749C237965F5308813AF3 /* MapperDialogSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E27C364DF4A9235580255B /* MapperDialogSelfTest.swift */; };
 		8238AA7B1F1A1A31B8F56A6C /* AgentPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 53FA5FB27187C443C7E5326A /* AgentPromptBuilder.swift */; };
 		8249C33ED42D245CDA18082F /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 60DD0FE2A53C3AB94EF3F0A0 /* MapperViewModel.swift */; };
 		83FC106BD6520C3AB9130495 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */; };
@@ -66,6 +67,7 @@
 		9B8741C9A14EFC2D984505CB /* SelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 705477AA1FBAFD87161A30B3 /* SelfTestView.swift */; };
 		9C117D56804C262B968AB12F /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF9765414431F09807B3A394 /* ByteFormatting.swift */; };
 		A4703CA6D8C7C17496F80CE2 /* LiveCameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2CFDDA8414C3CB5DF4F1DDDE /* LiveCameraViewModel.swift */; };
+		B59F16916DF2F3FC74182A50 /* MapperDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AE3F1670816F382717F251 /* MapperDialog.swift */; };
 		B6862A0D27348F35A9921B3B /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */; };
 		B6DB1C559347B7765C6ABACC /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = 478539791EBFF6E55276A500 /* LLMCore */; };
 		B8191AFF1F23903D3E5A5CC6 /* GemmaMapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FBD1D0DE4DC5229F29D983A /* GemmaMapperSelfTest.swift */; };
@@ -85,6 +87,7 @@
 		D2AB0BD8286FA96202F28FBC /* MapperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBEC587CD1203905F288D377 /* MapperView.swift */; };
 		D50EE46B5987FB44525ED263 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */; };
 		D9233481B629563D3EB701A7 /* tokenizer in Resources */ = {isa = PBXBuildFile; fileRef = ACE76544EDA10458985FC5D4 /* tokenizer */; };
+		DA0ACF55EE858474379E1445 /* MapperDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AE3F1670816F382717F251 /* MapperDialog.swift */; };
 		DA2E524C81EE205770B83ACF /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6946403106441AB2ED7A4630 /* DemoRootView.swift */; };
 		DADD73CF0BAD3EEA7B78DF66 /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */; };
 		DD4756CA20133D75F138CAE1 /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7969B4B5931F4235090B7BD9 /* MapperSpeech.swift */; };
@@ -95,6 +98,7 @@
 		EB0CEF1EEDF7B846F6F75962 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = B895059F5EBD906FCB751E1C /* CoreMLBackend */; };
 		EC7EB7E492A6EB8884CF1277 /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3986EDEFC61F7234B500496B /* SplitChatView.swift */; };
 		ED05C4322265861099D573AB /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4A2A7192C4B48490635DF03 /* CameraPreview.swift */; };
+		EF0B585428E947B853C0F951 /* MapperDialogSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B3E27C364DF4A9235580255B /* MapperDialogSelfTest.swift */; };
 		F2A166E74426BAAF95F80FF9 /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 16E551C28EBA72A6BB553D1E /* ModelStorage.swift */; };
 		F3D467FDB9AABF8A5DED9590 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5276F15BFB81348CFD00C13A /* CameraCapture.swift */; };
 		F7419A36171D9CEF222FE436 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96BE74A7623526708986F062 /* SelfTest.swift */; };
@@ -135,6 +139,7 @@
 		ACE76544EDA10458985FC5D4 /* tokenizer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tokenizer; path = "../../models/gliner2-5-multi-coreml/tokenizer"; sourceTree = SOURCE_ROOT; };
 		AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSelfTest.swift; sourceTree = "<group>"; };
 		AD58AC60D2EE1B6D37356EF4 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
+		B3E27C364DF4A9235580255B /* MapperDialogSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperDialogSelfTest.swift; sourceTree = "<group>"; };
 		BBEC587CD1203905F288D377 /* MapperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperView.swift; sourceTree = "<group>"; };
 		BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitModelsView.swift; sourceTree = "<group>"; };
 		C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSelfTest.swift; sourceTree = "<group>"; };
@@ -149,10 +154,11 @@
 		EACFC6CF85A4B1BE15F23794 /* ChatRAG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRAG.swift; sourceTree = "<group>"; };
 		ED994BBBAB0CCC066F8727BC /* SingleModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleModelsView.swift; sourceTree = "<group>"; };
 		F02B9EA454BBC2DA0860913C /* AgentSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSelfTest.swift; sourceTree = "<group>"; };
+		F1AE3F1670816F382717F251 /* MapperDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperDialog.swift; sourceTree = "<group>"; };
 		F562386F185691642C44B1E9 /* GUIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GUIDriver.swift; sourceTree = "<group>"; };
 		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
-		"TEMP_5FE709B5-5C93-4E33-8BAD-A9B216A239EC" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
+		"TEMP_5C3FF4B2-1E7B-4ABF-83EA-138771464858" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -266,6 +272,8 @@
 			isa = PBXGroup;
 			children = (
 				2FBD1D0DE4DC5229F29D983A /* GemmaMapperSelfTest.swift */,
+				F1AE3F1670816F382717F251 /* MapperDialog.swift */,
+				B3E27C364DF4A9235580255B /* MapperDialogSelfTest.swift */,
 				8076D46A118794FF4656AA1F /* MapperHeadlessSelfTest.swift */,
 				CD9BCB463AB5462C7934CC29 /* MapperOCR.swift */,
 				AD393AC0A9247CA01ED76B2A /* MapperSelfTest.swift */,
@@ -336,10 +344,10 @@
 			path = DemoApp;
 			sourceTree = "<group>";
 		};
-		"TEMP_42B06CC8-3266-48FE-8C26-2A9CF4C69F3C" /* DemoApp */ = {
+		"TEMP_2A9E997F-9A11-4606-B02E-EA84B8E3AB5E" /* DemoApp */ = {
 			isa = PBXGroup;
 			children = (
-				"TEMP_5FE709B5-5C93-4E33-8BAD-A9B216A239EC" /* Signing.xcconfig */,
+				"TEMP_5C3FF4B2-1E7B-4ABF-83EA-138771464858" /* Signing.xcconfig */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -482,6 +490,8 @@
 				36D6CF46293977A4B646A40A /* LiveCameraView.swift in Sources */,
 				0FCC675A07783051F8DC4EB2 /* LiveCameraViewModel.swift in Sources */,
 				6E49407C10BD653EF149A498 /* LiveSelfTestView.swift in Sources */,
+				DA0ACF55EE858474379E1445 /* MapperDialog.swift in Sources */,
+				EF0B585428E947B853C0F951 /* MapperDialogSelfTest.swift in Sources */,
 				02B541ED1A062831815772BB /* MapperHeadlessSelfTest.swift in Sources */,
 				5B5F307076AC7A6A4DC5E84D /* MapperOCR.swift in Sources */,
 				62176256D71C78A366B5E36D /* MapperSelfTest.swift in Sources */,
@@ -530,6 +540,8 @@
 				C44FC37CF645D83809A21BEF /* LiveCameraView.swift in Sources */,
 				A4703CA6D8C7C17496F80CE2 /* LiveCameraViewModel.swift in Sources */,
 				C1B24CAA8B36B70CB960A9E9 /* LiveSelfTestView.swift in Sources */,
+				B59F16916DF2F3FC74182A50 /* MapperDialog.swift in Sources */,
+				7EE749C237965F5308813AF3 /* MapperDialogSelfTest.swift in Sources */,
 				6F5B742E230BB3394CD484B6 /* MapperHeadlessSelfTest.swift in Sources */,
 				720D7E46E1E5DC06BFD4B828 /* MapperOCR.swift in Sources */,
 				649D7A885DD2CB96631C2483 /* MapperSelfTest.swift in Sources */,
@@ -556,7 +568,7 @@
 /* Begin XCBuildConfiguration section */
 		041C67ECF87CA2F42B2A6BA2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_5FE709B5-5C93-4E33-8BAD-A9B216A239EC" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_5C3FF4B2-1E7B-4ABF-83EA-138771464858" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -614,7 +626,7 @@
 		};
 		17707D7259CA9368A4B03200 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_5FE709B5-5C93-4E33-8BAD-A9B216A239EC" /* Signing.xcconfig */;
+			baseConfigurationReference = "TEMP_5C3FF4B2-1E7B-4ABF-83EA-138771464858" /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;

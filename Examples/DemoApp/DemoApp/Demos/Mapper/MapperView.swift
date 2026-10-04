@@ -8,12 +8,16 @@ struct MapperView: View {
     @State private var model = MapperViewModel()
     #if os(iOS)
     @State private var photoItem: PhotosPickerItem?
+    @State private var numberAnswer = ""
     #endif
 
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 inputSection
+                #if os(iOS)
+                dialogSection
+                #endif
                 sheetSection
                 metricsSection
                 if let report = model.selfTestReport { selfTestSection(report) }
@@ -82,6 +86,17 @@ struct MapperView: View {
                 }
                 #endif
 
+                #if os(iOS)
+                Button {
+                    Task { await model.runDialog() }
+                } label: {
+                    Label("対話で入力", systemImage: "bubble.left.and.text.bubble.right")
+                }
+                .buttonStyle(.bordered)
+                .disabled(!model.speech.isAvailable || model.isBusy
+                          || model.dialog?.stage == .asking || model.dialog?.stage == .listening)
+                #endif
+
                 Button {
                     Task { await model.map() }
                 } label: {
@@ -97,6 +112,85 @@ struct MapperView: View {
             Text(model.status).font(.caption).foregroundStyle(.secondary)
         }
     }
+
+    #if os(iOS)
+    @ViewBuilder
+    private var dialogSection: some View {
+        if let dialog = model.dialog, dialog.stage != .idle {
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text("対話で入力").font(.headline)
+                    Spacer()
+                    Text(dialog.stage.rawValue)
+                        .font(.caption)
+                        .foregroundStyle(dialog.stage == .listening ? .red : .secondary)
+                    if dialog.stage != .finished {
+                        Button("中止") { dialog.cancel() }
+                            .buttonStyle(.bordered).controlSize(.small)
+                    }
+                }
+                if !dialog.currentField.isEmpty {
+                    Text("いまの項目: \(dialog.currentField)")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
+                // Text mode: the question and its answers, as buttons.
+                if dialog.textOnlyMode, dialog.stage == .listening || dialog.stage == .confirming {
+                    if !dialog.confirmPrompt.isEmpty {
+                        Text(dialog.confirmPrompt).font(.subheadline.bold())
+                        HStack(spacing: 8) {
+                            Button("はい") { dialog.provideAnswer("はい") }
+                                .buttonStyle(.borderedProminent)
+                            Button("いいえ") { dialog.provideAnswer("いいえ") }
+                                .buttonStyle(.bordered)
+                        }
+                    } else if let field = MapperForm.fields.first(where: { $0.name == dialog.currentField }) {
+                        Text(MapperDialogController.question(for: field))
+                            .font(.subheadline.bold())
+                        if dialog.answerChoices.isEmpty {
+                            HStack(spacing: 6) {
+                                TextField("値(例 0.45MPa)", text: $numberAnswer)
+                                    .textFieldStyle(.roundedBorder)
+                                    .submitLabel(.done)
+                                Button("OK") {
+                                    dialog.provideAnswer(numberAnswer)
+                                    numberAnswer = ""
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .disabled(numberAnswer.isEmpty)
+                            }
+                        } else {
+                            HStack(spacing: 6) {
+                                ForEach(dialog.answerChoices, id: \.self) { choice in
+                                    Button(choice) { dialog.provideAnswer(choice) }
+                                        .buttonStyle(.bordered)
+                                }
+                            }
+                        }
+                        Button("スキップ") { dialog.provideAnswer("") }
+                            .buttonStyle(.borderless).font(.caption)
+                    }
+                }
+                Text(dialog.voiceNote).font(.caption2).foregroundStyle(.secondary)
+                ForEach(dialog.entries) { entry in
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text("Q \(entry.question)").font(.caption)
+                        Text("A 「\(entry.heard.isEmpty ? "(聞き取れず)" : entry.heard)」 → "
+                             + "\(entry.decided)  確認: \(entry.confirmation)  "
+                             + String(format: "%.1f 秒", entry.seconds))
+                            .font(.caption2).foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                if dialog.stage == .finished, !dialog.entries.isEmpty {
+                    Text(dialog.roundTripSummary).font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+            .padding(10)
+            .background(RoundedRectangle(cornerRadius: 10).fill(.quaternary.opacity(0.3)))
+        }
+    }
+    #endif
 
     private var sheetSection: some View {
         VStack(alignment: .leading, spacing: 8) {

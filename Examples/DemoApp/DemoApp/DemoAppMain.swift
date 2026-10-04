@@ -11,6 +11,8 @@ struct DemoApp: App {
                 MapperHeadlessSelfTestView()
             } else if GemmaMapperSelfTest.isRequested {
                 GemmaMapperSelfTestView()
+            } else if MapperDialogSelfTest.isRequested {
+                MapperDialogSelfTestView()
             } else if LiveCameraSelfTest.isRequested {
                 LiveSelfTestView()
             } else {
