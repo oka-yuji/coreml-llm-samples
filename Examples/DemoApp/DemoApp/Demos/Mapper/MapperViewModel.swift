@@ -16,8 +16,17 @@ final class MapperViewModel {
     var selfTestReport: MapperSelfTestReport?
     var speech = MapperSpeech()
     var errorText: String?
+    /// Raw OCR text, kept so the record can show what Vision actually read.
+    var ocrText = ""
 
     private var mapper: GLiNERMapper?
+
+    /// Experiment (see docs/results/2026-10-04-gliner25-mapper-demo.md): ask whether
+    /// each field is mentioned as its own binary question. Default OFF — the demo
+    /// behaves exactly as measured unless this is switched on.
+    var useMentionGate = false {
+        didSet { mapper?.useMentionGate = useMentionGate }
+    }
 
     /// The model ships inside the app so the demo needs no network at all.
     /// Xcode compiles the `.mlpackage` to `.mlmodelc` at build time.
@@ -50,6 +59,7 @@ final class MapperViewModel {
                 return (GLiNERMapper(classifier: classifier), Date().timeIntervalSince(started))
             }.value
             mapper = built
+            mapper?.useMentionGate = useMentionGate
             metrics.modelLoadSeconds = seconds
             metrics.footprintAfterLoad = mapperMemoryFootprint()
             metrics.footprintPeak = metrics.footprintAfterLoad
@@ -166,6 +176,31 @@ final class MapperViewModel {
         guard let now = mapperMemoryFootprint() else { return }
         metrics.footprintPeak = max(metrics.footprintPeak ?? 0, now)
     }
+
+    #if os(iOS)
+    /// Photo → Vision OCR → text field. Deliberately does not map: the person
+    /// checks and edits the OCR first, then presses マッピング.
+    func loadImage(data: Data) async {
+        guard !isBusy else { return }
+        isBusy = true
+        status = "画像を読み取り中…"
+        do {
+            let text = try await Task.detached(priority: .userInitiated) {
+                try MapperOCR.recognize(imageData: data)
+            }.value
+            ocrText = text
+            inputText = text
+            let lines = text.split(separator: "\n").count
+            status = text.isEmpty
+                ? "画像から文字を読み取れませんでした"
+                : "画像から \(lines) 行を読み取りました。確認・編集してから「マッピング」"
+        } catch {
+            errorText = "\(error)"
+            status = "画像の読み取りに失敗"
+        }
+        isBusy = false
+    }
+    #endif
 
     func startDictation() {
         speech.start { [weak self] text in

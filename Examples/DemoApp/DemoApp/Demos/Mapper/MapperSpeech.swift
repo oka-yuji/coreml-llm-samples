@@ -49,7 +49,9 @@ final class MapperSpeech {
         SFSpeechRecognizer.requestAuthorization { [weak self] _ in
             Task { @MainActor in self?.refreshAvailability() }
         }
+        #if os(iOS)
         AVAudioApplication.requestRecordPermission { _ in }
+        #endif
     }
 
     func start(onFinal: @escaping (String) -> Void) {
@@ -69,9 +71,11 @@ final class MapperSpeech {
         self.request = request
 
         do {
+            #if os(iOS)
             let session = AVAudioSession.sharedInstance()
             try session.setCategory(.record, mode: .measurement, options: .duckOthers)
             try session.setActive(true, options: .notifyOthersOnDeactivation)
+            #endif
 
             let input = audioEngine.inputNode
             input.removeTap(onBus: 0)
@@ -117,7 +121,9 @@ final class MapperSpeech {
         task?.cancel()
         task = nil
         request = nil
+        #if os(iOS)
         try? AVAudioSession.sharedInstance().setActive(false)
+        #endif
         onFinal?(text)
         statusText = text.isEmpty
             ? "音声入力: 認識できませんでした"

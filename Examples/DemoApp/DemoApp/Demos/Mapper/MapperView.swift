@@ -1,8 +1,14 @@
 import CoreMLBackend
 import SwiftUI
+#if os(iOS)
+import PhotosUI
+#endif
 
 struct MapperView: View {
     @State private var model = MapperViewModel()
+    #if os(iOS)
+    @State private var photoItem: PhotosPickerItem?
+    #endif
 
     var body: some View {
         ScrollView {
@@ -59,6 +65,23 @@ struct MapperView: View {
                 .disabled(!model.speech.isAvailable || model.isBusy)
                 #endif
 
+                #if os(iOS)
+                PhotosPicker(selection: $photoItem, matching: .images) {
+                    Label("写真から", systemImage: "photo")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.isBusy)
+                .onChange(of: photoItem) { _, item in
+                    guard let item else { return }
+                    Task {
+                        guard let data = try? await item.loadTransferable(type: Data.self) else {
+                            return
+                        }
+                        await model.loadImage(data: data)
+                    }
+                }
+                #endif
+
                 Button {
                     Task { await model.map() }
                 } label: {
@@ -106,6 +129,14 @@ struct MapperView: View {
                 metricRow("メモリ 読み込み後", model.metrics.footprintAfterLoad.map(Self.megabytes))
                 metricRow("メモリ ピーク", model.metrics.footprintPeak.map(Self.megabytes))
             }
+            Toggle(isOn: $model.useMentionGate) {
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("「言及の有無」を別に判定する(実験)").font(.caption)
+                    Text("リスト項目ごとに 1 回ずつ呼び出しが増えます。既定は OFF")
+                        .font(.caption2).foregroundStyle(.secondary)
+                }
+            }
+
             HStack(spacing: 10) {
                 Button("20 回計測") { Task { await model.measure() } }
                     .buttonStyle(.bordered).disabled(model.isBusy)

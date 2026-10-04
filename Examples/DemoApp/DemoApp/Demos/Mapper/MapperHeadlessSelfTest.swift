@@ -127,6 +127,23 @@ struct MapperHeadlessSelfTestView: View {
         log.record("--- mismatches (\(report.failures.count)) ---")
         for failure in report.failures { log.record("  \(failure)") }
 
+        // --- experiment: ask "is this field mentioned?" as its own question ---
+        // Not the demo default. Same thresholds, same sentences; the only change is
+        // one extra binary call per list field.
+        let gated = GLiNERMapper(classifier: mapper.classifier, useMentionGate: true)
+        let gatedReport = MapperSelfTest(mapper: gated, fixture: fixture).runAccuracy()
+        notePeak()
+        log.record("--- per-field accuracy WITH mention gate (experiment, default OFF) ---")
+        for (off, on) in zip(report.fieldScores, gatedReport.fieldScores) {
+            log.record(String(format: "  %@: OFF %d/%d (%.1f%%) -> ON %d/%d (%.1f%%)",
+                              on.name, off.matched, off.total, off.rate * 100,
+                              on.matched, on.total, on.rate * 100))
+        }
+        log.record(String(format: "  ALL FIELDS: OFF %d/%d (%.1f%%) -> ON %d/%d (%.1f%%)",
+                          report.allFieldsMatched, report.sentenceCount, report.allFieldsRate * 100,
+                          gatedReport.allFieldsMatched, gatedReport.sentenceCount,
+                          gatedReport.allFieldsRate * 100))
+
         // --- actual output per sentence, for the demo script ---
         log.record("--- full output per sentence ---")
         for testCase in fixture.cases {
@@ -157,6 +174,20 @@ struct MapperHeadlessSelfTestView: View {
         log.record(String(format: "per-sentence (20 runs, %d model calls): median=%.1f ms p95=%.1f ms "
                           + "min=%.1f max=%.1f  text=「%@」",
                           calls, median, p95, sorted.first ?? 0, sorted.last ?? 0, timingText))
+
+        var gatedSamples: [Double] = []
+        for _ in 0..<20 {
+            let started = Date()
+            _ = try? gated.map(text: timingText)
+            gatedSamples.append(Date().timeIntervalSince(started) * 1000)
+            notePeak()
+        }
+        let gatedSorted = gatedSamples.sorted()
+        let gatedCalls = (try? gated.map(text: timingText))?.modelCalls ?? 0
+        log.record(String(format: "per-sentence WITH gate (20 runs, %d model calls): median=%.1f ms "
+                          + "p95=%.1f ms",
+                          gatedCalls, gatedSorted[gatedSorted.count / 2],
+                          gatedSorted[min(gatedSorted.count - 1, Int(ceil(0.95 * Double(gatedSorted.count))) - 1)]))
         log.record("memory peak: \(megabytes(peak))")
 
         // --- second load, same process (model already compiled) ---
@@ -170,6 +201,29 @@ struct MapperHeadlessSelfTestView: View {
         }
         notePeak()
         log.record("memory peak (final): \(megabytes(peak))")
+
+        // --- image input: Vision OCR on the bundled synthetic slip, then map it ---
+        if let slip = Bundle.main.url(forResource: "inspection-slip", withExtension: "png"),
+            let data = try? Data(contentsOf: slip) {
+            let started = Date()
+            if let ocr = try? MapperOCR.recognize(imageData: data) {
+                log.record(String(format: "--- image input: Vision OCR (%.0f ms) ---",
+                                  Date().timeIntervalSince(started) * 1000))
+                for line in ocr.split(separator: "\n") { log.record("  ocr| \(line)") }
+                if let outcome = try? mapper.map(text: ocr) {
+                    let rendered = outcome.fields.map {
+                        "\($0.name)=\($0.value.isEmpty ? "未言及" : $0.value)"
+                        + "[\($0.status.rawValue)]\(String(format: "(%.2f)", $0.score))"
+                    }.joined(separator: " | ")
+                    log.record("  mapped| \(rendered)")
+                } else {
+                    log.record("  mapped| FAILED (likely over the 128-subword bucket)")
+                }
+            } else {
+                log.record("--- image input: OCR failed ---")
+            }
+            notePeak()
+        }
 
         // --- on-device speech availability ---
         let speech = MapperSpeech()

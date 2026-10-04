@@ -33,6 +33,23 @@ public enum MapperForm {
     public static let numberTask = "数値の項目"
     public static let numberOther = "その他"
 
+    // MARK: - Mention gate (experiment, off by default)
+
+    /// Asks, as its own binary classification, whether the sentence talks about a
+    /// field at all — separating "was it mentioned?" from "what was the value?".
+    ///
+    /// The measured failure mode is that the model fills in fields nobody mentioned,
+    /// with high scores, and that a Japanese negation ("異音なし") lands on 言及なし
+    /// rather than 正常. The single classification head has to answer both questions
+    /// at once with one set of labels; this splits them. It costs one extra model
+    /// call per list field.
+    ///
+    /// Off by default: the demo's behaviour is unchanged unless it is switched on.
+    public static let mentionLabels = ["述べている", "述べていない"]
+    public static func mentionTask(for field: String) -> String {
+        "この文は「\(field)」について述べているか"
+    }
+
     /// Provisional demo thresholds — not tuned against the self-test expectations.
     public static let autoFillThreshold: Float = 0.75
     public static let mentionThreshold: Float = 0.50
@@ -159,9 +176,13 @@ public struct MapperOutcome: Sendable {
 /// candidate, run serially.
 public struct GLiNERMapper: Sendable {
     public let classifier: GLiNERClassifier
+    /// Experiment: ask "is this field mentioned?" separately. Off by default, so the
+    /// demo path is exactly what was measured today.
+    public var useMentionGate: Bool
 
-    public init(classifier: GLiNERClassifier) {
+    public init(classifier: GLiNERClassifier, useMentionGate: Bool = false) {
         self.classifier = classifier
+        self.useMentionGate = useMentionGate
     }
 
     public func map(text: String) throws -> MapperOutcome {
@@ -201,13 +222,26 @@ public struct GLiNERMapper: Sendable {
         // List fields: one call each, labels + 言及なし.
         for field in MapperForm.fields {
             guard case .list(let options) = field.kind else { continue }
+
+            // Optional extra call: decide mention separately from value.
+            var gatedOut = false
+            if useMentionGate {
+                let gate = try classifier.scores(
+                    text: text, task: MapperForm.mentionTask(for: field.name),
+                    labels: MapperForm.mentionLabels)
+                calls += 1
+                gatedOut = Self.rank(labels: MapperForm.mentionLabels, scores: gate)
+                    .first?.label == "述べていない"
+            }
+
             let labels = options + [MapperForm.noMention]
             let scores = try classifier.scores(text: text, task: field.name, labels: labels)
             calls += 1
             let ranked = Self.rank(labels: labels, scores: scores)
             let best = ranked[0]
             let status: MapperFieldResult.Status
-            if best.label == MapperForm.noMention || best.score < MapperForm.mentionThreshold {
+            if gatedOut || best.label == MapperForm.noMention
+                || best.score < MapperForm.mentionThreshold {
                 status = .absent
             } else if best.score >= MapperForm.autoFillThreshold {
                 status = .autoFilled
