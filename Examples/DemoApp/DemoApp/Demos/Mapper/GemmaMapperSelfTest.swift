@@ -116,6 +116,16 @@ struct GemmaMapperSelfTestView: View {
         let afterLoad = mapperMemoryFootprint()
         log.record(String(format: "model load: %.3f s", loadSeconds))
         log.record("memory after load: \(megabytes(afterLoad))")
+        for line in viewModel.loadBreakdown { log.record("  load| \(line)") }
+
+        // Background prefill specialization keeps `canSend` false while it runs; the
+        // first send would be rejected without this.
+        if let prewarm = viewModel.prewarm {
+            log.record("waiting for prewarm: \(viewModel.prewarmSummary)")
+            await prewarm.value
+            log.record("prewarm done")
+        }
+        log.record("speculative=\(viewModel.speculative) maxTokens=\(viewModel.maxTokens)")
         var peak = afterLoad ?? 0
         func notePeak() { peak = max(peak, mapperMemoryFootprint() ?? 0) }
 
@@ -133,7 +143,14 @@ struct GemmaMapperSelfTestView: View {
 
             viewModel.input = MapperSheetJSON.prompt(for: testCase.text)
             let started = Date()
-            guard viewModel.send() else {
+            // One retry: the engine can still be settling right after a reset.
+            var sent = viewModel.send()
+            if !sent {
+                try? await Task.sleep(for: .milliseconds(500))
+                viewModel.input = MapperSheetJSON.prompt(for: testCase.text)
+                sent = viewModel.send()
+            }
+            guard sent else {
                 log.record("  send rejected for 「\(testCase.text)」 (\(viewModel.phaseDescription))")
                 parseFailures += 1
                 continue
