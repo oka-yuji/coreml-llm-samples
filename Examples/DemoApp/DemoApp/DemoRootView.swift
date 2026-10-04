@@ -148,7 +148,9 @@ struct SplitRootView: View {
             GUIDriver.shared.attach(
                 navigator: navigator, chat: chatVM, models: modelsVM, agent: agentVM)
             #endif
-            await chatVM.autoLoadLastBundleOnce()
+            // The chat bundle is loaded when Chat is opened, not here: on a 6 GB phone
+            // it is ~2 GB and it was taking the ANE and the memory while another demo
+            // was running. `autoLoadLastBundleOnce` is still once per launch.
         }
     }
 }
@@ -174,7 +176,6 @@ struct SingleRootView: View {
         .environment(chatVM)
         .environment(modelsVM)
         .environment(agentVM)
-        .task { await chatVM.autoLoadLastBundleOnce() }
     }
 }
 

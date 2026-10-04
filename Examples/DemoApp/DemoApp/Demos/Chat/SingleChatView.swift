@@ -29,6 +29,9 @@ struct SingleChatView: View {
                     .disabled(!vm.canReset)
             }
         }
+        // Loading the last chat bundle happens here rather than at launch: it is the
+        // biggest model in the app and it used to be read while another demo ran.
+        .task { await vm.autoLoadLastBundleOnce() }
     }
 
     private var emptyState: some View {

@@ -20,6 +20,9 @@ struct SplitChatView: View {
         }
         .frame(minWidth: 560, minHeight: 480)
         .onChange(of: vm.speculative) { _, on in vm.speculationToggleChanged(to: on) }
+        // Loading the last chat bundle happens here rather than at launch: it is the
+        // biggest model in the app and it used to be read while another demo ran.
+        .task { await vm.autoLoadLastBundleOnce() }
     }
 
     private var header: some View {
