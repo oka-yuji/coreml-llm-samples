@@ -217,6 +217,7 @@ final class MapperDialogController {
     /// Kept for the panel as well, so a silent run can be read on the phone.
     var events: [String] = []
     private func note(_ message: String) {
+        print("[dialog] \(message)")
         events.append(message)
         if events.count > 1000 { events.removeFirst(events.count - 1000) }
         onEvent?(message)
@@ -424,12 +425,22 @@ final class MapperDialogController {
                  + String(format: "(%.2f) by ", result.score)
                  + (result.note == "一致" ? "一致" : "モデル"))
 
-            stage = .confirming
-            let confirmed = await confirm(result)
+            // Clear answers are taken as given, with a short echo instead of a
+            // yes/no round trip.
+            let automatic = Self.autoAcceptReason(for: field, result: result)
+            let confirmed: Bool
+            if let automatic {
+                note("    confirm: 省略(\(automatic))")
+                await say("\(result.value)。")
+                confirmed = true
+            } else {
+                stage = .confirming
+                confirmed = await confirm(result)
+            }
             entries.append(Entry(
                 field: field.name, question: question, heard: heard,
                 decided: result.value + result.unit,
-                confirmation: confirmed ? "はい" : "いいえ",
+                confirmation: automatic ?? (confirmed ? "はい" : "いいえ"),
                 seconds: Date().timeIntervalSince(started)))
             if confirmed {
                 results.append(result)
@@ -491,6 +502,23 @@ final class MapperDialogController {
     }
 
     static let correctionWords = ["違った", "じゃなくて", "訂正", "間違えた", "ではなく"]
+
+    /// Above this the dialog accepts a list answer without asking for confirmation.
+    /// Provisional and uncalibrated, like the sheet's other thresholds.
+    static let skipConfirmThreshold: Float = 0.85
+
+    /// Why a value was taken without asking, or nil to ask.
+    ///
+    /// Numbers always get confirmed: a misheard digit is still a confident digit, so
+    /// the score says nothing about whether "0.25" was really what was said.
+    static func autoAcceptReason(for field: MapperForm.Field, result: MapperFieldResult) -> String? {
+        guard case .list = field.kind else { return nil }
+        if result.note == "一致" { return "一致" }
+        if result.score >= skipConfirmThreshold {
+            return String(format: "自動(%.2f)", result.score)
+        }
+        return nil
+    }
 
     /// Spoken forms that plainly mean one option.
     ///
@@ -573,7 +601,7 @@ final class MapperDialogController {
             if cancelled { return false }
             stage = .confirming
             confirmPrompt = "\(result.value)\(result.unit) で合っていますか？"
-            let answer = await listen(hints: ["はい", "いいえ"])
+            let answer = await listen(hints: Self.confirmHints)
             confirmPrompt = ""
             if let yes = Self.yesNo(answer) { return yes }
             // No classifier fallback here on purpose. It was being handed empty and
@@ -593,30 +621,32 @@ final class MapperDialogController {
     /// checked before positives — except for the set phrases that contain a negative
     /// word and still mean yes ("問題ありません", "問題ない", "大丈夫"), which are
     /// matched first of all.
+    static let positivePhrases = ["問題ありません", "問題ない", "大丈夫"]
+    static let negativeWords = [
+        "いいえ", "いや", "違います", "ちがいます", "違う", "ちがう",
+        "ではない", "じゃない", "やり直し", "もう一度", "だめ", "ダメ",
+    ]
+    static let positiveWords = [
+        "はい", "はーい", "うん", "ええ", "オッケー", "おっけー", "オーケー",
+        "ok", "ｏｋ", "合ってます", "あってます", "合ってる", "あってる",
+        "正しい", "それで", "いいです", "そう",
+    ]
+
+    /// Everything a confirmation might be answered with, for `contextualStrings`.
+    /// 「合ってます」 came back as 「出ます」 on the device, which matched nothing.
+    static var confirmHints: [String] { positivePhrases + positiveWords + negativeWords }
+
     static func yesNo(_ text: String) -> Bool? {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else { return nil }
         let lowered = trimmed.lowercased()
 
         // (1) Positive phrases that contain a negative word.
-        let positivePhrases = ["問題ありません", "問題ない", "大丈夫"]
         if positivePhrases.contains(where: lowered.contains) { return true }
-
         // (2) Refusals.
-        let negatives = [
-            "いいえ", "いや", "違います", "ちがいます", "違う", "ちがう",
-            "ではない", "じゃない", "やり直し", "もう一度", "だめ", "ダメ",
-        ]
-        if negatives.contains(where: lowered.contains) { return false }
-
+        if negativeWords.contains(where: lowered.contains) { return false }
         // (3) Agreement.
-        let positives = [
-            "はい", "はーい", "うん", "ええ", "オッケー", "おっけー", "オーケー",
-            "ok", "ｏｋ", "合ってます", "あってます", "合ってる", "あってる",
-            "正しい", "それで", "いいです", "そう",
-        ]
-        if positives.contains(where: lowered.contains) { return true }
-
+        if positiveWords.contains(where: lowered.contains) { return true }
         return nil
     }
 

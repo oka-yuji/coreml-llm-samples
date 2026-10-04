@@ -199,6 +199,19 @@ final class MapperSpeech {
         onEvent?("    \(message)")
     }
 
+    /// What a final result actually means.
+    ///
+    /// The recogniser sometimes decides the utterance ended on its own, and then
+    /// answers `endAudio()` with a final for the new, silent stretch — which is
+    /// empty. The words it already reported are the answer; on the device log this
+    /// threw away "未点検" four times out of four and "0.25メガパスカル" once.
+    /// A genuine "nothing was said" has no partial to fall back on and still ends up
+    /// empty, which is correct.
+    static func resolveFinal(text: String?, lastPartial: String) -> String {
+        let trimmed = (text ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? lastPartial : trimmed
+    }
+
     func logRoute(_ label: String) {
         log("route(\(label)): \(routeDescription())")
     }
@@ -341,12 +354,11 @@ final class MapperSpeech {
             input.installTap(onBus: 0, bufferSize: 1024, format: format) { @Sendable [weak self] buffer, _ in
                 sink.append(buffer)
                 guard let decibels = probe.add(buffer) else { return }
-                print(String(format: "[speech] level: %.0f dB", decibels))
                 // Four quiet readings in a row is about two seconds of nothing.
                 let quiet = probe.noteQuiet(decibels < -70)
                 let line = quiet == 4
-                    ? "    mic: 音が届いていません(\(route))"
-                    : String(format: "    mic: %.0f dB", decibels)
+                    ? "level: \(Int(decibels)) dB — 音が届いていません(\(route))"
+                    : String(format: "level: %.0f dB", decibels)
                 Task { @MainActor in
                     guard let self, self.generation == turn else { return }
                     self.log(line)
@@ -383,7 +395,8 @@ final class MapperSpeech {
                 if text == nil, failure == nil, !isFinal {
                     self.onEvent?("    stt callback: (empty)")
                 }
-                if let text, text != self.partialText {
+                // An empty string must not erase what was already heard.
+                if let text, !text.isEmpty, text != self.partialText {
                     self.partialText = text
                     self.log("stt partial: 「\(text)」")
                     self.armSilenceTimer()
@@ -394,7 +407,11 @@ final class MapperSpeech {
                 }
                 // Only the finalised transcript goes into the text field.
                 if isFinal {
-                    self.finish(with: self.partialText)
+                    let resolved = Self.resolveFinal(text: text, lastPartial: self.partialText)
+                    if (text ?? "").isEmpty, !resolved.isEmpty {
+                        self.log("final 空 → partial「\(resolved)」を採用")
+                    }
+                    self.finish(with: resolved)
                 } else if failure != nil, self.isRecording {
                     self.finish(with: self.partialText)
                 }
