@@ -5,12 +5,15 @@ options:
   deploymentTarget:
     macOS: "26.0"
     iOS: "26.0"
-  createIntermediateGroups: true
+  createIntermediateGroups: false
   minimumXcodeGenVersion: "2.0.0"
 
 configFiles:
   Debug: Signing.xcconfig
   Release: Signing.xcconfig
+
+fileGroups:
+  - Local.xcconfig.template
 
 settings:
   base:

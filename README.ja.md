@@ -77,7 +77,7 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ### Xcode プロジェクトを開く場合
 
-GUI で試すなら `Examples/DemoApp/DemoApp.xcodeproj` を Xcode で開いて Run してください。`DemoApp` は
+GUI で試すなら、リポジトリ直下の `coreml-llm-samples.xcworkspace` を Xcode で開いて Run してください。`DemoApp` は
 デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。macOS のデモは **Chat** /
 **Agent** / **Models** で、**Live Camera** は iOS でのみ表示されます。起動時は Chat が選択されています。
 今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
@@ -156,7 +156,9 @@ App Store 配布物ではありません。
 
 Xcode ではなく CLI からビルドする場合はアーキテクチャを固定してください:
 `xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
-(同梱パッケージが Apple Silicon 専用のため)。Xcode から Run する通常経路はそのままで構いません。
+(同梱パッケージが Apple Silicon 専用のため)。Xcode から Run する通常経路はそのままで構いません
+(Run は Debug で、この Mac の分だけビルドします)。Profile と Archive は Release でパッケージを
+Intel 向けにもビルドし、`Float16` で止まるので、Release は上のコマンドでビルドしてください。
 
 ---
 
@@ -167,6 +169,7 @@ README.md / README.ja.md   この索引 — モデル表 + クイックスター
 samples/                   モデルごとの自己完結カード(モデル選びはここから)
 Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
 Examples/DemoApp/          SwiftUI デモアプリ(macOS + iOS) — デモ: Chat / Agent / Models(Live Camera は iOS)
+coreml-llm-samples.xcworkspace  Xcode で開いてデモアプリをビルド・実行する
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md / agent-demo.md
 LICENSE                    MIT(コードに適用)

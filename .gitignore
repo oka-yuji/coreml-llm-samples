@@ -24,6 +24,12 @@ Examples/DemoApp/Local.xcconfig
 !Examples/DemoApp/DemoApp.xcodeproj
 !Examples/DemoApp/DemoApp.xcodeproj/**
 Examples/DemoApp/DemoApp.xcodeproj/**/xcuserdata/
+Examples/DemoApp/DemoApp.xcodeproj/**/Package.resolved
+# The workspace at the root opens that project from the top of a clone.
+!/coreml-llm-samples.xcworkspace
+!/coreml-llm-samples.xcworkspace/**
+/coreml-llm-samples.xcworkspace/**/xcuserdata/
+/coreml-llm-samples.xcworkspace/**/Package.resolved
 
 # macOS
 .DS_Store
