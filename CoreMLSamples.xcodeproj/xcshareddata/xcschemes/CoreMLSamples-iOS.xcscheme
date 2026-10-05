@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
    LastUpgradeVersion = "1430"
-   version = "1.3">
+   version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES">
+      buildImplicitDependencies = "YES"
+      runPostActionsOnFailure = "NO">
       <BuildActionEntries>
          <BuildActionEntry
             buildForTesting = "YES"
@@ -14,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "E633679E777014DA36291138"
-               BuildableName = "DemoApp.app"
-               BlueprintName = "DemoApp-iOS"
-               ReferencedContainer = "container:DemoApp.xcodeproj">
+               BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+               BuildableName = "CoreMLSamples.app"
+               BlueprintName = "CoreMLSamples-iOS"
+               ReferencedContainer = "container:CoreMLSamples.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -26,14 +27,15 @@
       buildConfiguration = "Debug"
       selectedDebuggerIdentifier = "Xcode.DebuggerFoundation.Debugger.LLDB"
       selectedLauncherIdentifier = "Xcode.DebuggerFoundation.Launcher.LLDB"
-      shouldUseLaunchSchemeArgsEnv = "YES">
+      shouldUseLaunchSchemeArgsEnv = "YES"
+      onlyGenerateCoverageForSpecifiedTargets = "NO">
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E633679E777014DA36291138"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp-iOS"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -53,12 +55,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E633679E777014DA36291138"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp-iOS"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -70,12 +74,14 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "E633679E777014DA36291138"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp-iOS"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

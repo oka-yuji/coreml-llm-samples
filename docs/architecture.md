@@ -71,8 +71,8 @@ prompts. It is off by default.
 
 ## Files
 
-- `Sources/LLMCore` — pure-Swift types and protocols (`LLMEngine`, `ModelBundle`, generation
+- `CoreLLMKit/Sources/LLMCore` — pure-Swift types and protocols (`LLMEngine`, `ModelBundle`, generation
   types, `Tokenizing`). No Core ML dependency.
-- `Sources/CoreMLBackend` — the Core ML implementation (`CoreMLEngine`, `CoreMLChainV2`, host
+- `CoreLLMKit/Sources/CoreMLBackend` — the Core ML implementation (`CoreMLEngine`, `CoreMLChainV2`, host
   input assembly, ring/ladder masks, RoPE, the drafter path, and the tokenizer wrapper).
-- `Sources/corellm-chat` — the streaming chat CLI.
+- `CoreLLMKit/Sources/corellm-chat` — the streaming chat CLI.

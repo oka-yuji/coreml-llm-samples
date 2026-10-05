@@ -4,6 +4,12 @@
 クローンしてすぐ動く共有 Swift ランタイムを同梱し、ベンチマークはすべて測定条件と出典つきで示し、変換は
 参照実装に対して **bit 単位一致**でゲートします。この検証の徹底がハウススタイルです — 根拠は各モデルカードに。
 
+> **配置の変更(2026-10-06)。** デモアプリはリポジトリ直下の `CoreMLSamples.xcodeproj`(スキームは
+> `CoreMLSamples` と `CoreMLSamples-iOS`)になり、Swift パッケージは `CoreLLMKit/` へ移りました。直下から
+> 実行するコマンドには `--package-path CoreLLMKit` が付きます。本リポジトリの URL に `main` で依存する
+> パッケージ指定は解決できなくなりました。古い配置はタグ `qwen38-27b-agent-v1` とコミット
+> `dbdd86fab77f7e551b7b1e4c6e793e1915b2af5d` に残っています。アプリのバンドル ID とデータの置き場は変えていません。
+
 ## Maintainer
 
 **岡優志（おかゆうじ / okayuji）** — iOS / オンデバイスAI / Core MLエンジニア。
@@ -72,13 +78,13 @@ cd coreml-llm-samples
 # → ./models/gemma-4-12b-it-coreml-128k
 
 # 3. チャット
-swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
+swift run -c release --package-path CoreLLMKit corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
 ### Xcode プロジェクトを開く場合
 
-GUI で試すなら、リポジトリ直下の `coreml-llm-samples.xcworkspace` を Xcode で開き、スキーム `DemoApp` と
-実行先 `My Mac` を選んで Run してください。`DemoApp` は
+GUI で試すなら、リポジトリ直下の `CoreMLSamples.xcodeproj` を Xcode で開き、スキーム `CoreMLSamples` と
+実行先 `My Mac` を選んで Run してください。`CoreMLSamples` は
 デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。macOS のデモは **Chat** /
 **Agent** / **Models** で、**Live Camera** は iOS でのみ表示されます。起動時は Chat が選択されています。
 今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
@@ -150,13 +156,19 @@ hf download okayuji/Qwen3.8-27B-coreml-agent --local-dir ./models/qwen38-27b-age
 しながら流れます。画像エンコーダを持つバンドルが必要で、複数導入されている場合はステータス行の上に
 **Model** メニューが出ます。
 
-`DemoApp` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな SwiftUI アプリで、同一のエンジンで
-動きます。ひとつのソースツリーから macOS 26 と iOS 26 の両方をビルドでき、スキームは `DemoApp` と
-`DemoApp-iOS` の 2 つです。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
+`CoreMLSamples` は CLI と同じ `LLMCore` / `CoreMLBackend` をリンクする小さな SwiftUI アプリで、同一のエンジンで
+動きます。ひとつのソースツリーから macOS 26 と iOS 26 の両方をビルドでき、スキームは `CoreMLSamples` と
+`CoreMLSamples-iOS` の 2 つです。任意パスのバンドルを開くため App Sandbox を無効にした開発用サンプルで、
 App Store 配布物ではありません。
 
+ライブラリは本リポジトリの Swift パッケージ `CoreLLMKit` にあり、アプリはローカルパッケージとして使います。
+パッケージがリポジトリのフォルダの中にあるため、Xcode の Add Package Dependencies に本リポジトリの URL を
+入れる使い方には対応していません。自分のアプリで `LLMCore` / `CoreMLBackend` を使うときは、リポジトリを
+クローンして `CoreLLMKit` フォルダをローカルパッケージとして追加してください(File > Add Package
+Dependencies > Add Local)。
+
 Xcode ではなく CLI からビルドする場合はアーキテクチャを固定してください:
-`xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
+`xcodebuild ARCHS=arm64 -project CoreMLSamples.xcodeproj -scheme CoreMLSamples -configuration Release build`
 (同梱パッケージが Apple Silicon 専用のため)。Xcode から Run する通常経路はそのままで構いません
 (Run は Debug で、この Mac の分だけビルドします)。`ARCHS=arm64` を付けずにコマンドラインで Release を
 ビルドすると、パッケージを Intel 向けにもビルドして `Float16` で止まる(Xcode 27.0 で確認)ので、
@@ -169,15 +181,17 @@ Release は上のコマンドでビルドしてください。
 ```
 README.md / README.ja.md   この索引 — モデル表 + クイックスタート
 samples/                   モデルごとの自己完結カード(モデル選びはここから)
-Sources/                   共有 Swift ランタイム: CoreLLMKit(LLMCore + CoreMLBackend)+ corellm-chat CLI
-Examples/DemoApp/          SwiftUI デモアプリ(macOS + iOS) — デモ: Chat / Agent / Models(Live Camera は iOS)
-coreml-llm-samples.xcworkspace  Xcode で開いてデモアプリをビルド・実行する
+CoreMLSamples.xcodeproj    デモアプリのプロジェクト: 開いて Run する
+CoreMLSamples/             デモアプリのソース(macOS + iOS) — デモ: Chat / Agent / Models(Live Camera は iOS)
+CoreLLMKit/                共有 Swift ランタイム(Swift パッケージ): LLMCore + CoreMLBackend + corellm-chat CLI
+Config/                    アプリの署名設定と iOS 用 Info.plist
+project.yml                CoreMLSamples.xcodeproj の XcodeGen 定義
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      モデル横断のエンジンノート — architecture.md / verification.md / agent-demo.md
 LICENSE                    MIT(コードに適用)
 ```
 
-`Sources/` の Swift ランタイムは本リポジトリの全モデルで共有します。モデルの追加とは、カードと Hugging Face
+`CoreLLMKit/` の Swift ランタイムは本リポジトリの全モデルで共有します。モデルの追加とは、カードと Hugging Face
 バンドルを足すことであって、新しいランタイムを足すことではありません。
 
 ---
@@ -191,6 +205,6 @@ LICENSE                    MIT(コードに適用)
 
 ## ライセンス
 
-- **コード:** MIT — [LICENSE](LICENSE) を参照。`Sources/` の共有ランタイムは全モデルで MIT です。
+- **コード:** MIT — [LICENSE](LICENSE) を参照。`CoreLLMKit/` の共有ランタイムは全モデルで MIT です。
 - **モデル重み:** Hugging Face で別途配布され、それぞれ独自のライセンス下にあります(上表の **License**
   列と該当モデルカードの重みの節を参照)。重みは本リポジトリの MIT ライセンスの対象外です。

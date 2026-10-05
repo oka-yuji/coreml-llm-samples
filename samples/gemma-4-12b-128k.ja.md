@@ -40,13 +40,13 @@ cd coreml-llm-samples
 # → ./models/gemma-4-12b-it-coreml-128k
 
 # 3. チャット
-swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
+swift run -c release --package-path CoreLLMKit corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
 REPL ではなくワンショット:
 
 ```bash
-swift run -c release corellm-chat \
+swift run -c release --package-path CoreLLMKit corellm-chat \
   --model ./models/gemma-4-12b-it-coreml-128k \
   --prompt "日本の首都はどこですか?一文で答えてください。" \
   --max-tokens 64 --stats
@@ -204,10 +204,10 @@ base decode に対するペア比中央値の高速化(プロンプト種別ご�
 ## リポジトリ構成
 
 ```
-Package.swift              library CoreLLMKit(LLMCore + CoreMLBackend)+ executable corellm-chat
-Sources/LLMCore/           純 Swift の型・プロトコル(Core ML 非依存)
-Sources/CoreMLBackend/     Core ML エンジン・チェーン・ホスト入力・ドラフター・トークナイザラッパ
-Sources/corellm-chat/      ストリーミングチャット CLI
+CoreLLMKit/                Swift パッケージ: ライブラリ LLMCore + CoreMLBackend、実行ファイル corellm-chat
+  Sources/LLMCore/         純 Swift の型・プロトコル(Core ML 非依存)
+  Sources/CoreMLBackend/   Core ML エンジン・チェーン・ホスト入力・ドラフター・トークナイザラッパ
+  Sources/corellm-chat/    ストリーミングチャット CLI
 scripts/download-model.sh  Hugging Face からモデルバンドルを取得
 docs/                      アーキテクチャ・検証ノート
 ```

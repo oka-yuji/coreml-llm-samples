@@ -5,6 +5,13 @@ runtime you can clone and run, every benchmark is quoted with its measurement co
 source, and every conversion is gated **bit-exact** against its reference implementation. That
 verification discipline is the house style — the receipts are in each model card.
 
+> **Layout change (2026-10-06).** The demo app is now `CoreMLSamples.xcodeproj` at the repository root
+> (schemes `CoreMLSamples` and `CoreMLSamples-iOS`), and the Swift package moved to `CoreLLMKit/`, so
+> commands run from the root take `--package-path CoreLLMKit`. A package dependency on this repository's
+> URL that follows `main` no longer resolves; the tag `qwen38-27b-agent-v1` and the commit
+> `dbdd86fab77f7e551b7b1e4c6e793e1915b2af5d` keep the old layout. The app's bundle ID and data folders
+> did not change.
+
 ## Maintainer
 
 **岡優志（おかゆうじ / okayuji）** — iOS / on-device AI / Core ML engineer.
@@ -74,13 +81,13 @@ cd coreml-llm-samples
 # → ./models/gemma-4-12b-it-coreml-128k
 
 # 3. Chat
-swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
+swift run -c release --package-path CoreLLMKit corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
 ### Or open the Xcode project
 
-Prefer a GUI? Open `coreml-llm-samples.xcworkspace` at the repository root in Xcode, choose the
-`DemoApp` scheme and `My Mac`, and press Run. `DemoApp` is a demo
+Prefer a GUI? Open `CoreMLSamples.xcodeproj` at the repository root in Xcode, choose the
+`CoreMLSamples` scheme and `My Mac`, and press Run. `CoreMLSamples` is a demo
 list — a sidebar of demos with the selected one shown on the right. On macOS the demos are **Chat**,
 **Agent**, and **Models**; **Live Camera** is shown on iOS only. Chat is selected on launch, and more
 models and modalities each add a row and a screen here.
@@ -153,13 +160,19 @@ in English or Japanese. Each cycle is independent — the context is reset every
 never drifts on the last one — and captions stream in as they generate. It needs a bundle with an
 image encoder; when more than one is installed a **Model** menu appears above the status line.
 
-`DemoApp` is a small SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries as the
+`CoreMLSamples` is a small SwiftUI app that links the same `LLMCore` and `CoreMLBackend` libraries as the
 CLI, so it runs the identical engine. It builds for macOS 26 and iOS 26 from one source tree, with
-two schemes: `DemoApp` and `DemoApp-iOS`. It is a local development sample with App Sandbox disabled
+two schemes: `CoreMLSamples` and `CoreMLSamples-iOS`. It is a local development sample with App Sandbox disabled
 so it can open a bundle from any path, not an App Store build.
 
+The libraries are in the `CoreLLMKit` Swift package in this repository, which the app uses as a local
+package. Adding this repository's URL in Xcode's Add Package Dependencies is not supported, because the
+package lives in a folder of the repository. To use `LLMCore` and `CoreMLBackend` in your own app, clone
+the repository and add the `CoreLLMKit` folder as a local package (File > Add Package Dependencies >
+Add Local).
+
 To build it from the command line instead of Xcode, pin the architecture:
-`xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
+`xcodebuild ARCHS=arm64 -project CoreMLSamples.xcodeproj -scheme CoreMLSamples -configuration Release build`
 (the bundled package is Apple Silicon only). Running from Xcode needs no such flag: Run builds
 Debug for this Mac only. Without `ARCHS=arm64`, a command-line Release build also compiles the
 package for Intel and stops on `Float16` (checked with Xcode 27.0), so make Release builds with the
@@ -172,15 +185,17 @@ command above.
 ```
 README.md / README.ja.md   this index — the model table + quick start
 samples/                   one self-contained model card per model (start here to pick a model)
-Sources/                   shared Swift runtime: CoreLLMKit (LLMCore + CoreMLBackend) + the corellm-chat CLI
-Examples/DemoApp/          SwiftUI demo app (macOS + iOS) — demos: Chat, Agent, Models (Live Camera on iOS)
-coreml-llm-samples.xcworkspace  open in Xcode to build and run the demo app
+CoreMLSamples.xcodeproj    the demo app project: open it and press Run
+CoreMLSamples/             the demo app's sources (macOS + iOS) — demos: Chat, Agent, Models (Live Camera on iOS)
+CoreLLMKit/                the shared Swift runtime, a Swift package: LLMCore + CoreMLBackend + the corellm-chat CLI
+Config/                    the app's signing settings and its iOS Info.plist
+project.yml                the XcodeGen spec of CoreMLSamples.xcodeproj
 scripts/download-model.sh  fetch a model bundle from Hugging Face
 docs/                      cross-model engine notes — architecture.md, verification.md, agent-demo.md
 LICENSE                    MIT (covers the code)
 ```
 
-The Swift runtime under `Sources/` is shared by every model here; adding a model means adding
+The Swift runtime in `CoreLLMKit/` is shared by every model here; adding a model means adding
 its card and its Hugging Face bundle, not a new runtime.
 
 ---
@@ -196,7 +211,7 @@ conditions behind them.
 
 ## License
 
-- **Code:** MIT — see [LICENSE](LICENSE). The shared Swift runtime under `Sources/` is MIT for every
+- **Code:** MIT — see [LICENSE](LICENSE). The shared Swift runtime in `CoreLLMKit/` is MIT for every
   model here.
 - **Model weights:** distributed separately on Hugging Face, each under its own license (see the
   **License** column above and the weights section of the relevant model card). The weights are

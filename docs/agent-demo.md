@@ -1,6 +1,6 @@
 # The Agent demo
 
-`DemoApp`'s **Agent** screen runs a tool-calling loop against a Core ML bundle on the machine in front
+The **Agent** screen of the demo app (`CoreMLSamples`) runs a tool-calling loop against a Core ML bundle on the machine in front
 of you. Nothing about the loop is remote: the model, the search fetch, the page reader, and the notes
 all live on this device. The README has the short version; this is the contract.
 
@@ -82,7 +82,7 @@ cache and prefills the whole conversation.
 ## 4. Headless
 
 ```bash
-DemoApp --agent-e2e --model <bundle> --task "…" \
+CoreMLSamples --agent-e2e --model <bundle> --task "…" \
   [--effort off|low|medium|xhigh] [--max-steps N] [--page-budget N] \
   [--max-tokens N] [--deadline SECONDS] [--file-ops] [--notes-dir <path>]
 ```
@@ -98,7 +98,7 @@ whatever the model was writing — an unclosed `<tool_call>` is dropped, so a ru
 having done the work. Read both before trusting the verdict.
 
 ```bash
-DemoApp --agent-selftest [--offline]
+CoreMLSamples --agent-selftest [--offline]
 ```
 
 Checks prompt rendering against golden strings, the tool-call parser, the note and move rules, the

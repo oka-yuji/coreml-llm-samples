@@ -41,13 +41,13 @@ cd coreml-llm-samples
 # → ./models/gemma-4-12b-it-coreml-128k
 
 # 3. Chat
-swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
+swift run -c release --package-path CoreLLMKit corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --stats
 ```
 
 One-shot instead of a REPL:
 
 ```bash
-swift run -c release corellm-chat \
+swift run -c release --package-path CoreLLMKit corellm-chat \
   --model ./models/gemma-4-12b-it-coreml-128k \
   --prompt "What is the capital of Japan? Answer in one sentence." \
   --max-tokens 64 --stats
@@ -210,10 +210,10 @@ is **always lossless** (output identical to `--no-mtp`).
 ## Repository layout
 
 ```
-Package.swift              library CoreLLMKit (LLMCore + CoreMLBackend) + executable corellm-chat
-Sources/LLMCore/           pure-Swift types & protocols (no Core ML dependency)
-Sources/CoreMLBackend/     the Core ML engine, chains, host inputs, drafter, tokenizer wrapper
-Sources/corellm-chat/      the streaming chat CLI
+CoreLLMKit/                Swift package: libraries LLMCore + CoreMLBackend, executable corellm-chat
+  Sources/LLMCore/         pure-Swift types & protocols (no Core ML dependency)
+  Sources/CoreMLBackend/   the Core ML engine, chains, host inputs, drafter, tokenizer wrapper
+  Sources/corellm-chat/    the streaming chat CLI
 scripts/download-model.sh  fetch the model bundle from Hugging Face
 docs/                      architecture & verification notes
 ```

@@ -1,7 +1,7 @@
 # Gemma 4 E2B Speculative (pal6) — on-device test guide
 
 This is a hands-on guide for running the **Gemma 4 E2B speculative runtime** on an iPhone with the
-`DemoApp-iOS` app. It is a research demo of three things on Apple's Neural Engine:
+`CoreMLSamples-iOS` app. It is a research demo of three things on Apple's Neural Engine:
 
 - a **3-chunk multifunction** Core ML graph (decode + offset prefill) with host-side KV, `pal6`
   weights and int8 embedding / per-layer sidecars;
@@ -15,7 +15,7 @@ This is a hands-on guide for running the **Gemma 4 E2B speculative runtime** on 
 > **Provisional naming.** The bundle format id is `coreml-corellm-r1` and is **not final**. If it is
 > renamed later, update `manifest.json` (`format`) and `ChunkedSpeculativeChain.format` together.
 
-The runtime lives in the shared `Sources/CoreMLBackend` library (`ChunkedSpeculativeChain`), the same
+The runtime lives in the shared `CoreLLMKit/Sources/CoreMLBackend` library (`ChunkedSpeculativeChain`), the same
 library the CLI and the demo app link, so the CLI on a Mac and the app on a phone run the identical
 engine.
 
@@ -37,25 +37,25 @@ example `gemma-4-e2b-speculative-pal6/`.
 ## 1. Build the app
 
 ```bash
-cd Examples/DemoApp
-cp Local.xcconfig.template Local.xcconfig   # once: set DEVELOPMENT_TEAM = your 10-char Team ID
-xcodegen generate                           # regenerates DemoApp.xcodeproj from project.yml
-open DemoApp.xcodeproj
+cp Config/Local.xcconfig.template Config/Local.xcconfig   # once: set DEVELOPMENT_TEAM = your 10-char Team ID
+open CoreMLSamples.xcodeproj
 ```
 
-`Local.xcconfig` is git-ignored and holds your `DEVELOPMENT_TEAM`, so your signing team survives every
-`xcodegen generate`. Find your Team ID in Xcode (Settings -> Accounts) or with
-`security find-identity -v -p codesigning`. If you skip this file, pick your team once in Xcode under the
-`DemoApp-iOS` target's **Signing & Capabilities** instead (the project uses automatic signing). Select the
-**`DemoApp-iOS`** scheme and your iPhone, then press Run.
+`Config/Local.xcconfig` is git-ignored and holds your `DEVELOPMENT_TEAM`, so your signing team stays out of
+the shared project file and survives `xcodegen generate`. A `Local.xcconfig` made in an earlier checkout
+under `Examples/DemoApp/` is not moved by git; move it to `Config/Local.xcconfig`. Find your Team ID in
+Xcode (Settings -> Accounts) or with `security find-identity -v -p codesigning`. If you skip this file,
+pick your team once in Xcode under the `CoreMLSamples-iOS` target's **Signing & Capabilities** instead
+(the project uses automatic signing; this writes the team into the shared project file). Select the
+**`CoreMLSamples-iOS`** scheme and your iPhone, then press Run.
 
-The macOS **`DemoApp`** scheme still builds and runs unchanged; it is the same app for the Mac.
+The macOS **`CoreMLSamples`** scheme builds the same app for the Mac.
 
 ## 2. Put the bundle on the phone
 
 The app reads bundles from its own **Documents** folder (file sharing is enabled), so either:
 
-- **Files app:** copy `gemma-4-e2b-speculative-pal6/` into *On My iPhone → DemoApp*, or
+- **Files app:** copy `gemma-4-e2b-speculative-pal6/` into the app's folder under *On My iPhone*, or
 - **devicectl:** with the phone attached,
 
   ```bash
@@ -122,8 +122,8 @@ The `corellm-chat` CLI runs the same bundle on a Mac. `cpuOnly` is a good way to
 without paying ANE specialization time:
 
 ```bash
-swift build -c release
-BIN=.build/release/corellm-chat
+swift build -c release --package-path CoreLLMKit
+BIN=CoreLLMKit/.build/release/corellm-chat
 MODEL=/path/to/gemma-4-e2b-speculative-pal6
 
 # short chat
@@ -202,7 +202,7 @@ not a glitch.
 A full record for every message, checkpoint, and launch is appended as JSON lines to
 `Documents/metrics.jsonl` (identity, token counts, `finishReason`, TTFT / prefill / per-token latencies,
 speculation stats, KV op timings, staged `phys_footprint` and available memory, thermal state, battery).
-Retrieve it with the Files app (*On My iPhone -> DemoApp -> metrics.jsonl*) or `devicectl device copy from`.
+Retrieve it with the Files app (`metrics.jsonl` in the app's folder under *On My iPhone*) or `devicectl device copy from`.
 
 ## Troubleshooting
 
