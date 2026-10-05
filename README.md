@@ -79,7 +79,8 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ### Or open the Xcode project
 
-Prefer a GUI? Open `coreml-llm-samples.xcworkspace` at the repository root in Xcode and press Run. `DemoApp` is a demo
+Prefer a GUI? Open `coreml-llm-samples.xcworkspace` at the repository root in Xcode, choose the
+`DemoApp` scheme and `My Mac`, and press Run. `DemoApp` is a demo
 list — a sidebar of demos with the selected one shown on the right. On macOS the demos are **Chat**,
 **Agent**, and **Models**; **Live Camera** is shown on iOS only. Chat is selected on launch, and more
 models and modalities each add a row and a screen here.
@@ -160,8 +161,9 @@ so it can open a bundle from any path, not an App Store build.
 To build it from the command line instead of Xcode, pin the architecture:
 `xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
 (the bundled package is Apple Silicon only). Running from Xcode needs no such flag: Run builds
-Debug for this Mac only. Profile and Archive build Release, which also compiles the package for
-Intel and stops on `Float16`, so make Release builds with the command above.
+Debug for this Mac only. Without `ARCHS=arm64`, a command-line Release build also compiles the
+package for Intel and stops on `Float16` (checked with Xcode 27.0), so make Release builds with the
+command above.
 
 ---
 

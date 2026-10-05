@@ -77,7 +77,8 @@ swift run -c release corellm-chat --model ./models/gemma-4-12b-it-coreml-128k --
 
 ### Xcode プロジェクトを開く場合
 
-GUI で試すなら、リポジトリ直下の `coreml-llm-samples.xcworkspace` を Xcode で開いて Run してください。`DemoApp` は
+GUI で試すなら、リポジトリ直下の `coreml-llm-samples.xcworkspace` を Xcode で開き、スキーム `DemoApp` と
+実行先 `My Mac` を選んで Run してください。`DemoApp` は
 デモ一覧型のアプリで、左のサイドバーにデモ、右に選択中のデモ画面が出ます。macOS のデモは **Chat** /
 **Agent** / **Models** で、**Live Camera** は iOS でのみ表示されます。起動時は Chat が選択されています。
 今後のモデルやモダリティは、ここに 1 行ずつ画面が増えます。
@@ -157,8 +158,9 @@ App Store 配布物ではありません。
 Xcode ではなく CLI からビルドする場合はアーキテクチャを固定してください:
 `xcodebuild ARCHS=arm64 -project Examples/DemoApp/DemoApp.xcodeproj -scheme DemoApp -configuration Release build`
 (同梱パッケージが Apple Silicon 専用のため)。Xcode から Run する通常経路はそのままで構いません
-(Run は Debug で、この Mac の分だけビルドします)。Profile と Archive は Release でパッケージを
-Intel 向けにもビルドし、`Float16` で止まるので、Release は上のコマンドでビルドしてください。
+(Run は Debug で、この Mac の分だけビルドします)。`ARCHS=arm64` を付けずにコマンドラインで Release を
+ビルドすると、パッケージを Intel 向けにもビルドして `Float16` で止まる(Xcode 27.0 で確認)ので、
+Release は上のコマンドでビルドしてください。
 
 ---
 
