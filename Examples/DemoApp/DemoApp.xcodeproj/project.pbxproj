@@ -80,6 +80,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		0F5FC9669CBF0AB94BEDB751 /* Local.xcconfig.template */ = {isa = PBXFileReference; path = Local.xcconfig.template; sourceTree = "<group>"; };
 		154FAE636D5E23DF886F3868 /* DemoApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DemoApp.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		16E551C28EBA72A6BB553D1E /* ModelStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStorage.swift; sourceTree = "<group>"; };
 		1950E1091BA4304F57D1FDC3 /* DemoApp-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "DemoApp-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -103,6 +104,7 @@
 		9FDDE78A1F2C3AA789F5EBBF /* ModelsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsViewModel.swift; sourceTree = "<group>"; };
 		A1D6FCE9C87771BEEC1DD6B5 /* LiveCameraSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraSelfTest.swift; sourceTree = "<group>"; };
 		AD58AC60D2EE1B6D37356EF4 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
+		B607565BEDB92E9A265B8871 /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 		BE2CAAD6825CF4974A530C9C /* SplitModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitModelsView.swift; sourceTree = "<group>"; };
 		C048EF96CB3EE87C810A2082 /* ModelsSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSelfTest.swift; sourceTree = "<group>"; };
 		CC51CB72599FFDE3FE0BE8B2 /* DemoAppMain.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoAppMain.swift; sourceTree = "<group>"; };
@@ -116,7 +118,6 @@
 		F562386F185691642C44B1E9 /* GUIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GUIDriver.swift; sourceTree = "<group>"; };
 		F72BE64A5CC3A41FB64E9D5A /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		F8AA6B6E197B222EAEF906E2 /* coreml-llm-samples */ = {isa = PBXFileReference; lastKnownFileType = folder; name = "coreml-llm-samples"; path = ../..; sourceTree = SOURCE_ROOT; };
-		"TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -157,7 +158,9 @@
 		440193E401A4E83EEA00B144 = {
 			isa = PBXGroup;
 			children = (
+				0F5FC9669CBF0AB94BEDB751 /* Local.xcconfig.template */,
 				F1DF8958A1BCF35E04E58873 /* DemoApp */,
+				8ECB8F2FC60D720B766C8387 /* DemoApp */,
 				9E76448A8A8689BB96FE5017 /* Packages */,
 				D4CC74EBFCAF08A1E61D64BF /* Products */,
 			);
@@ -187,6 +190,15 @@
 				BDCB1E5DB44A0564814718D2 /* ModelManager */,
 			);
 			path = Demos;
+			sourceTree = "<group>";
+		};
+		8ECB8F2FC60D720B766C8387 /* DemoApp */ = {
+			isa = PBXGroup;
+			children = (
+				B607565BEDB92E9A265B8871 /* Signing.xcconfig */,
+			);
+			name = DemoApp;
+			path = .;
 			sourceTree = "<group>";
 		};
 		9E76448A8A8689BB96FE5017 /* Packages */ = {
@@ -243,14 +255,6 @@
 				4257A85A05752939D54D8DD6 /* MetricsLog.swift */,
 				51DDF698F9A3A35A67384C75 /* PlatformColors.swift */,
 				5183B0CE22F31FA0116AC0F5 /* Demos */,
-			);
-			path = DemoApp;
-			sourceTree = "<group>";
-		};
-		"TEMP_61DAFAF3-FCE7-4110-A6D4-F0BD1ED24A0D" /* DemoApp */ = {
-			isa = PBXGroup;
-			children = (
-				"TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */,
 			);
 			path = DemoApp;
 			sourceTree = "<group>";
@@ -424,7 +428,7 @@
 /* Begin XCBuildConfiguration section */
 		041C67ECF87CA2F42B2A6BA2 /* Release */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */;
+			baseConfigurationReference = B607565BEDB92E9A265B8871 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
@@ -482,7 +486,7 @@
 		};
 		17707D7259CA9368A4B03200 /* Debug */ = {
 			isa = XCBuildConfiguration;
-			baseConfigurationReference = "TEMP_F5C7D589-009C-406B-BF32-24D890B3D371" /* Signing.xcconfig */;
+			baseConfigurationReference = B607565BEDB92E9A265B8871 /* Signing.xcconfig */;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				CLANG_ANALYZER_NONNULL = YES;
