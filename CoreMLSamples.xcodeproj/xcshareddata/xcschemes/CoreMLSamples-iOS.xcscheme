@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
-               BuildableName = "DemoApp.app"
-               BlueprintName = "DemoApp"
-               ReferencedContainer = "container:DemoApp.xcodeproj">
+               BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+               BuildableName = "CoreMLSamples-iOS.app"
+               BlueprintName = "CoreMLSamples-iOS"
+               ReferencedContainer = "container:CoreMLSamples.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples-iOS.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples-iOS.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CD9365CEE296087B81D5EDE0"
-            BuildableName = "DemoApp.app"
-            BlueprintName = "DemoApp"
-            ReferencedContainer = "container:DemoApp.xcodeproj">
+            BlueprintIdentifier = "52D5C1DE5641042466C766D8"
+            BuildableName = "CoreMLSamples-iOS.app"
+            BlueprintName = "CoreMLSamples-iOS"
+            ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>

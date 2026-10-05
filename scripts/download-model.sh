@@ -24,4 +24,4 @@ hf download "$REPO" \
 
 echo
 echo "Done. Run the chat CLI with:"
-echo "  swift run -c release corellm-chat --model \"$DEST\" --stats"
+echo "  swift run -c release --package-path CoreLLMKit corellm-chat --model \"$DEST\" --stats"

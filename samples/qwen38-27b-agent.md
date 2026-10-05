@@ -41,11 +41,11 @@ cd coreml-llm-samples
 hf download okayuji/Qwen3.8-27B-coreml-agent --local-dir ./models/qwen38-27b-agent
 
 # 3. Chat from the CLI
-swift run -c release corellm-chat --model ./models/qwen38-27b-agent --stats \
+swift run -c release --package-path CoreLLMKit corellm-chat --model ./models/qwen38-27b-agent --stats \
   --prompt "List three fruits, one per line."
 ```
 
-For the agent, open the demo app (`Examples/DemoApp`, build for `arm64`), download the bundle from
+For the agent, open the demo app (`CoreMLSamples.xcodeproj`, build for `arm64`), download the bundle from
 **Models** (or register the folder from step 2 as described under **Agent** in the
 [README](../README.md)), press **Load in Chat**, then switch to **Agent**. The loop, the tools, the
 settings and the logs are described in [docs/agent-demo.md](../docs/agent-demo.md).

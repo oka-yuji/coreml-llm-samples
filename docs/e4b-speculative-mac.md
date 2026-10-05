@@ -1,7 +1,7 @@
 # Gemma 4 E4B Speculative — Apple Silicon Mac GPU guide
 
 This is a hands-on guide for running the **Gemma 4 E4B speculative runtime** on an Apple Silicon Mac,
-with the `corellm-chat` CLI or the macOS `DemoApp`. It is a research demo of three things on the Mac
+with the `corellm-chat` CLI or the macOS demo app (`CoreMLSamples`). It is a research demo of three things on the Mac
 GPU:
 
 - a **4-chunk stateful** Core ML graph whose KV caches live in `MLState` on the GPU, so the host never
@@ -16,7 +16,7 @@ GPU:
 The graph is int4 chunks plus **int8 embedding / per-layer (PLE) sidecars** with fp32 per-row scales:
 6.5 GB on disk, about 4 GB resident.
 
-The runtime lives in the shared `Sources/CoreMLBackend` library (`CoreMLChainV2`), the same library the
+The runtime lives in the shared `CoreLLMKit/Sources/CoreMLBackend` library (`CoreMLChainV2`), the same library the
 CLI and the demo app link, so both run the identical engine.
 
 ---
@@ -49,8 +49,8 @@ repository.
 ## 2. Run it (CLI)
 
 ```bash
-swift build -c release
-BIN=.build/release/corellm-chat
+swift build -c release --package-path CoreLLMKit
+BIN=CoreLLMKit/.build/release/corellm-chat
 MODEL=./gemma-4-e4b-speculative
 
 "$BIN" --model "$MODEL" --stats --prompt "List three fruits, one per line."
@@ -119,13 +119,10 @@ chat-style use, leave speculation off.
 ## 6. Run it in the demo app (macOS)
 
 ```bash
-cd Examples/DemoApp
-cp Local.xcconfig.template Local.xcconfig   # once: set DEVELOPMENT_TEAM = your 10-char Team ID
-xcodegen generate
-open DemoApp.xcodeproj
+open CoreMLSamples.xcodeproj
 ```
 
-Select the **`DemoApp`** (macOS) scheme and Run. On the **Models** screen, *Gemma 4 E4B Speculative
+Select the **`CoreMLSamples`** (macOS) scheme and Run. On the **Models** screen, *Gemma 4 E4B Speculative
 (Mac GPU)* downloads the bundle from Hugging Face with progress and cancel, then **Load in Chat**
 switches to the conversation screen. The entry is macOS-only: at 6.5 GB it does not fit an iPhone's
 memory budget, and the graph needs the GPU.
@@ -147,7 +144,7 @@ weights: 658 of 658 tensors are bit-identical, and only the projection into the 
    2,048 context tokens.
 2. **Live Camera**: the camera demo is listed on iOS only, so on macOS the same loop runs headlessly
    over a folder of frames:
-   `DemoApp.app/Contents/MacOS/DemoApp --live-selftest --bundle <bundle> --images a.jpg,b.jpg,c.jpg --cycles 3`.
+   `CoreMLSamples.app/Contents/MacOS/CoreMLSamples --live-selftest --bundle <bundle> --images a.jpg,b.jpg,c.jpg --cycles 3`.
    Add `--mode speed|quality|auto` to choose the encoder sidecar and `--lang en|ja` for the caption
    language.
 3. **Choosing a bundle**: `--bundle` picks one headlessly. On iOS, where the demo is on screen, a
