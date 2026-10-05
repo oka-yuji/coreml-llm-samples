@@ -16,7 +16,7 @@
             <BuildableReference
                BuildableIdentifier = "primary"
                BlueprintIdentifier = "52D5C1DE5641042466C766D8"
-               BuildableName = "CoreMLSamples-iOS.app"
+               BuildableName = "CoreMLSamples.app"
                BlueprintName = "CoreMLSamples-iOS"
                ReferencedContainer = "container:CoreMLSamples.xcodeproj">
             </BuildableReference>
@@ -33,7 +33,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "52D5C1DE5641042466C766D8"
-            BuildableName = "CoreMLSamples-iOS.app"
+            BuildableName = "CoreMLSamples.app"
             BlueprintName = "CoreMLSamples-iOS"
             ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
@@ -56,7 +56,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "52D5C1DE5641042466C766D8"
-            BuildableName = "CoreMLSamples-iOS.app"
+            BuildableName = "CoreMLSamples.app"
             BlueprintName = "CoreMLSamples-iOS"
             ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>
@@ -75,7 +75,7 @@
          <BuildableReference
             BuildableIdentifier = "primary"
             BlueprintIdentifier = "52D5C1DE5641042466C766D8"
-            BuildableName = "CoreMLSamples-iOS.app"
+            BuildableName = "CoreMLSamples.app"
             BlueprintName = "CoreMLSamples-iOS"
             ReferencedContainer = "container:CoreMLSamples.xcodeproj">
          </BuildableReference>

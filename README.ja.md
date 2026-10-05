@@ -4,6 +4,12 @@
 クローンしてすぐ動く共有 Swift ランタイムを同梱し、ベンチマークはすべて測定条件と出典つきで示し、変換は
 参照実装に対して **bit 単位一致**でゲートします。この検証の徹底がハウススタイルです — 根拠は各モデルカードに。
 
+> **配置の変更(2026-10-06)。** デモアプリはリポジトリ直下の `CoreMLSamples.xcodeproj`(スキームは
+> `CoreMLSamples` と `CoreMLSamples-iOS`)になり、Swift パッケージは `CoreLLMKit/` へ移りました。直下から
+> 実行するコマンドには `--package-path CoreLLMKit` が付きます。本リポジトリの URL に `main` で依存する
+> パッケージ指定は解決できなくなりました。古い配置はタグ `qwen38-27b-agent-v1` とコミット
+> `dbdd86fab77f7e551b7b1e4c6e793e1915b2af5d` に残っています。アプリのバンドル ID とデータの置き場は変えていません。
+
 ## Maintainer
 
 **岡優志（おかゆうじ / okayuji）** — iOS / オンデバイスAI / Core MLエンジニア。

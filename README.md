@@ -5,6 +5,13 @@ runtime you can clone and run, every benchmark is quoted with its measurement co
 source, and every conversion is gated **bit-exact** against its reference implementation. That
 verification discipline is the house style — the receipts are in each model card.
 
+> **Layout change (2026-10-06).** The demo app is now `CoreMLSamples.xcodeproj` at the repository root
+> (schemes `CoreMLSamples` and `CoreMLSamples-iOS`), and the Swift package moved to `CoreLLMKit/`, so
+> commands run from the root take `--package-path CoreLLMKit`. A package dependency on this repository's
+> URL that follows `main` no longer resolves; the tag `qwen38-27b-agent-v1` and the commit
+> `dbdd86fab77f7e551b7b1e4c6e793e1915b2af5d` keep the old layout. The app's bundle ID and data folders
+> did not change.
+
 ## Maintainer
 
 **岡優志（おかゆうじ / okayuji）** — iOS / on-device AI / Core ML engineer.

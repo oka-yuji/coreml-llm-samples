@@ -58,6 +58,7 @@ targets:
   CoreMLSamples-iOS:
     type: application
     platform: iOS
+    productName: CoreMLSamples
     deploymentTarget: "26.0"
     sources:
       - path: CoreMLSamples

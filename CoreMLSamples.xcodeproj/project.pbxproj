@@ -82,7 +82,6 @@
 /* Begin PBXFileReference section */
 		0046A7FEE346BC778C0A5465 /* AgentPromptBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentPromptBuilder.swift; sourceTree = "<group>"; };
 		00BD11D55DC0D024CE6059FB /* Signing.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = Signing.xcconfig; sourceTree = "<group>"; };
-		055E075816824EBA33322294 /* CoreMLSamples-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "CoreMLSamples-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		0C10E4C83707E7673C1B78D5 /* ByteFormatting.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ByteFormatting.swift; sourceTree = "<group>"; };
 		0DFDF9461E49BA5734EBC25C /* LiveSelfTestView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveSelfTestView.swift; sourceTree = "<group>"; };
 		100733AA3A2EA5B56D7EBA48 /* StreamPresenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StreamPresenter.swift; sourceTree = "<group>"; };
@@ -114,6 +113,7 @@
 		CE97F2DFFE2EC0715FF841E4 /* ModelStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStorage.swift; sourceTree = "<group>"; };
 		D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
 		D70AEFE0E393C360888CB479 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		E6C66B82BCC4FB0010A83B05 /* CoreMLSamples.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EA7C826B184090447155133B /* CoreMLSamples.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F59028632F23123EC3DFA3EE /* AgentToolCallParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentToolCallParser.swift; sourceTree = "<group>"; };
 		F65D0A6EC636E2DD50933E62 /* LiveCameraSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraSelfTest.swift; sourceTree = "<group>"; };
@@ -203,8 +203,8 @@
 		75828DCAB56593BFDADB3D3A /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				055E075816824EBA33322294 /* CoreMLSamples-iOS.app */,
 				EA7C826B184090447155133B /* CoreMLSamples.app */,
+				E6C66B82BCC4FB0010A83B05 /* CoreMLSamples.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -280,7 +280,7 @@
 				CF9BF4CB4DF358441F2B2417 /* CoreMLBackend */,
 			);
 			productName = "CoreMLSamples-iOS";
-			productReference = 055E075816824EBA33322294 /* CoreMLSamples-iOS.app */;
+			productReference = E6C66B82BCC4FB0010A83B05 /* CoreMLSamples.app */;
 			productType = "com.apple.product-type.application";
 		};
 		A0C3B207586BC506F61EE036 /* CoreMLSamples */ = {
