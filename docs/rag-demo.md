@@ -79,7 +79,7 @@ switches this demo over too — it is the same key.
 **From the command line.**
 
 ```bash
-DemoApp --selftest --model <bundle> --max-tokens 128 \
+CoreMLSamples.app/Contents/MacOS/CoreMLSamples --selftest --model <bundle> --max-tokens 128 \
   --rag "質問1|質問2|質問3" [--rag-web off] [--rag-local off]
 ```
 
@@ -113,9 +113,9 @@ the answer:
 
 | | |
 |---|---|
-| `Sources/LLMCore/RAGContext.swift` | splitting, ranking, the token budget, the prompt, dates — no network, no files, no UI |
-| `Examples/DemoApp/DemoApp/Demos/Chat/ChatRAG.swift` | retrieval, the local folder, the two switches and the source footer |
-| `Examples/DemoApp/DemoApp/Demos/Chat/ChatViewModel.swift` | `consumeRAGTurn` — retrieve, then generate |
-| `Tests/CoreMLBackendTests/RAGContextTests.swift` | `swift test --filter RAG` |
+| `CoreLLMKit/Sources/LLMCore/RAGContext.swift` | splitting, ranking, the token budget, the prompt, dates — no network, no files, no UI |
+| `CoreMLSamples/Demos/Chat/ChatRAG.swift` | retrieval, the local folder, the two switches and the source footer |
+| `CoreMLSamples/Demos/Chat/ChatViewModel.swift` | `consumeRAGTurn` — retrieve, then generate |
+| `CoreLLMKit/Tests/CoreMLBackendTests/RAGContextTests.swift` | `swift test --package-path CoreLLMKit --filter RAG` |
 
 Search and page reading are the Agent demo's `AgentTools` (`docs/agent-demo.md` §2–3), reused as-is.

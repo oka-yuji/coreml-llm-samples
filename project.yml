@@ -31,13 +31,6 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: CoreMLSamples
-      - path: models/gliner2-5-multi-coreml/gliner2_multi_classification_fp16_L128_K8.mlpackage
-        buildPhase: resources
-        optional: true
-      - path: models/gliner2-5-multi-coreml/tokenizer
-        type: folder
-        buildPhase: resources
-        optional: true
     dependencies:
       - package: CoreLLMKit
         product: LLMCore
@@ -70,13 +63,6 @@ targets:
     deploymentTarget: "26.0"
     sources:
       - path: CoreMLSamples
-      - path: models/gliner2-5-multi-coreml/gliner2_multi_classification_fp16_L128_K8.mlpackage
-        buildPhase: resources
-        optional: true
-      - path: models/gliner2-5-multi-coreml/tokenizer
-        type: folder
-        buildPhase: resources
-        optional: true
     dependencies:
       - package: CoreLLMKit
         product: LLMCore

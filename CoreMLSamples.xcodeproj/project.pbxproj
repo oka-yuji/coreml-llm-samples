@@ -16,12 +16,10 @@
 		0F78047EEACC066C3E5EAFF3 /* gliner_parity.json in Resources */ = {isa = PBXBuildFile; fileRef = F8A0981B88068D36BF413418 /* gliner_parity.json */; };
 		121D8A1B66825F88C1F0F5EB /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6752FED97B5D2A305835BD /* SplitChatView.swift */; };
 		12479795A24B27CE6BB08C36 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD11B41A214A14CBF97A81A9 /* DemoAppMain.swift */; };
-		14D1A85155376103BD41720B /* tokenizer in Resources */ = {isa = PBXBuildFile; fileRef = B153482A695FED20935A49CB /* tokenizer */; };
 		17BE2BE5673D0C8BF03467F4 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */; };
 		18B3B8A143E77D78BFF128FB /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70AEFE0E393C360888CB479 /* CameraPreview.swift */; };
 		1943840FD23F2BA212C249B3 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2C90E9A3FF76FB13822F29 /* ChatRAG.swift */; };
 		1C6934AA120258E65027B77C /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100733AA3A2EA5B56D7EBA48 /* StreamPresenter.swift */; };
-		1D0EB3D486671E549E6D337A /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = E5662B984861217E67889EF7 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */; };
 		1F93808DB050D6C4533858DB /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE97F2DFFE2EC0715FF841E4 /* ModelStorage.swift */; };
 		20C439D5C8A75FBC3C49A2B6 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DE30E6C418095BF3E95832 /* SingleChatView.swift */; };
 		2211F54B5E20914A24147725 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA33503CC9FB29F5860A1D /* CameraCapture.swift */; };
@@ -70,7 +68,6 @@
 		B17C1718D7D3586A84B64817 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA33503CC9FB29F5860A1D /* CameraCapture.swift */; };
 		B24A571D6842F6771541DD1A /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678A71E1FC1AC78FFD471950 /* LLMModels.swift */; };
 		B3D8320B01A4F99B5D8AA451 /* AgentToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59028632F23123EC3DFA3EE /* AgentToolCallParser.swift */; };
-		B5EFF83528FB14AE8E101E7A /* tokenizer in Resources */ = {isa = PBXBuildFile; fileRef = B153482A695FED20935A49CB /* tokenizer */; };
 		B63973EDB3794466EE23A637 /* ModelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AEDC251F7A924881EAB02B7 /* ModelsViewModel.swift */; };
 		B6DC404EC48941D472CEDD9C /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A67996693D6EED8CF7B063B /* ChatViewModel.swift */; };
 		B76F449B50272C247602D222 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA280AC78F92F66FA8166524 /* HubDownloader.swift */; };
@@ -84,7 +81,6 @@
 		CC14C8B81A68BF0118BB2A68 /* LiveSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DFDF9461E49BA5734EBC25C /* LiveSelfTestView.swift */; };
 		CD37D6768B9BAFDBAF81C676 /* AgentPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0046A7FEE346BC778C0A5465 /* AgentPromptBuilder.swift */; };
 		D0DAD10286C07331D3BA9DFC /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CADC58BBB8B7CCAEA652F51 /* ChatAttachments.swift */; };
-		D1284CAAD7B1384ACAAFE735 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */ = {isa = PBXBuildFile; fileRef = E5662B984861217E67889EF7 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */; };
 		D5EFD7385C8EFE2D282BDB3F /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA280AC78F92F66FA8166524 /* HubDownloader.swift */; };
 		D5F997E998BE506FF8AA0B55 /* inspection-slip.png in Resources */ = {isa = PBXBuildFile; fileRef = 3561B5EA6DABA34A201E8E21 /* inspection-slip.png */; };
 		D6CD1C02AC2805EB8CFDE5BC /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8745CFE843CA57C4AEBD67B3 /* MapperViewModel.swift */; };
@@ -138,7 +134,6 @@
 		A63595B80EC58F06E7EFB5E0 /* GemmaMapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemmaMapperSelfTest.swift; sourceTree = "<group>"; };
 		A9253B4B22D5271D65EA9D13 /* MapperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperView.swift; sourceTree = "<group>"; };
 		AA1C06A96D2987BDF096F911 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
-		B153482A695FED20935A49CB /* tokenizer */ = {isa = PBXFileReference; lastKnownFileType = folder; name = tokenizer; path = "models/gliner2-5-multi-coreml/tokenizer"; sourceTree = SOURCE_ROOT; };
 		B15F898C339E93E734C972F9 /* AgentSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSelfTest.swift; sourceTree = "<group>"; };
 		B54C1353E1E64B93E582FC5D /* MapperHeadlessSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperHeadlessSelfTest.swift; sourceTree = "<group>"; };
 		B9E6B0436FC8A0C547CD0439 /* LiveCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraView.swift; sourceTree = "<group>"; };
@@ -150,7 +145,6 @@
 		D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
 		D70AEFE0E393C360888CB479 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
 		D8C33D1688D36158BCF0DF72 /* MapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSelfTest.swift; sourceTree = "<group>"; };
-		E5662B984861217E67889EF7 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */ = {isa = PBXFileReference; path = gliner2_multi_classification_fp16_L128_K8.mlpackage; sourceTree = "<group>"; };
 		E6C66B82BCC4FB0010A83B05 /* CoreMLSamples.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7F9DD49D767AB4274C4EC33 /* MapperDialogSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperDialogSelfTest.swift; sourceTree = "<group>"; };
 		EA7C826B184090447155133B /* CoreMLSamples.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -213,10 +207,8 @@
 		27EF299D42AEE5E747EBED27 = {
 			isa = PBXGroup;
 			children = (
-				B153482A695FED20935A49CB /* tokenizer */,
 				6959BC80AAAA6F8A9CDBAA15 /* Config */,
 				41932EEBB44303D50CAD489B /* CoreMLSamples */,
-				960A8651A778D2426D34BB2A /* gliner2-5-multi-coreml */,
 				AC0A429AF2A32EB9CB06F826 /* Packages */,
 				75828DCAB56593BFDADB3D3A /* Products */,
 			);
@@ -298,15 +290,6 @@
 				D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */,
 			);
 			path = Agent;
-			sourceTree = "<group>";
-		};
-		960A8651A778D2426D34BB2A /* gliner2-5-multi-coreml */ = {
-			isa = PBXGroup;
-			children = (
-				E5662B984861217E67889EF7 /* gliner2_multi_classification_fp16_L128_K8.mlpackage */,
-			);
-			name = "gliner2-5-multi-coreml";
-			path = "models/gliner2-5-multi-coreml";
 			sourceTree = "<group>";
 		};
 		AC0A429AF2A32EB9CB06F826 /* Packages */ = {
@@ -431,10 +414,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1D0EB3D486671E549E6D337A /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */,
 				2DE1FD348BF1391115D1DB75 /* gliner_parity.json in Resources */,
 				D5F997E998BE506FF8AA0B55 /* inspection-slip.png in Resources */,
-				B5EFF83528FB14AE8E101E7A /* tokenizer in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -442,10 +423,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				D1284CAAD7B1384ACAAFE735 /* gliner2_multi_classification_fp16_L128_K8.mlpackage in Resources */,
 				0F78047EEACC066C3E5EAFF3 /* gliner_parity.json in Resources */,
 				DE4F36D1F12CDDB25392A9C7 /* inspection-slip.png in Resources */,
-				14D1A85155376103BD41720B /* tokenizer in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

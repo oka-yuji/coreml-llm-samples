@@ -110,7 +110,7 @@ iPhone の最大差は `数値の項目 / 温度` で device 0.7173 vs python 0.
 再現:
 
 ```
-CORELLM_GLINER_DIR="$PWD/models/gliner2-5-multi-coreml" swift test --filter GLiNERParitySuite
+CORELLM_GLINER_DIR="$PWD/models/gliner2-5-multi-coreml" swift test --package-path CoreLLMKit --filter GLiNERParitySuite
 ```
 
 3 本とも通る(前処理 143/143、数値窓 30 文一致、スコア差 0.02 以内)。`CORELLM_GLINER_DIR` を
@@ -383,6 +383,8 @@ UI のスクリーンショットは **iOS シミュレータ**(iPhone 17 Pro, i
 
 ## 再現手順
 
+以下のコマンドとパスは2026-10-14の統合後の配置へ更新した。上記の数値・端末・過去の実行ログは元の測定記録を保持している。
+
 ```
 # 1. モデル(分類パッケージだけ)
 hf download FluidInference/gliner2-5-multi-coreml \
@@ -391,25 +393,25 @@ hf download FluidInference/gliner2-5-multi-coreml \
   --local-dir models/gliner2-5-multi-coreml
 
 # 2. Mac 側の一致テスト
-CORELLM_GLINER_DIR="$PWD/models/gliner2-5-multi-coreml" swift test --filter GLiNERParitySuite
+CORELLM_GLINER_DIR="$PWD/models/gliner2-5-multi-coreml" swift test --package-path CoreLLMKit --filter GLiNERParitySuite
 
 # 3. 実機の Release ビルドとインストール
-cd Examples/DemoApp && xcodegen generate
-xcodebuild -project DemoApp.xcodeproj -scheme DemoApp-iOS -configuration Release \
+xcodegen generate --spec project.mapper.yml
+xcodebuild -project CoreMLSamples.xcodeproj -scheme CoreMLSamples-iOS -configuration Release \
   -destination 'generic/platform=iOS' -derivedDataPath /tmp/dd build
-xcrun devicectl device install app --device <UDID> /tmp/dd/Build/Products/Release-iphoneos/DemoApp.app
+xcrun devicectl device install app --device <UDID> /tmp/dd/Build/Products/Release-iphoneos/CoreMLSamples.app
 
 # 4. 端末で自己テストと計測(ヘッドレス)
 xcrun devicectl device process launch --console --terminate-existing \
   --device <UDID> com.coreml-llm-samples.DemoApp --mapper-selftest
 ```
 
-`models/` は gitignore されているので、クローン直後は手順 1 が必要。`project.yml` は
-`.mlpackage` と `tokenizer/` を `optional: true` で参照しているため、モデルが無くても
-アプリ自体はビルドできる(Mapper 画面だけが読み込みに失敗する)。
+`models/` は gitignore されているので、クローン直後は手順 1 が必要。標準の `project.yml` はローカルモデルを参照せず、モデルなしでもアプリをビルドできる。
+モデルを取得した場合は `project.mapper.yml` を指定して生成し、`.mlpackage` と `tokenizer/` を両ターゲットへ組み込む。
+標準構成へ戻すには `xcodegen generate` を実行する。
 
 Python 側のフィクスチャ生成器は作業用スクラッチに置いた(`gen_fixtures.py`)。30 文と期待値の
-正本はそれで、出力が `Examples/DemoApp/DemoApp/Demos/Mapper/Fixtures/gliner_parity.json`。
+正本はそれで、出力が `CoreMLSamples/Demos/Mapper/Fixtures/gliner_parity.json`。
 
 ## 足した 20 文
 

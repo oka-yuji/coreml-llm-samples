@@ -12,8 +12,8 @@ Before a PR:
 swiftlint lint --config .swiftlint.yml --baseline .swiftlint-baseline.json --strict --no-cache
 python3 Tools/Format/check_format.py --base origin/main
 swift test --package-path CoreLLMKit
-xcodebuild -project CoreMLSamples.xcodeproj -scheme CoreMLSamples -configuration Release -destination 'platform=macOS,arch=arm64' CODE_SIGNING_ALLOWED=NO build
-xcodebuild -project CoreMLSamples.xcodeproj -scheme CoreMLSamples-iOS -configuration Release -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project CoreMLSamples.xcodeproj -scheme CoreMLSamples -configuration Release -destination 'platform=macOS,arch=arm64' ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
+xcodebuild -project CoreMLSamples.xcodeproj -scheme CoreMLSamples-iOS -configuration Release -destination 'generic/platform=iOS' ARCHS=arm64 CODE_SIGNING_ALLOWED=NO build
 ```
 
 ### Differences from the common conventions
@@ -30,4 +30,4 @@ Model execution must use the shared CoreLLM heavy-job lock. Build and CPU-only u
 
 ## Generated project
 
-`project.yml` is the source of the Xcode project. Run `xcodegen generate` after changing sources or local model resources. The optional Mapper assets are not committed. A clean checkout must build without them.
+`project.yml` is the source of the Xcode project. Run `xcodegen generate` after changing sources. Use `xcodegen generate --spec project.mapper.yml` only after placing the local Mapper resources. The optional Mapper assets are not committed. A clean checkout must build without them.
