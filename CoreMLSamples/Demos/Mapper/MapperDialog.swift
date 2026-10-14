@@ -715,6 +715,7 @@
             // Let speech playback give up the route before recording starts. The session
             // itself is left alone — re-setting the category here would drop the headset.
             try? await Task.sleep(for: .milliseconds(300))
+            guard !cancelled, !Task.isCancelled else { return "" }
             // Only now is the microphone about to open, so only now does the panel claim
             // to be listening.
             stage = .listening
