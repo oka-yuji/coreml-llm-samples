@@ -32,11 +32,17 @@ public actor CoreMLEngine: LLMEngine {
     private var loadedUnits: MLComputeUnits = .cpuOnly
     private var liveVisionEncoder: VisionEncoder?
 
+    /// Prefill widths to specialize in the background after a load, widest first. Resolved at load
+    /// from `CORELLM_PREFILL_PREWARM` or the manifest's `prefillPrewarm`; empty means off.
+    public private(set) var prefillPrewarmWidths: [Int] = []
+
+    public var prefillPrewarmEnabled: Bool { !prefillPrewarmWidths.isEmpty }
+
     public static let defaultLiveVisionComputeUnits: ComputeUnitPreference = {
         #if os(macOS)
-        return .cpuAndGPU
+            return .cpuAndGPU
         #else
-        return .all
+            return .all
         #endif
     }()
 
@@ -76,11 +82,13 @@ public actor CoreMLEngine: LLMEngine {
 
     private func loadChunkedVerifyIfNeeded(_ chunked: ChunkedSpeculativeChain) async throws {
         guard chunked.supportsMTP, !chunked.mtpLoaded,
-              let bundleURL = loadedBundleURL,
-              let pkg = chunked.verifyHeadPackageName else { return }
+            let bundleURL = loadedBundleURL,
+            let pkg = chunked.verifyHeadPackageName
+        else { return }
         let compiled = try await ChunkedSpeculativeChain.compileIfNeeded(bundleURL: bundleURL, name: pkg)
         let model = try ChunkedSpeculativeChain.loadFunction(
-            compiledURL: compiled, functionName: nil, computeUnits: chunked.verifyHeadCU)
+            compiledURL: compiled, functionName: nil, computeUnits: chunked.verifyHeadCU,
+            specializationStrategy: chunked.specializationStrategy)
         try chunked.installVerifyHead(model)
     }
 
@@ -95,7 +103,10 @@ public actor CoreMLEngine: LLMEngine {
             let r = try await ChunkedSpeculativeChain(
                 bundleURL: model.directoryURL, computeUnits: units,
                 sidecarStage: model.manifest.sidecarStage,
-                preloadVerifyAssets: options.preloadSpeculation)
+                preloadVerifyAssets: options.preloadSpeculation,
+                prefillMode: model.manifest.prefillMode,
+                specializationStrategy: model.manifest.specializationStrategy,
+                prefillEarlyExit: model.manifest.prefillEarlyExit)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL,
                 eosTokenIDs: Set(r.config.eosIDs).union(model.manifest.eos ?? []))
@@ -103,13 +114,15 @@ public actor CoreMLEngine: LLMEngine {
             speculative = r
         } else if model.manifest.format == "coreml-stateful-chain-v2" {
 
-            guard units == .cpuAndGPU || units == .all else {
+            guard units == .cpuAndGPU || units == .all || options.allowUnsafeComputeUnits else {
                 throw LLMEngineError.incompatibleBundle(
                     reason: "v2 stateful bundles require the GPU (computeUnits=\(options.computeUnits.rawValue)). "
                         + "CPU_ONLY / ANE crash with a native segfault when multiple MLState instances load together. "
                         + "Specify cpuAndGPU or all")
             }
-            let v2 = try await CoreMLChainV2(bundleURL: model.directoryURL, computeUnits: units)
+            let v2 = try await CoreMLChainV2(
+                bundleURL: model.directoryURL, computeUnits: units,
+                allowUnsafeComputeUnits: options.allowUnsafeComputeUnits)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL,
                 eosTokenIDs: Set(v2.config.eosIDs).union(model.manifest.eos ?? []))
@@ -127,12 +140,71 @@ public actor CoreMLEngine: LLMEngine {
         loadedUnits = units
         if let prefix = model.manifest.promptPrefix { promptPrefix = prefix }
         if let suffix = model.manifest.promptSuffix { promptSuffix = suffix }
-        assistantSuffix = model.manifest.assistantSuffix
+        assistantSuffix =
+            model.manifest.assistantSuffix
             ?? Self.deriveAssistantSuffix(prefix: promptPrefix, suffix: promptSuffix)
         defaultPromptSuffix = promptSuffix
         thinkingSuffix = model.manifest.promptSuffixThinking
         processedTokens = []
+        prefillPrewarmWidths = Self.prewarmWidths(
+            ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? model.manifest.prefillPrewarm,
+            available: (chain as? ChunkedSpeculativeChain)?.config.prefillNs.sorted(by: >) ?? [])
         pendingLoadMetrics = LoadMetrics(duration: clock.now - start)
+    }
+
+    /// `nil`/`false` is off, `true` is every width the bundle has (widest first), and anything else
+    /// is a comma-separated width list, filtered to the widths this bundle actually provides.
+    static func prewarmWidths(_ raw: String?, available: [Int]) -> [Int] {
+        guard let raw = raw?.lowercased(), !raw.isEmpty,
+            !["0", "false", "no", "off"].contains(raw)
+        else { return [] }
+        if ["1", "true", "yes", "on"].contains(raw) { return available }
+        let asked = Set(raw.split(separator: ",").compactMap { Int($0.trimmingCharacters(in: .whitespaces)) })
+        return available.filter { asked.contains($0) }
+    }
+
+    /// Per-model load times from the last chunked load, for the self-test log.
+    public var loadBreakdown: [String] {
+        (chain as? ChunkedSpeculativeChain)?.loadBreakdown ?? []
+    }
+
+    /// Every prefill function the chunked chain has loaded so far (`chunk#function xN`), for the
+    /// self-test log. Early exit should never list a KV-sharing chunk here.
+    public var prefillLoadSummary: String {
+        (chain as? ChunkedSpeculativeChain)?.prefillLoadSummary ?? "n/a"
+    }
+
+    /// What `CORELLM_SPECIALIZATION` / the manifest resolved to, for the log line.
+    public var specializationStrategyName: String {
+        ChunkedSpeculativeChain.specializationName((chain as? ChunkedSpeculativeChain)?.specializationStrategy)
+    }
+
+    public struct PrefillPrewarmStep: Sendable {
+        public let width: Int
+        public let chunk: Int
+        public let seconds: Double
+        public let availableMB: Double
+    }
+
+    /// Specializes the prefill functions in the background after the model loads, so the first
+    /// long prompt does not pay the one-off ANE cost. Widest first: `prefill512` is the one a long
+    /// prompt hits, `prefill32` the one every follow-up block hits. Returns false if the headroom
+    /// guard stopped it early.
+    @discardableResult
+    public func prewarmPrefill(
+        widths: [Int]? = nil, onStep: @Sendable (PrefillPrewarmStep) -> Void = { _ in }
+    ) throws -> (completed: Bool, steps: [PrefillPrewarmStep]) {
+        guard let chunked = chain as? ChunkedSpeculativeChain else { return (false, []) }
+        let widths = widths ?? prefillPrewarmWidths
+        var steps: [PrefillPrewarmStep] = []
+        let completed = try chunked.prewarmPrefill(widths: widths) { step in
+            let requestedPublic = PrefillPrewarmStep(
+                width: step.width, chunk: step.chunk,
+                seconds: step.seconds, availableMB: step.availableMB)
+            steps.append(requestedPublic)
+            onStep(requestedPublic)
+        }
+        return (completed, steps)
     }
 
     @discardableResult
@@ -140,6 +212,13 @@ public actor CoreMLEngine: LLMEngine {
         guard let thinkingSuffix, let defaultPromptSuffix else { return false }
         promptSuffix = on ? thinkingSuffix : defaultPromptSuffix
         return true
+    }
+
+    /// What this bundle's tokenizer makes of `text`, without the chat template. The RAG demo uses
+    /// it to fit retrieved passages into a token budget before it builds the prompt.
+    public func countTokens(_ text: String) throws -> Int {
+        guard let tokenizer else { throw LLMEngineError.notLoaded }
+        return try tokenizer.encode(text).count
     }
 
     public func unload() {
@@ -153,7 +232,8 @@ public actor CoreMLEngine: LLMEngine {
 
     public func kvSave(to url: URL, prompt: String, warmupDecodes: Int = 0) async throws -> KVCheckpointInfo {
         guard let chain = chain as? ChunkedSpeculativeChain else {
-            throw LLMEngineError.incompatibleBundle(reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
+            throw LLMEngineError.incompatibleBundle(
+                reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
         }
         let ids = try encodeConversation(history: [], prompt: prompt)
         let clock = ContinuousClock()
@@ -183,7 +263,8 @@ public actor CoreMLEngine: LLMEngine {
         from url: URL, verifyPrompt: String?, maxNew: Int, speculative useSpec: Bool = false
     ) async throws -> KVCheckpointInfo {
         guard let chain = chain as? ChunkedSpeculativeChain, let tokenizer else {
-            throw LLMEngineError.incompatibleBundle(reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
+            throw LLMEngineError.incompatibleBundle(
+                reason: "KV persistence requires a \(ChunkedSpeculativeChain.format) bundle")
         }
         chain.setBlockScheduledPrefill(true)
         defer { chain.setBlockScheduledPrefill(false) }
@@ -197,8 +278,10 @@ public actor CoreMLEngine: LLMEngine {
         let eos = Set(tokenizer.eosTokenIDs)
         let budget = max(0, chain.contextLength - manifest.position - 8)
         let effectiveMaxNew = maxNew > 0 ? min(maxNew, budget) : budget
-        let cont = useSpec
-            ? try chain.continueSpeculative(seed: seed, context: manifest.processedTokens, maxNew: effectiveMaxNew, eos: eos)
+        let cont =
+            useSpec
+            ? try chain.continueSpeculative(
+                seed: seed, context: manifest.processedTokens, maxNew: effectiveMaxNew, eos: eos)
             : try chain.continueGreedy(seed: seed, maxNew: effectiveMaxNew, eos: eos)
         let bytes = manifest.layers.reduce(0) { $0 + $1.kBytes + $1.vBytes }
         let pld = useSpec ? chain.pldStatsSnapshot() : nil
@@ -317,7 +400,8 @@ public actor CoreMLEngine: LLMEngine {
         _ = try requireMultimodalChain()
         let clock = ContinuousClock()
         let t0 = clock.now
-        let encoder = try liveVisionEncoder
+        let encoder =
+            try liveVisionEncoder
             ?? makeVisionEncoder(
                 at: liveVisionModelURL(), computeUnits: Self.mlComputeUnits(liveVisionUnits))
         try await encoder.loadIfNeeded()
@@ -581,7 +665,8 @@ public actor CoreMLEngine: LLMEngine {
         let cap = Self.tokenBudget(
             maxNew: maxNew, used: prep.flatIDs.count, contextLength: chunked.contextLength)
         let d0 = clock.now
-        let out = spec
+        let out =
+            spec
             ? try chunked.continueSpeculative(seed: seed, context: prep.flatIDs, maxNew: cap, eos: eos)
             : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
         let decodeSeconds = (clock.now - d0) / .seconds(1)
@@ -625,7 +710,8 @@ public actor CoreMLEngine: LLMEngine {
         var context = processedTokens + ids
         let cap = Self.tokenBudget(maxNew: maxNew, used: used, contextLength: chunked.contextLength)
         let d0 = clock.now
-        let out = spec
+        let out =
+            spec
             ? try chunked.continueSpeculative(seed: seed, context: context, maxNew: cap, eos: eos)
             : try chunked.continueGreedy(seed: seed, maxNew: cap, eos: eos)
         let decodeSeconds = (clock.now - d0) / .seconds(1)
@@ -786,8 +872,9 @@ public actor CoreMLEngine: LLMEngine {
                 reusedTokens = lcp
                 reusedCache = true
             } catch {
-                FileHandle.standardError.write(Data(
-                    "[v2] cache reuse unavailable (\(error)); re-prefilling the whole conversation\n".utf8))
+                FileHandle.standardError.write(
+                    Data(
+                        "[v2] cache reuse unavailable (\(error)); re-prefilling the whole conversation\n".utf8))
             }
         }
         if !reusedCache {
@@ -804,10 +891,11 @@ public actor CoreMLEngine: LLMEngine {
             let footprintAfterPrefill = Self.memoryFootprint()
 
             processedTokens = promptIDs
-            continuation.yield(.prefillCompleted(
-                PrefillMetrics(
-                    promptTokens: promptIDs.count, reusedTokens: reusedTokens, duration: clock.now - start)
-            ))
+            continuation.yield(
+                .prefillCompleted(
+                    PrefillMetrics(
+                        promptTokens: promptIDs.count, reusedTokens: reusedTokens, duration: clock.now - start)
+                ))
 
             let decodeStart = clock.now
             var firstTokenAt: ContinuousClock.Instant?
@@ -820,17 +908,20 @@ public actor CoreMLEngine: LLMEngine {
             let statsBefore = (chain as? CoreMLChainV2)?.mtpHeadStatsSnapshot()
 
             func yieldDelta(_ fullText: String, token: Int, at now: ContinuousClock.Instant) {
-                let delta = fullText.utf8.starts(with: emittedText.utf8)
+                let delta =
+                    fullText.utf8.starts(with: emittedText.utf8)
                     ? String(decoding: fullText.utf8.dropFirst(emittedText.utf8.count), as: UTF8.self)
                     : fullText
                 emittedText = fullText
                 guard !delta.isEmpty else { return }
                 let elapsed = (now - decodeStart) / .seconds(1)
-                continuation.yield(.token(TokenChunk(
-                    text: delta,
-                    tokenID: token,
-                    tokensPerSecond: Double(generated.count) / max(elapsed, 0.001)
-                )))
+                continuation.yield(
+                    .token(
+                        TokenChunk(
+                            text: delta,
+                            tokenID: token,
+                            tokensPerSecond: Double(generated.count) / max(elapsed, 0.001)
+                        )))
             }
 
             func emit(_ token: Int) throws {
@@ -847,11 +938,15 @@ public actor CoreMLEngine: LLMEngine {
 
             decodeLoop: while generated.count < cap {
                 try Task.checkCancellation()
-                if tokenizer.eosTokenIDs.contains(nextToken) { sawEOS = true; break }
+                if tokenizer.eosTokenIDs.contains(nextToken) {
+                    sawEOS = true
+                    break
+                }
 
                 if useMTP, let spec = speculative,
-                   SpeculationPolicy.allowsRound(
-                       remaining: cap - generated.count, maxAccept: spec.maxAcceptedPerRound) {
+                    SpeculationPolicy.allowsRound(
+                        remaining: cap - generated.count, maxAccept: spec.maxAcceptedPerRound)
+                {
 
                     let round = try spec.mtpRound(prediction: nextToken, context: processedTokens)
                     acceptedTotal += round.accepted
@@ -860,7 +955,10 @@ public actor CoreMLEngine: LLMEngine {
                     processedTokens.append(contentsOf: round.emitted)
                     for token in round.emitted {
 
-                        if tokenizer.eosTokenIDs.contains(token) { sawEOS = true; break decodeLoop }
+                        if tokenizer.eosTokenIDs.contains(token) {
+                            sawEOS = true
+                            break decodeLoop
+                        }
                         try emit(token)
                         if generated.count >= cap { break decodeLoop }
                     }
@@ -882,8 +980,10 @@ public actor CoreMLEngine: LLMEngine {
             if processedTokens.count == promptIDs.count + generated.count {
                 processedText = promptText + emittedText
             } else if processedTokens.count == promptIDs.count + generated.count + 1,
-                      let stop = processedTokens.last, tokenizer.eosTokenIDs.contains(stop) {
-                processedText = promptText + emittedText
+                let stop = processedTokens.last, tokenizer.eosTokenIDs.contains(stop)
+            {
+                processedText =
+                    promptText + emittedText
                     + (try tokenizer.decode([stop], skipSpecialTokens: false))
             }
 
@@ -905,38 +1005,42 @@ public actor CoreMLEngine: LLMEngine {
                 let rollbacks = st.rollbacks - (statsBefore?.rollbacks ?? 0)
                 if rounds > 0 {
                     let rates = st.positionRates.map { $0.map { String(format: "%.2f", $0) } ?? "-" }
-                    FileHandle.standardError.write(Data((String(
-                        format: "[v2] hybrid MTP: rounds=%d partial=%d (%.2f) mean_accepted=%.2f "
-                            + "pos_accept=[%@] writebacks=%d (%.2f ms/call, %.0f ms total) reuse=%@\n",
-                        rounds, rollbacks, Double(rollbacks) / Double(rounds),
-                        Double(acceptedTotal) / Double(rounds), rates.joined(separator: ", "),
-                        st.writebacks, st.writebackMillisPerCall ?? 0, st.writebackSeconds * 1000,
-                        reuseMode)).utf8))
+                    FileHandle.standardError.write(
+                        Data(
+                            (String(
+                                format: "[v2] hybrid MTP: rounds=%d partial=%d (%.2f) mean_accepted=%.2f "
+                                    + "pos_accept=[%@] writebacks=%d (%.2f ms/call, %.0f ms total) reuse=%@\n",
+                                rounds, rollbacks, Double(rollbacks) / Double(rounds),
+                                Double(acceptedTotal) / Double(rounds), rates.joined(separator: ", "),
+                                st.writebacks, st.writebackMillisPerCall ?? 0, st.writebackSeconds * 1000,
+                                reuseMode)).utf8))
                 }
             }
-            continuation.yield(.finished(GenerationMetrics(
-                promptTokens: promptIDs.count,
-                generatedTokens: generated.count,
-                timeToFirstToken: (firstTokenAt ?? decodeStart) - start,
-                decodeTokensPerSecond: Double(generated.count) / max(decodeSeconds, 0.001),
-                peakMemoryBytes: peak,
-                draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil,
-                reusedTokens: reusedTokens,
-                finishReason: finishReason,
-                prefillSeconds: prefillSeconds,
-                perTokenMillis: perTokenMillis,
-                footprintAfterPrefillBytes: footprintAfterPrefill,
-                footprintAtEndBytes: footprintAtEnd,
-                availableMemoryBytes: Self.availableMemory(),
-                thermalStateStart: thermalStart,
-                thermalStateEnd: Self.thermalName(),
-                specEnabled: useMTP,
-                specRounds: pld?.pldRounds,
-                specDrafted: draftedTotal > 0 ? draftedTotal : nil,
-                specAccepted: draftedTotal > 0 ? acceptedTotal : nil,
-                specFallbackRounds: pld?.fallbackRounds,
-                feedWidths: widths
-            )))
+            continuation.yield(
+                .finished(
+                    GenerationMetrics(
+                        promptTokens: promptIDs.count,
+                        generatedTokens: generated.count,
+                        timeToFirstToken: (firstTokenAt ?? decodeStart) - start,
+                        decodeTokensPerSecond: Double(generated.count) / max(decodeSeconds, 0.001),
+                        peakMemoryBytes: peak,
+                        draftAcceptanceRate: draftedTotal > 0 ? Double(acceptedTotal) / Double(draftedTotal) : nil,
+                        reusedTokens: reusedTokens,
+                        finishReason: finishReason,
+                        prefillSeconds: prefillSeconds,
+                        perTokenMillis: perTokenMillis,
+                        footprintAfterPrefillBytes: footprintAfterPrefill,
+                        footprintAtEndBytes: footprintAtEnd,
+                        availableMemoryBytes: Self.availableMemory(),
+                        thermalStateStart: thermalStart,
+                        thermalStateEnd: Self.thermalName(),
+                        specEnabled: useMTP,
+                        specRounds: pld?.pldRounds,
+                        specDrafted: draftedTotal > 0 ? draftedTotal : nil,
+                        specAccepted: draftedTotal > 0 ? acceptedTotal : nil,
+                        specFallbackRounds: pld?.fallbackRounds,
+                        feedWidths: widths
+                    )))
         } catch {
             try? chain.reset()
             processedTokens = []
@@ -974,8 +1078,9 @@ public actor CoreMLEngine: LLMEngine {
         _ promptText: String, reuseCache: Bool, position: Int
     ) throws -> [Int]? {
         guard reuseCache, let tokenizer, !processedText.isEmpty,
-              position == processedTokens.count,
-              promptText.utf8.starts(with: processedText.utf8) else { return nil }
+            position == processedTokens.count,
+            promptText.utf8.starts(with: processedText.utf8)
+        else { return nil }
         let suffix = try tokenizer.encode(
             String(decoding: promptText.utf8.dropFirst(processedText.utf8.count), as: UTF8.self))
         guard !suffix.isEmpty else { return nil }
@@ -1011,15 +1116,18 @@ public actor CoreMLEngine: LLMEngine {
         cfg.computeUnits = loadedUnits
 
         if let v1 = speculative as? CoreMLChain, !v1.mtpLoaded, let mtp = v1.config.mtp {
-            let drafter = try await CoreMLChain.loadCompiled(bundleURL: bundleURL, name: mtp.drafter, configuration: cfg)
+            let drafter = try await CoreMLChain.loadCompiled(
+                bundleURL: bundleURL, name: mtp.drafter, configuration: cfg)
             var verify: [MLModel] = []
             for name in mtp.verifyChunks {
                 verify.append(try await CoreMLChain.loadCompiled(bundleURL: bundleURL, name: name, configuration: cfg))
             }
-            let verifyHead = try await CoreMLChain.loadCompiled(bundleURL: bundleURL, name: mtp.verifyLmhead, configuration: cfg)
+            let verifyHead = try await CoreMLChain.loadCompiled(
+                bundleURL: bundleURL, name: mtp.verifyLmhead, configuration: cfg)
             try v1.installMTP(drafter: drafter, verifyChunks: verify, verifyHead: verifyHead)
         } else if let v2 = speculative as? CoreMLChainV2, !v2.mtpLoaded, !v2.config.isHybrid,
-                  let drafterURL = v2.drafterURL {
+            let drafterURL = v2.drafterURL
+        {
 
             let drafterCfg = MLModelConfiguration()
             drafterCfg.computeUnits = Self.resolveDrafterComputeUnits(
@@ -1072,9 +1180,9 @@ public actor CoreMLEngine: LLMEngine {
 
     private static func availableMemory() -> Int? {
         #if os(iOS)
-        return Int(os_proc_available_memory())
+            return Int(os_proc_available_memory())
         #else
-        return nil
+            return nil
         #endif
     }
 

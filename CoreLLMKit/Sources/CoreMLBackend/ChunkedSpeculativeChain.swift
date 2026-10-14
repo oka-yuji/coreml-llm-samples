@@ -2,6 +2,7 @@ import CoreML
 import CryptoKit
 import Foundation
 import LLMCore
+import os
 
 final class ChunkedSpeculativeChain {
     static let format = "coreml-corellm-r1"
@@ -22,13 +23,17 @@ final class ChunkedSpeculativeChain {
         let fallbackRounds: Int
         let draftedTokens: Int
         let acceptedTokens: Int
-        var hitRate: Double? { let t = pldRounds + fallbackRounds; return t > 0 ? Double(pldRounds) / Double(t) : nil }
+        var hitRate: Double? {
+            let t = pldRounds + fallbackRounds
+            return t > 0 ? Double(pldRounds) / Double(t) : nil
+        }
         var draftAcceptRate: Double? { draftedTokens > 0 ? Double(acceptedTokens) / Double(draftedTokens) : nil }
     }
 
     private let bundleURL: URL
     private let computeUnits: MLComputeUnits
     let verifyHeadCU: MLComputeUnits
+    let specializationStrategy: MLOptimizationHints.SpecializationStrategy?
     private let numLayers: Int
     private let H: Int
     private let PLE: Int
@@ -39,6 +44,34 @@ final class ChunkedSpeculativeChain {
     private let storeS: Int
     private let storeF: Int
     private let sidecarStage: String
+
+    /// How the wide prefill functions are kept in memory.
+    /// `.resident` caches all four chunks' prefill function (the shipping default).
+    /// `.sequential` loads one chunk, runs the whole prompt through it, and releases it before the
+    /// next chunk (`feedChunkMajor`), so at most one prefill chunk is resident at a time. Besides the
+    /// load order, a remainder after full blocks differs: one padded block instead of a `decode` step
+    /// per token, which is not bit-identical, so a reply can differ from `.resident`'s.
+    enum PrefillMode: String, Sendable {
+        case resident
+        case sequential
+    }
+
+    let prefillMode: PrefillMode
+
+    /// Early exit: a prompt's prefill runs only through the chunks that own KV (layers below
+    /// `first_shared`). The layers after them read layers 13/14's KV and write none of their own,
+    /// so only the prompt's last token needs them, and it gets them as one `decode` step
+    /// (`runTailDecode`). Their prefill functions are never loaded. Verify widths keep every chunk.
+    let prefillEarlyExit: Bool
+
+    /// Leading chunks whose first layer owns KV (`chunk_bounds` A < `first_shared`).
+    private let ownKVChunks: Int
+
+    /// Per-model load times from `init`, for the self-test log.
+    private(set) var loadBreakdown: [String] = []
+
+    /// Prefill function loads since `init`, keyed `chunk#function`.
+    private var prefillLoads: [String: Int] = [:]
 
     private let decodeModels: [MLModel]
     private let head: MLModel
@@ -73,10 +106,19 @@ final class ChunkedSpeculativeChain {
         let maskOffS, maskOffF: MLMultiArray
     }
 
-    init(bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
-         verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true) async throws {
+    init(
+        bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
+        verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true,
+        prefillMode: String? = nil, specializationStrategy: String? = nil,
+        prefillEarlyExit: Bool? = nil
+    ) async throws {
         let config = try ChunkedChainConfig.load(from: bundleURL.appending(path: "convert_config.json"))
         self.config = config
+        self.prefillMode = Self.resolvePrefillMode(manifest: prefillMode)
+        self.prefillEarlyExit = Self.resolvePrefillEarlyExit(manifest: prefillEarlyExit)
+        ownKVChunks = config.chunkBounds.filter { $0[0] < config.firstShared }.count
+        let resolvedSpecialization = Self.resolveSpecialization(manifest: specializationStrategy)
+        self.specializationStrategy = resolvedSpecialization
         self.bundleURL = bundleURL
         self.computeUnits = computeUnits
         numLayers = config.numLayers
@@ -94,27 +136,47 @@ final class ChunkedSpeculativeChain {
         let stage = sidecarStage ?? config.defaultSidecarStage
         self.sidecarStage = stage
 
-        var models: [MLModel] = []
         var compiledURLs: [URL] = []
         for name in config.chunkPackages {
-            let compiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: name)
-            compiledURLs.append(compiled)
-            models.append(try Self.loadFunction(
-                compiledURL: compiled, functionName: config.decodeFunction, computeUnits: computeUnits))
+            compiledURLs.append(try await Self.compileIfNeeded(bundleURL: bundleURL, name: name))
         }
-        decodeModels = models
+        let loadClock = ContinuousClock()
+        let decodeStart = loadClock.now
+        let decode = try Self.loadFunctions(
+            compiledURLs: compiledURLs, functionName: config.decodeFunction,
+            computeUnits: computeUnits, specializationStrategy: resolvedSpecialization)
+        let decodeWall = (loadClock.now - decodeStart) / .seconds(1)
+        decodeModels = decode.models
         chunkCompiledURLs = compiledURLs
         let headCompiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: config.lmheadPackage)
-        head = try Self.loadFunction(compiledURL: headCompiled, functionName: nil, computeUnits: computeUnits)
+        let headStart = loadClock.now
+        head = try Self.loadFunction(
+            compiledURL: headCompiled, functionName: nil, computeUnits: computeUnits,
+            specializationStrategy: resolvedSpecialization)
+        let headSeconds = (loadClock.now - headStart) / .seconds(1)
+        loadBreakdown = [
+            "[load] specialization=\(Self.specializationName(resolvedSpecialization))",
+            "[load] decode chunks "
+                + decode.seconds.enumerated()
+                .map { String(format: "c%d=%.2fs", $0.offset, $0.element) }.joined(separator: " ")
+                + String(format: " wall=%.2fs", decodeWall),
+            String(format: "[load] lmhead=%.2fs", headSeconds),
+            "[load] prefillMode=\(self.prefillMode.rawValue) earlyExit=\(self.prefillEarlyExit) "
+                + "promptPrefillChunks=\(self.prefillEarlyExit ? ownKVChunks : compiledURLs.count)/\(compiledURLs.count)",
+        ]
 
         let headCU = verifyHeadComputeUnits ?? Self.resolveVerifyHeadComputeUnits(engine: computeUnits)
         verifyHeadCU = headCU
-        bundleSupportsVerify = config.batchedHeadPackages[Self.verifyWidth] != nil
+        bundleSupportsVerify =
+            config.batchedHeadPackages[Self.verifyWidth] != nil
             && config.verifyFunctions[Self.verifyWidth] != nil
         if preloadVerifyAssets, bundleSupportsVerify,
-           let pkg = config.batchedHeadPackages[Self.verifyWidth] {
+            let pkg = config.batchedHeadPackages[Self.verifyWidth]
+        {
             let compiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: pkg)
-            batchedVerifyHead = try Self.loadFunction(compiledURL: compiled, functionName: nil, computeUnits: headCU)
+            batchedVerifyHead = try Self.loadFunction(
+                compiledURL: compiled, functionName: nil, computeUnits: headCU,
+                specializationStrategy: resolvedSpecialization)
         } else {
             batchedVerifyHead = nil
         }
@@ -132,8 +194,10 @@ final class ChunkedSpeculativeChain {
                 scale: bundleURL.appending(path: sc.ple.scaleFile ?? "ple_scale_f32.bin"),
                 rows: sc.ple.rows, cols: sc.ple.cols, runtimeScaleSqrt: sc.ple.runtimeScaleSqrt ?? Double(PLE))
         } else {
-            embedSidecar = try QuantizedSidecar(fp16: bundleURL.appending(path: sc.embed.file), rows: sc.embed.rows, cols: sc.embed.cols)
-            pleSidecar = try QuantizedSidecar(fp16: bundleURL.appending(path: sc.ple.file), rows: sc.ple.rows, cols: sc.ple.cols)
+            embedSidecar = try QuantizedSidecar(
+                fp16: bundleURL.appending(path: sc.embed.file), rows: sc.embed.rows, cols: sc.embed.cols)
+            pleSidecar = try QuantizedSidecar(
+                fp16: bundleURL.appending(path: sc.ple.file), rows: sc.ple.rows, cols: sc.ple.cols)
         }
 
         func alloc(_ dims: [Int]) throws -> MLMultiArray {
@@ -146,9 +210,12 @@ final class ChunkedSpeculativeChain {
         tokidBuffer = try alloc([numLayers, PLE])
         rowBuffer = try alloc([H])
         dOnehot = try alloc([CTX])
-        dCosS = try alloc([config.HD]); dSinS = try alloc([config.HD])
-        dCosF = try alloc([config.GHD]); dSinF = try alloc([config.GHD])
-        dMaskS = try alloc([CTX]); dMaskF = try alloc([CTX])
+        dCosS = try alloc([config.HD])
+        dSinS = try alloc([config.HD])
+        dCosF = try alloc([config.GHD])
+        dSinF = try alloc([config.GHD])
+        dMaskS = try alloc([CTX])
+        dMaskF = try alloc([CTX])
 
         try reset()
 
@@ -203,28 +270,153 @@ final class ChunkedSpeculativeChain {
         }
     }
 
-    static func loadFunction(compiledURL: URL, functionName: String?, computeUnits: MLComputeUnits) throws -> MLModel {
+    /// `CORELLM_PREFILL_MODE` wins over the manifest's `prefillMode`; anything unrecognised is `.resident`.
+    static func resolvePrefillMode(manifest: String?) -> PrefillMode {
+        let raw = ProcessInfo.processInfo.environment["CORELLM_PREFILL_MODE"] ?? manifest
+        return raw.flatMap { PrefillMode(rawValue: $0.lowercased()) } ?? .resident
+    }
+
+    /// `CORELLM_PREFILL_EARLY_EXIT` (1/true/yes/on, 0/false/no/off) wins over the manifest's
+    /// `prefillEarlyExit`; unset or unrecognised falls back to the manifest, then off.
+    static func resolvePrefillEarlyExit(manifest: Bool?) -> Bool {
+        switch ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"]?.lowercased() {
+        case "1", "true", "yes", "on": return true
+        case "0", "false", "no", "off": return false
+        default: return manifest ?? false
+        }
+    }
+
+    /// `CORELLM_SPECIALIZATION` wins over the manifest's `specializationStrategy`;
+    /// anything unrecognised leaves the framework default alone.
+    static func resolveSpecialization(manifest: String?) -> MLOptimizationHints.SpecializationStrategy? {
+        let raw = ProcessInfo.processInfo.environment["CORELLM_SPECIALIZATION"] ?? manifest
+        switch raw?.lowercased() {
+        case "default": return .default
+        case "fastprediction", "fast": return .fastPrediction
+        default: return nil
+        }
+    }
+
+    static func specializationName(_ strategy: MLOptimizationHints.SpecializationStrategy?) -> String {
+        switch strategy {
+        case .default: "default"
+        case .fastPrediction: "fastPrediction"
+        case nil: "(framework default)"
+        @unknown default: "unknown"
+        }
+    }
+
+    static func loadFunction(
+        compiledURL: URL, functionName: String?, computeUnits: MLComputeUnits,
+        specializationStrategy: MLOptimizationHints.SpecializationStrategy?
+    ) throws -> MLModel {
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits
         if let functionName { cfg.functionName = functionName }
+        if let strategy = specializationStrategy { cfg.optimizationHints.specializationStrategy = strategy }
         return try MLModel(contentsOf: compiledURL, configuration: cfg)
+    }
+
+    /// Loads one function out of several compiled chunks and reports how long each one took.
+    ///
+    /// Sequential on purpose. Loading two chunks at once was measured on an iPhone 15 (2026-09-24):
+    /// the loads really do overlap (74.2 s of per-chunk time inside a 50.0 s wall) but the wall time
+    /// matched the serial 50.6 s, because the ANE specialization behind them is serialized anyway.
+    /// All it buys is two chunks' weights in memory at the same time.
+    static func loadFunctions(
+        compiledURLs: [URL], functionName: String?, computeUnits: MLComputeUnits,
+        specializationStrategy: MLOptimizationHints.SpecializationStrategy?
+    ) throws -> (models: [MLModel], seconds: [Double]) {
+        let clock = ContinuousClock()
+        var models: [MLModel] = []
+        var seconds: [Double] = []
+        for url in compiledURLs {
+            let t0 = clock.now
+            models.append(
+                try loadFunction(
+                    compiledURL: url, functionName: functionName, computeUnits: computeUnits,
+                    specializationStrategy: specializationStrategy))
+            seconds.append((clock.now - t0) / .seconds(1))
+        }
+        return (models, seconds)
+    }
+
+    private func prefillFunctionName(_ N: Int) throws -> String {
+        guard let fn = config.allPrefillFunctions[N] else {
+            throw LLMEngineError.incompatibleBundle(reason: "chunked config: prefill N=\(N) has no function")
+        }
+        return fn
+    }
+
+    /// Chunks a prefill of width `N` runs through: all of them, except prompt widths under early
+    /// exit, which stop after the chunks that own KV (so `runPrefillPlain` / `runPrefillOffset`
+    /// then return the last KV-owning chunk's hidden, not the model's).
+    private func prefillChunks(N: Int) -> Int {
+        prefillEarlyExit && config.verifyFunctions[N] == nil ? ownKVChunks : chunkCompiledURLs.count
+    }
+
+    /// Loads chunk `ci`'s prefill function of width `N`, and counts it for `prefillLoadSummary`.
+    private func loadPrefillFunction(N: Int, chunk ci: Int) throws -> MLModel {
+        let fn = try prefillFunctionName(N)
+        let model = try Self.loadFunction(
+            compiledURL: chunkCompiledURLs[ci], functionName: fn, computeUnits: computeUnits,
+            specializationStrategy: specializationStrategy)
+        prefillLoads["\(chunkCompiledURLs[ci].deletingPathExtension().lastPathComponent)#\(fn)", default: 0] += 1
+        return model
+    }
+
+    /// Every prefill function loaded since `init`, as `chunk#function xN`, for the self-test log.
+    var prefillLoadSummary: String {
+        prefillLoads.isEmpty
+            ? "none"
+            : prefillLoads.sorted { $0.key < $1.key }.map { "\($0.key) x\($0.value)" }.joined(separator: ", ")
     }
 
     private func prefillChain(N: Int) throws -> [MLModel] {
         if let m = prefillModels[N] { return m }
-        guard let fn = config.allPrefillFunctions[N] else {
-            throw LLMEngineError.incompatibleBundle(reason: "chunked config: prefill N=\(N) has no function")
-        }
-        let models = try chunkCompiledURLs.map {
-            try Self.loadFunction(compiledURL: $0, functionName: fn, computeUnits: computeUnits)
-        }
+        let models = try (0..<prefillChunks(N: N)).map { try loadPrefillFunction(N: N, chunk: $0) }
         prefillModels[N] = models
         return models
     }
 
+    /// Runs one chunk of a prefill pass.
+    ///
+    /// In `.sequential` the chunk's prefill function is loaded, used and released inside this call,
+    /// so the ANE only ever holds one prefill chunk. The outputs are copied before the model goes
+    /// away: a prediction's arrays are owned by the model that produced them, and the caller keeps
+    /// `hidden` (and, for the first two chunks, the KV) alive past this point.
+    private func prefillChunk(N: Int, chunk ci: Int, features: [String: Any]) throws -> MLFeatureProvider {
+        let input = try MLDictionaryFeatureProvider(dictionary: features)
+        if prefillMode == .resident {
+            return try prefillChain(N: N)[ci].prediction(from: input)
+        }
+        return try autoreleasepool {
+            let model = try loadPrefillFunction(N: N, chunk: ci)
+            return try Self.detachedCopy(of: model.prediction(from: input))
+        }
+    }
+
+    private static func detachedCopy(of provider: MLFeatureProvider) throws -> MLFeatureProvider {
+        var copies: [String: MLFeatureValue] = [:]
+        for name in provider.featureNames {
+            guard let array = provider.featureValue(for: name)?.multiArrayValue,
+                array.dataType == .float16
+            else { continue }
+            let owned = try MLMultiArray(shape: array.shape, dataType: .float16)
+            array.withF16 { src in
+                owned.withF16 { dst in dst.baseAddress!.update(from: src.baseAddress!, count: src.count) }
+            }
+            copies[name] = MLFeatureValue(multiArray: owned)
+        }
+        return try MLDictionaryFeatureProvider(dictionary: copies)
+    }
+
     func reset() throws {
         position = 0
-        pldRounds = 0; pldFallbackRounds = 0; pldDraftedTokens = 0; pldAcceptedTokens = 0
+        pldRounds = 0
+        pldFallbackRounds = 0
+        pldDraftedTokens = 0
+        pldAcceptedTokens = 0
         kbuf = try (0..<firstShared).map { try zeroKV(layer: $0) }
         vbuf = try (0..<firstShared).map { try zeroKV(layer: $0) }
     }
@@ -245,11 +437,32 @@ final class ChunkedSpeculativeChain {
         return try lmhead(hiddenBuffer)
     }
 
-    private func runDecodeChunks(tokenID: Int, softRow: SoftRowRef? = nil) throws {
+    /// `chunks` stops after that many leading chunks (early exit's prompt tokens); default is all.
+    private func runDecodeChunks(tokenID: Int, softRow: SoftRowRef? = nil, chunks: Int = .max) throws {
         guard position < CTX else {
             throw LLMEngineError.generationFailed(reason: "context length \(CTX) exceeded")
         }
         fillDecodeHost(pos: position)
+        fillDecodeToken(tokenID: tokenID, softRow: softRow)
+        copyFlat(from: embedsBuffer, to: hiddenBuffer, count: H)
+        for ci in 0..<min(chunks, config.chunkBounds.count) { try runDecodeChunk(ci) }
+        position += 1
+    }
+
+    /// Early exit's last step: the KV-sharing chunks' `decode` function, once, for the prompt's
+    /// last token at position `p`. `hidden` is that token's row out of the last KV-owning chunk;
+    /// the chunks read the STORE layers' buffers and write nothing back, so `position` stays where
+    /// the prefill left it (`p + 1`). Returns the first generated token.
+    private func runTailDecode(hidden: MLMultiArray, tokenID: Int, softRow: SoftRowRef?, position p: Int) throws -> Int
+    {
+        fillDecodeHost(pos: p)
+        fillDecodeToken(tokenID: tokenID, softRow: softRow)
+        copyFlat(from: hidden, to: hiddenBuffer, count: H)
+        for ci in ownKVChunks..<config.chunkBounds.count { try runDecodeChunk(ci) }
+        return try lmhead(hiddenBuffer)
+    }
+
+    private func fillDecodeToken(tokenID: Int, softRow: SoftRowRef?) {
         if let ov = softRow {
             embedsBuffer.withF16 { ov.tokens.readRow(ov.row, into: $0.baseAddress!) }
             tokidBuffer.withF16 { pleSidecar.read(row: 0, into: $0.baseAddress!) }
@@ -257,37 +470,43 @@ final class ChunkedSpeculativeChain {
             embedsBuffer.withF16 { embedSidecar.read(row: tokenID, into: $0.baseAddress!) }
             tokidBuffer.withF16 { pleSidecar.read(row: tokenID, into: $0.baseAddress!) }
         }
-        copyFlat(from: embedsBuffer, to: hiddenBuffer, count: H)
+    }
 
-        for (ci, bounds) in config.chunkBounds.enumerated() {
-            let (a, b) = (bounds[0], bounds[1])
-            var features: [String: Any] = [
-                "hidden_in": hiddenBuffer, "inputs_embeds": embedsBuffer, "tokid": tokidBuffer,
-                "onehot": dOnehot, "cos_s": dCosS, "sin_s": dSinS, "cos_f": dCosF, "sin_f": dSinF,
-                "mask_s": dMaskS, "mask_f": dMaskF,
-            ]
-            if a < firstShared {
-                for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
-            } else {
-                features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
-                features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+    /// One chunk's `decode` on `hiddenBuffer`, at the position `fillDecodeHost` last set.
+    private func runDecodeChunk(_ ci: Int) throws {
+        let (a, b) = (config.chunkBounds[ci][0], config.chunkBounds[ci][1])
+        var features: [String: Any] = [
+            "hidden_in": hiddenBuffer, "inputs_embeds": embedsBuffer, "tokid": tokidBuffer,
+            "onehot": dOnehot, "cos_s": dCosS, "sin_s": dSinS, "cos_f": dCosF, "sin_f": dSinF,
+            "mask_s": dMaskS, "mask_f": dMaskF,
+        ]
+        if a < firstShared {
+            for i in a..<b {
+                features["k_\(i)_in"] = kbuf[i]
+                features["v_\(i)_in"] = vbuf[i]
             }
-            let out = try decodeModels[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
-            guard let hidden = out.featureValue(for: "hidden")?.multiArrayValue else {
-                throw LLMEngineError.generationFailed(reason: "chunked decode chunk \(ci) returned no hidden")
-            }
-            copyFlat(from: hidden, to: hiddenBuffer, count: H)
-            if a < firstShared {
-                for i in a..<b {
-                    guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                          let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                        throw LLMEngineError.generationFailed(reason: "chunked decode chunk \(ci) layer \(i) KV missing")
-                    }
-                    kbuf[i] = k; vbuf[i] = v
+        } else {
+            features["sks"] = kbuf[storeS]
+            features["svs"] = vbuf[storeS]
+            features["skf"] = kbuf[storeF]
+            features["svf"] = vbuf[storeF]
+        }
+        let out = try decodeModels[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
+        guard let hidden = out.featureValue(for: "hidden")?.multiArrayValue else {
+            throw LLMEngineError.generationFailed(reason: "chunked decode chunk \(ci) returned no hidden")
+        }
+        copyFlat(from: hidden, to: hiddenBuffer, count: H)
+        if a < firstShared {
+            for i in a..<b {
+                guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
+                    let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                else {
+                    throw LLMEngineError.generationFailed(reason: "chunked decode chunk \(ci) layer \(i) KV missing")
                 }
+                kbuf[i] = k
+                vbuf[i] = v
             }
         }
-        position += 1
     }
 
     func prefillScheduled(_ ids: [Int]) throws -> Int {
@@ -299,11 +518,23 @@ final class ChunkedSpeculativeChain {
         precondition(rowRefs.count == ids.count)
         if blockScheduledPrefill {
             throw LLMEngineError.generationFailed(
-                reason: "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded")
+                reason:
+                    "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded"
+            )
         }
+        if prefillMode == .sequential { return try feedChunkMajor(ids: ids, rowRefs: rowRefs) }
         let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
         var idx = 0
         var last = 0
+        // Early exit parks the prompt's latest row (out of the KV-owning chunks) in `rowBuffer`
+        // and runs the KV-sharing chunks on it once, after the loop, instead of lm_head per block.
+        func blockEnded(_ hidden: MLMultiArray, row: Int) throws {
+            if prefillEarlyExit {
+                copyRow(from: hidden, row: row, to: rowBuffer)
+            } else {
+                last = try lmheadRow(hidden, row: row)
+            }
+        }
         while idx < ids.count {
             try Task.checkCancellation()
             let remaining = ids.count - idx
@@ -311,24 +542,179 @@ final class ChunkedSpeculativeChain {
                 let block = Array(ids[idx..<(idx + config.plainN)])
                 let hidden = try runPrefillPlain(
                     block, N: config.plainN, softRows: softSlice(rowRefs, idx, idx + config.plainN))
-                last = try lmheadRow(hidden, row: config.plainN - 1)
+                try blockEnded(hidden, row: config.plainN - 1)
                 idx += config.plainN
             } else if let N = offsetNs.first(where: { remaining >= $0 && position + $0 <= CTX }) {
                 let block = Array(ids[idx..<(idx + N)])
                 let hidden = try runPrefillOffset(
                     block, p: position, N: N, softRows: softSlice(rowRefs, idx, idx + N))
-                last = try lmheadRow(hidden, row: N - 1)
+                try blockEnded(hidden, row: N - 1)
                 idx += N
             } else {
                 for i in idx..<ids.count {
                     try Task.checkCancellation()
-                    try runDecodeChunks(tokenID: ids[i], softRow: rowRefs[i])
-                    last = try lmhead(hiddenBuffer)
+                    if prefillEarlyExit {
+                        try runDecodeChunks(tokenID: ids[i], softRow: rowRefs[i], chunks: ownKVChunks)
+                        copyFlat(from: hiddenBuffer, to: rowBuffer, count: H)
+                    } else {
+                        try runDecodeChunks(tokenID: ids[i], softRow: rowRefs[i])
+                        last = try lmhead(hiddenBuffer)
+                    }
                 }
                 idx = ids.count
             }
         }
-        return last
+        guard prefillEarlyExit else { return last }
+        return try runTailDecode(
+            hidden: rowBuffer, tokenID: ids[ids.count - 1], softRow: rowRefs[ids.count - 1],
+            position: position - 1)
+    }
+
+    /// `.sequential`'s prompt prefill, chunk-major: the blocks the loop above would walk, but each
+    /// chunk's prefill function loads once, runs every block, and is released before the next
+    /// chunk's loads. After at least one full block, the sub-block remainder r is one more offset
+    /// block, valid for its first r rows (the padding rows get zero inputs, no onehot slot and an
+    /// all-`neg` mask row, and are never written back). A prompt shorter than one block, or a
+    /// remainder whose block would cross CTX, stays a tail that takes each chunk's `decode`, one
+    /// token at a time, so a short prompt never loads (or first specializes) a prefill function.
+    /// Each block's and tail token's hidden waits for the next chunk (N×1536 fp16 per block, ~2 MB
+    /// at 681 tokens). Every step gets the inputs block-by-block order gave it, except that a
+    /// KV-sharing chunk finds later rows of layers 13/14 already written, in slots its mask hides.
+    private func feedChunkMajor(ids: [Int], rowRefs: [SoftRowRef?]) throws -> Int {
+        let start = position
+        guard start + ids.count <= CTX else {
+            throw LLMEngineError.generationFailed(reason: "context length \(CTX) exceeded")
+        }
+        let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
+        var blocks: [(N: Int, idx: Int, L: Int)] = []
+        var idx = 0
+        while idx < ids.count {
+            let remaining = ids.count - idx
+            guard
+                let N = start + idx == 0 && remaining >= config.plainN
+                    ? config.plainN
+                    : offsetNs.first(where: { remaining >= $0 && start + idx + $0 <= CTX })
+            else { break }
+            blocks.append((N, idx, N))
+            idx += N
+        }
+        if idx < ids.count, !blocks.isEmpty, let N = offsetNs.last, start + idx + N <= CTX {
+            blocks.append((N, idx, ids.count - idx))
+            idx = ids.count
+        }
+        let tail = Array(idx..<ids.count)
+        var hidden: [MLMultiArray] = []  // per block, out of the latest chunk
+        var tailHidden: [MLMultiArray] = []  // per tail token, likewise
+        var store: [Int: (MLMultiArray, MLMultiArray)] = [:]  // the plain block's layer 13/14 KV
+        var filled: [Int: Int] = [:]  // width -> the block whose host inputs its buffers hold
+        for ci in 0..<(prefillEarlyExit ? ownKVChunks : config.chunkBounds.count) {
+            let (a, b) = (config.chunkBounds[ci][0], config.chunkBounds[ci][1])
+            var bi = 0
+            while bi < blocks.count {
+                let N = blocks[bi].N
+                let plain = N == config.plainN
+                let bufs = try prefillBuffers(N: N)
+                try autoreleasepool {
+                    let model = try loadPrefillFunction(N: N, chunk: ci)
+                    while bi < blocks.count, blocks[bi].N == N {
+                        try Task.checkCancellation()
+                        let (i0, L) = (blocks[bi].idx, blocks[bi].L)
+                        let p = start + i0
+                        // Host inputs depend only on the block: a width's buffers that still hold
+                        // it (the plain block, a lone 32 block) are not refilled for the next chunk.
+                        // ponytail: several 32 blocks are refilled once per chunk (~35 ms each in a
+                        // Debug build on a Mac, far less in Release); keep per-block copies if that shows.
+                        if filled[N] != bi {
+                            fillTokenInputs(
+                                bufs: bufs, ids: Array(ids[i0..<(i0 + L)]), N: N,
+                                softRows: softSlice(rowRefs, i0, i0 + L))
+                            writeRoPE(
+                                cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { p + $0 })
+                            writeRoPE(
+                                cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { p + $0 })
+                            if plain {
+                                fillPlainMask(bufs.maskPlainS, sliding: true, N: N, L: N)
+                                fillPlainMask(bufs.maskPlainF, sliding: false, N: N, L: N)
+                            } else {
+                                fillOffsetOnehot(bufs.onehot, p: p, N: N, L: L)
+                                fillOffsetMask(bufs.maskOffS, sliding: true, p: p, N: N, L: L)
+                                fillOffsetMask(bufs.maskOffF, sliding: false, p: p, N: N, L: L)
+                            }
+                            filled[N] = bi
+                        }
+                        var features: [String: Any] = [
+                            "hidden_in": ci == 0 ? bufs.ie : hidden[bi], "inputs_embeds": bufs.ie, "tokid": bufs.tk,
+                            "cos_s": bufs.cosS, "sin_s": bufs.sinS, "cos_f": bufs.cosF, "sin_f": bufs.sinF,
+                        ]
+                        if plain {
+                            features["mask_s"] = bufs.maskPlainS
+                            features["mask_f"] = bufs.maskPlainF
+                            if a >= firstShared {
+                                features["sks"] = store[storeS]!.0
+                                features["svs"] = store[storeS]!.1
+                                features["skf"] = store[storeF]!.0
+                                features["svf"] = store[storeF]!.1
+                            }
+                        } else {
+                            features["mask_s"] = bufs.maskOffS
+                            features["mask_f"] = bufs.maskOffF
+                            features["onehot"] = bufs.onehot
+                            if a < firstShared {
+                                for i in a..<b {
+                                    features["k_\(i)_in"] = kbuf[i]
+                                    features["v_\(i)_in"] = vbuf[i]
+                                }
+                            } else {
+                                features["sks"] = kbuf[storeS]
+                                features["svs"] = vbuf[storeS]
+                                features["skf"] = kbuf[storeF]
+                                features["svf"] = vbuf[storeF]
+                            }
+                        }
+                        let input = try MLDictionaryFeatureProvider(dictionary: features)
+                        let out = try autoreleasepool { try Self.detachedCopy(of: model.prediction(from: input)) }
+                        guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
+                            throw LLMEngineError.generationFailed(
+                                reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
+                        }
+                        if ci == 0 { hidden.append(h) } else { hidden[bi] = h }
+                        if a < firstShared {
+                            for i in a..<b {
+                                guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
+                                    let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                                else {
+                                    throw LLMEngineError.generationFailed(
+                                        reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
+                                }
+                                if plain && (i == storeS || i == storeF) { store[i] = (k, v) }
+                                writebackKV(dst: kbuf[i], src: k, p: p, L: L, hd: config.headDim(ofLayer: i))
+                                writebackKV(dst: vbuf[i], src: v, p: p, L: L, hd: config.headDim(ofLayer: i))
+                            }
+                        }
+                        bi += 1
+                    }
+                }
+            }
+            for (j, t) in tail.enumerated() {
+                try Task.checkCancellation()
+                fillDecodeHost(pos: start + t)
+                fillDecodeToken(tokenID: ids[t], softRow: rowRefs[t])
+                copyFlat(from: ci == 0 ? embedsBuffer : tailHidden[j], to: hiddenBuffer, count: H)
+                try runDecodeChunk(ci)
+                if ci == 0 { tailHidden.append(try MLMultiArray(shape: [NSNumber(value: H)], dataType: .float16)) }
+                copyFlat(from: hiddenBuffer, to: tailHidden[j], count: H)
+            }
+        }
+        position = start + ids.count
+        if let row = tailHidden.last {
+            copyFlat(from: row, to: rowBuffer, count: H)
+        } else {
+            copyRow(from: hidden[blocks.count - 1], row: blocks[blocks.count - 1].L - 1, to: rowBuffer)
+        }
+        guard prefillEarlyExit else { return try lmhead(rowBuffer) }
+        return try runTailDecode(
+            hidden: rowBuffer, tokenID: ids[ids.count - 1], softRow: rowRefs[ids.count - 1],
+            position: position - 1)
     }
 
     func plannedPrefillWidths(promptLength: Int, from startPosition: Int = 0) -> [Int] {
@@ -355,9 +741,62 @@ final class ChunkedSpeculativeChain {
 
     func materializePrefill(widths: [Int]) throws {
         for n in widths {
-            _ = try prefillChain(N: n)
+            // `.sequential` deliberately keeps no prefill model resident; only the host buffers
+            // are worth pre-allocating.
+            if prefillMode == .resident { _ = try prefillChain(N: n) }
             _ = try prefillBuffers(N: n)
         }
+    }
+
+    struct PrewarmStep: Sendable {
+        let width: Int
+        let chunk: Int
+        let seconds: Double
+        let availableMB: Double
+    }
+
+    /// Specializes the prefill functions ahead of the first long prompt, one function at a time.
+    ///
+    /// The expensive part of a first prefill is not the arithmetic, it is the ANE specialization
+    /// that `MLModel(contentsOf:)` performs and caches in the app's e5rt bundle cache — ~10-15 s
+    /// per chunk on an iPhone 15, ~0.2 s once the entry exists. Loading each function once puts the
+    /// entry there.
+    ///
+    /// Every model is released as soon as it has loaded, in **both** prefill modes. The cache entry
+    /// is the point, not residency: keeping all eight wide-prefill functions resident is what
+    /// SIGKILLed a 6 GB phone before, and `os_proc_available_memory()` cannot see it coming because
+    /// ANE weights are wired outside the app's jetsam accounting. `.resident` reloads its four
+    /// chunks on the first real prefill instead, warm, for about a second.
+    ///
+    /// Returns false if the headroom guard stopped it early.
+    @discardableResult
+    func prewarmPrefill(
+        widths: [Int], floorMB: Double = 400, onStep: (PrewarmStep) -> Void
+    ) throws -> Bool {
+        let clock = ContinuousClock()
+        for n in widths {
+            _ = try prefillFunctionName(n)
+            _ = try prefillBuffers(N: n)
+            for ci in 0..<prefillChunks(N: n) {
+                guard Self.availableMB() >= floorMB else { return false }
+                let seconds: Double = try autoreleasepool {
+                    let t0 = clock.now
+                    _ = try loadPrefillFunction(N: n, chunk: ci)
+                    return (clock.now - t0) / .seconds(1)
+                }
+                onStep(PrewarmStep(width: n, chunk: ci, seconds: seconds, availableMB: Self.availableMB()))
+            }
+        }
+        return true
+    }
+
+    /// Headroom before jetsam. `.greatestFiniteMagnitude` off-device so the guard never fires there.
+    static func availableMB() -> Double {
+        #if os(iOS)
+            return Double(os_proc_available_memory()) / 1_048_576
+        #else
+            return .greatestFiniteMagnitude
+        #endif
     }
 
     private func softSlice(_ rowRefs: [SoftRowRef?], _ lo: Int, _ hi: Int) -> [SoftRowRef?]? {
@@ -367,7 +806,6 @@ final class ChunkedSpeculativeChain {
 
     @discardableResult
     func runPrefillPlain(_ ids: [Int], N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
-        let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = ids.count
         precondition(L <= N)
@@ -379,7 +817,7 @@ final class ChunkedSpeculativeChain {
 
         var hidden = bufs.ie
         var store: [Int: (MLMultiArray, MLMultiArray)] = [:]
-        for (ci, bounds) in config.chunkBounds.enumerated() {
+        for (ci, bounds) in config.chunkBounds.prefix(prefillChunks(N: N)).enumerated() {
             let (a, b) = (bounds[0], bounds[1])
             var features: [String: Any] = [
                 "hidden_in": hidden, "inputs_embeds": bufs.ie, "tokid": bufs.tk,
@@ -387,10 +825,12 @@ final class ChunkedSpeculativeChain {
                 "mask_s": bufs.maskPlainS, "mask_f": bufs.maskPlainF,
             ]
             if a >= firstShared {
-                features["sks"] = store[storeS]!.0; features["svs"] = store[storeS]!.1
-                features["skf"] = store[storeF]!.0; features["svf"] = store[storeF]!.1
+                features["sks"] = store[storeS]!.0
+                features["svs"] = store[storeS]!.1
+                features["skf"] = store[storeF]!.0
+                features["svf"] = store[storeF]!.1
             }
-            let out = try models[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
+            let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
                 throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
             }
@@ -398,8 +838,10 @@ final class ChunkedSpeculativeChain {
             if a < firstShared {
                 for i in a..<b {
                     guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                          let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                        throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
+                        let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                    else {
+                        throw LLMEngineError.generationFailed(
+                            reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
                     }
                     if i == storeS || i == storeF { store[i] = (k, v) }
                     writebackKV(dst: kbuf[i], src: k, p: 0, L: L, hd: config.headDim(ofLayer: i))
@@ -413,7 +855,6 @@ final class ChunkedSpeculativeChain {
 
     @discardableResult
     func runPrefillOffset(_ block: [Int], p: Int, N: Int, softRows: [SoftRowRef?]? = nil) throws -> MLMultiArray {
-        let models = try prefillChain(N: N)
         let bufs = try prefillBuffers(N: N)
         let L = block.count
         precondition(L <= N && p + L <= CTX)
@@ -425,7 +866,7 @@ final class ChunkedSpeculativeChain {
         fillOffsetMask(bufs.maskOffF, sliding: false, p: p, N: N, L: L)
 
         var hidden = bufs.ie
-        for (ci, bounds) in config.chunkBounds.enumerated() {
+        for (ci, bounds) in config.chunkBounds.prefix(prefillChunks(N: N)).enumerated() {
             let (a, b) = (bounds[0], bounds[1])
             var features: [String: Any] = [
                 "hidden_in": hidden, "inputs_embeds": bufs.ie, "tokid": bufs.tk,
@@ -433,21 +874,29 @@ final class ChunkedSpeculativeChain {
                 "mask_s": bufs.maskOffS, "mask_f": bufs.maskOffF, "onehot": bufs.onehot,
             ]
             if a < firstShared {
-                for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
+                for i in a..<b {
+                    features["k_\(i)_in"] = kbuf[i]
+                    features["v_\(i)_in"] = vbuf[i]
+                }
             } else {
-                features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
-                features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+                features["sks"] = kbuf[storeS]
+                features["svs"] = vbuf[storeS]
+                features["skf"] = kbuf[storeF]
+                features["svf"] = vbuf[storeF]
             }
-            let out = try models[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
+            let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
-                throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) offset chunk \(ci) returned no hidden")
+                throw LLMEngineError.generationFailed(
+                    reason: "chunked prefill\(N) offset chunk \(ci) returned no hidden")
             }
             hidden = h
             if a < firstShared {
                 for i in a..<b {
                     guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                          let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                        throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) offset chunk \(ci) layer \(i) KV missing")
+                        let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                    else {
+                        throw LLMEngineError.generationFailed(
+                            reason: "chunked prefill\(N) offset chunk \(ci) layer \(i) KV missing")
                     }
                     writebackKV(dst: kbuf[i], src: k, p: p, L: L, hd: config.headDim(ofLayer: i))
                     writebackKV(dst: vbuf[i], src: v, p: p, L: L, hd: config.headDim(ofLayer: i))
@@ -639,7 +1088,8 @@ extension ChunkedSpeculativeChain: SpeculativeDecoding {
         }
         let maxDraft = Self.verifyWidth - 1
         let cap = min(maxDraft, CTX - 1 - base)
-        let pldCopied = cap >= 1
+        let pldCopied =
+            cap >= 1
             ? PromptLookup.draft(context: context, last: prediction, maxDraft: cap, maxN: 3, minN: Self.pldMinN)
             : []
         let S = 1 + pldCopied.count
@@ -665,8 +1115,9 @@ extension ChunkedSpeculativeChain: SpeculativeDecoding {
 
 extension ChunkedSpeculativeChain {
     func pldStatsSnapshot() -> PLDStats {
-        PLDStats(pldRounds: pldRounds, fallbackRounds: pldFallbackRounds,
-                 draftedTokens: pldDraftedTokens, acceptedTokens: pldAcceptedTokens)
+        PLDStats(
+            pldRounds: pldRounds, fallbackRounds: pldFallbackRounds,
+            draftedTokens: pldDraftedTokens, acceptedTokens: pldAcceptedTokens)
     }
 
     func setBlockScheduledPrefill(_ b: Bool) { blockScheduledPrefill = b }
@@ -718,8 +1169,9 @@ final class SoftTokenRows: Sendable {
     private let data: [Float16]
 
     init(rows: Int, hidden: Int, data: [Float16]) {
-        precondition(data.count == rows * hidden,
-                     "SoftTokenRows: data.count \(data.count) != rows*hidden \(rows * hidden)")
+        precondition(
+            data.count == rows * hidden,
+            "SoftTokenRows: data.count \(data.count) != rows*hidden \(rows * hidden)")
         self.rows = rows
         self.hidden = hidden
         self.data = data
@@ -767,7 +1219,10 @@ extension ChunkedSpeculativeChain {
         for seg in segments {
             switch seg {
             case .tokens(let ts):
-                for t in ts { ids.append(t); rowRefs.append(nil) }
+                for t in ts {
+                    ids.append(t)
+                    rowRefs.append(nil)
+                }
             case .image(let soft):
                 appendSoft(soft, placeholder: Self.imagePlaceholderID, kind: "image")
             case .audio(let soft):
@@ -876,9 +1331,10 @@ extension ChunkedSpeculativeChain {
             let vFile = "v_\(i).bin"
             try kData.write(to: url.appending(path: kFile), options: .atomic)
             try vData.write(to: url.appending(path: vFile), options: .atomic)
-            entries.append(ChunkedKVLayerEntry(
-                layer: i, type: config.layerTypes[i], headDim: hd, rows: rows,
-                kFile: kFile, vFile: vFile, kBytes: kData.count, vBytes: vData.count))
+            entries.append(
+                ChunkedKVLayerEntry(
+                    layer: i, type: config.layerTypes[i], headDim: hd, rows: rows,
+                    kFile: kFile, vFile: vFile, kBytes: kData.count, vBytes: vData.count))
         }
         let manifest = ChunkedKVManifest(
             schemaVersion: Self.kvSchemaVersion,
@@ -906,8 +1362,9 @@ extension ChunkedSpeculativeChain {
             throw ChunkedKVError.badManifest("manifest.json unreadable: \(url.path(percentEncoded: false))")
         }
         let manifest: ChunkedKVManifest
-        do { manifest = try JSONDecoder().decode(ChunkedKVManifest.self, from: mData) }
-        catch { throw ChunkedKVError.badManifest("manifest.json decode failed: \(error)") }
+        do { manifest = try JSONDecoder().decode(ChunkedKVManifest.self, from: mData) } catch {
+            throw ChunkedKVError.badManifest("manifest.json decode failed: \(error)")
+        }
 
         guard manifest.schemaVersion == Self.kvSchemaVersion else {
             throw ChunkedKVError.schemaMismatch(expected: Self.kvSchemaVersion, found: manifest.schemaVersion)
@@ -917,18 +1374,21 @@ extension ChunkedSpeculativeChain {
             throw ChunkedKVError.identityMismatch(expected: current, found: manifest.identity)
         }
         if let saved = manifest.bundleName, saved != bundleURL.lastPathComponent {
-            let warn = "chunked KV WARN: bundleName differs (manifest=\(saved) current=\(bundleURL.lastPathComponent)); "
+            let warn =
+                "chunked KV WARN: bundleName differs (manifest=\(saved) current=\(bundleURL.lastPathComponent)); "
                 + "record-only field, restore continues (identity matches)\n"
             FileHandle.standardError.write(Data(warn.utf8))
         }
         if let want = expectedContext {
             guard want.count == manifest.position,
-                  Self.tokenSeqSHA256(want) == manifest.tokenSeqSHA256 else {
+                Self.tokenSeqSHA256(want) == manifest.tokenSeqSHA256
+            else {
                 throw ChunkedKVError.tokenMismatch(expectedCount: want.count, manifestCount: manifest.position)
             }
         }
         guard manifest.layers.count == firstShared else {
-            throw ChunkedKVError.badManifest("own layer count mismatch: manifest=\(manifest.layers.count) chain=\(firstShared)")
+            throw ChunkedKVError.badManifest(
+                "own layer count mismatch: manifest=\(manifest.layers.count) chain=\(firstShared)")
         }
 
         try reset()
@@ -942,10 +1402,12 @@ extension ChunkedSpeculativeChain {
                 throw ChunkedKVError.badManifest(
                     "layer \(i) shape mismatch (hd=\(e.headDim)/\(hd) rows=\(e.rows)/\(manifest.position))")
             }
-            try loadKVPrefix(into: kbuf[i], from: url.appending(path: e.kFile),
-                             rows: e.rows, hd: hd, expectBytes: e.kBytes, name: e.kFile)
-            try loadKVPrefix(into: vbuf[i], from: url.appending(path: e.vFile),
-                             rows: e.rows, hd: hd, expectBytes: e.vBytes, name: e.vFile)
+            try loadKVPrefix(
+                into: kbuf[i], from: url.appending(path: e.kFile),
+                rows: e.rows, hd: hd, expectBytes: e.kBytes, name: e.kFile)
+            try loadKVPrefix(
+                into: vbuf[i], from: url.appending(path: e.vFile),
+                rows: e.rows, hd: hd, expectBytes: e.vBytes, name: e.vFile)
         }
         position = manifest.position
         return manifest
@@ -988,8 +1450,10 @@ extension ChunkedSpeculativeChain {
         return data
     }
 
-    private func loadKVPrefix(into arr: MLMultiArray, from fileURL: URL,
-                             rows: Int, hd: Int, expectBytes: Int, name: String) throws {
+    private func loadKVPrefix(
+        into arr: MLMultiArray, from fileURL: URL,
+        rows: Int, hd: Int, expectBytes: Int, name: String
+    ) throws {
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             throw ChunkedKVError.missingFile(name)
         }
@@ -1008,10 +1472,10 @@ extension ChunkedSpeculativeChain {
 
     private func excludeFromBackup(_ url: URL) {
         #if !os(macOS)
-        var u = url
-        var rv = URLResourceValues()
-        rv.isExcludedFromBackup = true
-        try? u.setResourceValues(rv)
+            var u = url
+            var rv = URLResourceValues()
+            rv.isExcludedFromBackup = true
+            try? u.setResourceValues(rv)
         #endif
     }
 }

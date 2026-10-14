@@ -5,15 +5,21 @@ struct DemoApp: App {
     var body: some Scene {
         WindowGroup("Core ML Demos") {
             #if os(iOS)
-            if SelfTest.isRequested {
-                SelfTestView()
-            } else if LiveCameraSelfTest.isRequested {
-                LiveSelfTestView()
-            } else {
-                DemoRootView()
-            }
+                if SelfTest.isRequested {
+                    SelfTestView()
+                } else if MapperHeadlessSelfTest.isRequested {
+                    MapperHeadlessSelfTestView()
+                } else if GemmaMapperSelfTest.isRequested {
+                    GemmaMapperSelfTestView()
+                } else if MapperDialogSelfTest.isRequested {
+                    MapperDialogSelfTestView()
+                } else if LiveCameraSelfTest.isRequested {
+                    LiveSelfTestView()
+                } else {
+                    DemoRootView()
+                }
             #else
-            DemoRootView()
+                DemoRootView()
             #endif
         }
         .defaultSize(width: 900, height: 640)
@@ -25,22 +31,26 @@ enum DemoAppMain {
     static func main() {
 
         UserDefaults.standard.removeObject(forKey: "huggingface_token")
+        // Reading this performs CORELLM_CLEAR_E5RT_CACHE, so it has to happen before any load.
+        for line in E5RTCache.startupLines {
+            print(line)
+        }
         #if os(macOS)
-        if CommandLine.arguments.contains("--selftest") {
-            SelfTest.run()
-        }
-        if CommandLine.arguments.contains("--models-selftest") {
-            ModelsSelfTest.run()
-        }
-        if CommandLine.arguments.contains("--live-selftest") {
-            LiveCameraSelfTest.run()
-        }
-        if AgentSelfTest.isRequested {
-            AgentSelfTest.run()
-        }
-        if AgentSelfTest.isEndToEndRequested {
-            AgentSelfTest.runEndToEnd()
-        }
+            if CommandLine.arguments.contains("--selftest") {
+                SelfTest.run()
+            }
+            if CommandLine.arguments.contains("--models-selftest") {
+                ModelsSelfTest.run()
+            }
+            if CommandLine.arguments.contains("--live-selftest") {
+                LiveCameraSelfTest.run()
+            }
+            if AgentSelfTest.isRequested {
+                AgentSelfTest.run()
+            }
+            if AgentSelfTest.isEndToEndRequested {
+                AgentSelfTest.runEndToEnd()
+            }
         #endif
         DemoApp.main()
     }

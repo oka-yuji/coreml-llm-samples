@@ -113,7 +113,14 @@ appends the result to the conversation, and generates again, until it answers wi
 [docs/agent-demo.md](docs/agent-demo.md) has the loop, the tool contracts, the headless driver, and
 the known limits.
 
-It needs a bundle whose chat template is ChatML; in this catalog that is the **Qwen3.8 27B Agent**
+Chat also has a **RAG** mode, which turns the same idea inside out: the app searches the web and
+reads `Documents/rag/`, ranks the passages against your question, fills 900 of the 2,048 tokens with
+the best of them, and has the model answer from those alone — with the source URLs and their
+publication dates under the reply. Because the app retrieves instead of the model calling tools, a
+2 B model like Gemma 4 E2B can answer about something that happened yesterday.
+[docs/rag-demo.md](docs/rag-demo.md) has the pipeline, the settings and the limits.
+
+The Agent demo needs a bundle whose chat template is ChatML; in this catalog that is the **Qwen3.8 27B Agent**
 bundle, macOS only. Its peak resident footprint is about 56 GB — 55.7–56.9 GB across 48 headless runs
 and 56.4 GB in a GUI session, both on an M4 Max with 128 GB — so a 64 GB Mac is not enough. Getting
 the bundle: [okayuji/Qwen3.8-27B-coreml-agent](https://huggingface.co/okayuji/Qwen3.8-27B-coreml-agent),
@@ -191,7 +198,7 @@ CoreLLMKit/                the shared Swift runtime, a Swift package: LLMCore + 
 Config/                    the app's signing settings and its iOS Info.plist
 project.yml                the XcodeGen spec of CoreMLSamples.xcodeproj
 scripts/download-model.sh  fetch a model bundle from Hugging Face
-docs/                      cross-model engine notes — architecture.md, verification.md, agent-demo.md
+docs/                      cross-model engine notes — architecture.md, verification.md, agent-demo.md, rag-demo.md
 LICENSE                    MIT (covers the code)
 ```
 
@@ -216,3 +223,13 @@ conditions behind them.
 - **Model weights:** distributed separately on Hugging Face, each under its own license (see the
   **License** column above and the weights section of the relevant model card). The weights are
   *not* covered by this repository's MIT license.
+
+## Mapper and local experiments
+
+Mapper turns an inspection note into fields and supports tap-based follow-up input on iPhone. Voice input requires speech recognition permission and an available on-device speech model; tap-based input does not.
+
+To run its model, place `gliner2_multi_classification_fp16_L128_K8.mlpackage` and the `tokenizer/` directory under `models/gliner2-5-multi-coreml/`, then run `xcodegen generate --spec project.mapper.yml` from the repository root and rebuild. These local resources are optional: a clean checkout builds without them, and Mapper reports the missing resources when opened.
+
+The Chat sample also includes the [RAG path](docs/rag-demo.md), opt-in prefill residency diagnostics, and the `--cu` self-test override. The default model behavior is unchanged unless an option or manifest selects an experiment. Model-specific verification records retain their original hardware and input limits.
+
+The default `xcodegen generate` restores the project without optional Mapper assets. Build for Apple silicon with `ARCHS=arm64`; Release package dependencies may otherwise try to compile an unsupported Intel slice.

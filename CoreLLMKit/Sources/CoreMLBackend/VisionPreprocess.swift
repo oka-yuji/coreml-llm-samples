@@ -57,17 +57,21 @@ enum VisionPreprocess {
             let dst = buf.baseAddress!
             pixels.withUnsafeBufferPointer { src in
                 for h in 0..<side {
-                    let ph = h / patch, ih = h % patch
+                    let ph = h / patch
+                    let ih = h % patch
                     let rowBase = ph * grid
                     let colBaseH = ih * (patch * 3)
                     let srcRow = h * side * 3
                     for w in 0..<side {
-                        let pw = w / patch, iw = w % patch
+                        let pw = w / patch
+                        let iw = w % patch
                         let row = rowBase + pw
                         let col = colBaseH + iw * 3
                         let d = dst + row * patchDim + col
                         let s = srcRow + w * 3
-                        d[0] = Float16(src[s]); d[1] = Float16(src[s + 1]); d[2] = Float16(src[s + 2])
+                        d[0] = Float16(src[s])
+                        d[1] = Float16(src[s + 1])
+                        d[2] = Float16(src[s + 2])
                     }
                 }
             }
@@ -90,7 +94,8 @@ enum VisionPreprocess {
 
     static func loadCGImage(from url: URL) throws -> CGImage {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let image = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
+            let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
+        else {
             throw PreprocessError.cannotDecodeImage(url.path(percentEncoded: false))
         }
         return image
@@ -105,9 +110,11 @@ enum VisionPreprocess {
         raw.initializeMemory(as: UInt8.self, repeating: 0, count: n * 4)
         let colorSpace = CGColorSpaceCreateDeviceRGB()
         let bitmapInfo = CGImageAlphaInfo.premultipliedLast.rawValue
-        guard let ctx = CGContext(
-            data: raw, width: side, height: side, bitsPerComponent: 8,
-            bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: bitmapInfo) else {
+        guard
+            let ctx = CGContext(
+                data: raw, width: side, height: side, bitsPerComponent: 8,
+                bytesPerRow: bytesPerRow, space: colorSpace, bitmapInfo: bitmapInfo)
+        else {
             throw PreprocessError.cannotMakeContext(side: side)
         }
         ctx.interpolationQuality = .high

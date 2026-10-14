@@ -7,21 +7,32 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		02F4ED29AFE687F433411708 /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33FB550584B3FECBEA2DEA98 /* MapperSpeech.swift */; };
 		03AEBF40D7FF8AEDF0DA8B56 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */; };
+		03E3DE0F324244B5B16086A8 /* MapperDialogSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F9DD49D767AB4274C4EC33 /* MapperDialogSelfTest.swift */; };
 		059BEA26A9B7647258815BF7 /* AgentToolCallParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = F59028632F23123EC3DFA3EE /* AgentToolCallParser.swift */; };
 		0B5178800EAE0785C6ADE477 /* LiveSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DFDF9461E49BA5734EBC25C /* LiveSelfTestView.swift */; };
 		0DDBBC37C0D80EB9F1EFC9F0 /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = 6F13A62F655D015428DA7AF8 /* CoreMLBackend */; };
+		0F78047EEACC066C3E5EAFF3 /* gliner_parity.json in Resources */ = {isa = PBXBuildFile; fileRef = F8A0981B88068D36BF413418 /* gliner_parity.json */; };
 		121D8A1B66825F88C1F0F5EB /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6752FED97B5D2A305835BD /* SplitChatView.swift */; };
 		12479795A24B27CE6BB08C36 /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD11B41A214A14CBF97A81A9 /* DemoAppMain.swift */; };
 		17BE2BE5673D0C8BF03467F4 /* AgentViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */; };
 		18B3B8A143E77D78BFF128FB /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70AEFE0E393C360888CB479 /* CameraPreview.swift */; };
+		1943840FD23F2BA212C249B3 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2C90E9A3FF76FB13822F29 /* ChatRAG.swift */; };
 		1C6934AA120258E65027B77C /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100733AA3A2EA5B56D7EBA48 /* StreamPresenter.swift */; };
 		1F93808DB050D6C4533858DB /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE97F2DFFE2EC0715FF841E4 /* ModelStorage.swift */; };
 		20C439D5C8A75FBC3C49A2B6 /* SingleChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15DE30E6C418095BF3E95832 /* SingleChatView.swift */; };
 		2211F54B5E20914A24147725 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA33503CC9FB29F5860A1D /* CameraCapture.swift */; };
 		23ED1F7197C442F4E6571EDE /* SelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5E6FAC1EE922C07F53D730 /* SelfTestView.swift */; };
 		27449904B1C24B33E9A4E9B3 /* LLMModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 678A71E1FC1AC78FFD471950 /* LLMModels.swift */; };
+		290C25C6B2FCD11138306066 /* MapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C33D1688D36158BCF0DF72 /* MapperSelfTest.swift */; };
+		2A5AB4CAD356D614C6743372 /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8745CFE843CA57C4AEBD67B3 /* MapperViewModel.swift */; };
+		2DE1FD348BF1391115D1DB75 /* gliner_parity.json in Resources */ = {isa = PBXBuildFile; fileRef = F8A0981B88068D36BF413418 /* gliner_parity.json */; };
+		2FA2753E30F04B2B86DC1D67 /* MapperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9253B4B22D5271D65EA9D13 /* MapperView.swift */; };
+		30CF9E131C9D76666D8C9F94 /* MapperHeadlessSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54C1353E1E64B93E582FC5D /* MapperHeadlessSelfTest.swift */; };
 		3505D691940603E2AC4BF5CE /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4EC31AE58C3538D4D44146B1 /* AudioRecorder.swift */; };
+		3D72A36BF2FF51E4DAE61F0F /* MapperSpeech.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33FB550584B3FECBEA2DEA98 /* MapperSpeech.swift */; };
+		41BDD996F4C518C200599E27 /* MapperOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5CBB1046B2A8C9A2A069974 /* MapperOCR.swift */; };
 		41E9BD54188E50E560C47A32 /* SingleModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8389BCECD8D7D0371AADE6F6 /* SingleModelsView.swift */; };
 		45144A35F9202BD990FDC9DD /* DemoAppMain.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD11B41A214A14CBF97A81A9 /* DemoAppMain.swift */; };
 		4734E17730383CA592210F47 /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A67996693D6EED8CF7B063B /* ChatViewModel.swift */; };
@@ -37,17 +48,21 @@
 		6510894951C50E0FCB7E6A1D /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E99B2D09ABA329DA63E7ED /* SelfTest.swift */; };
 		6528CB1508FC6662456CAEB7 /* ModelsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AEDC251F7A924881EAB02B7 /* ModelsViewModel.swift */; };
 		672239E174760DB56E8DA501 /* GUIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCEAB0001D56F41744EEB096 /* GUIDriver.swift */; };
+		67B118CF2CB8FC686455D68B /* MapperDialogSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7F9DD49D767AB4274C4EC33 /* MapperDialogSelfTest.swift */; };
 		6A94169A74D5265A4B75424B /* LiveCameraSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F65D0A6EC636E2DD50933E62 /* LiveCameraSelfTest.swift */; };
 		6C5513D8EFDABFBC5E4DD02D /* DemoRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4D9633B21380342895E3B57 /* DemoRootView.swift */; };
 		7488A0E25FAD0F5C8163442B /* CoreMLBackend in Frameworks */ = {isa = PBXBuildFile; productRef = CF9BF4CB4DF358441F2B2417 /* CoreMLBackend */; };
 		7E7F32AF7CDE96A5E3181E22 /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF60D7B7A2871718DF967F78 /* LLMCore */; };
 		7FB3EA3A30AD89E943AAD71B /* SplitChatView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8E6752FED97B5D2A305835BD /* SplitChatView.swift */; };
+		8182626A1C39919F968C4374 /* ChatRAG.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC2C90E9A3FF76FB13822F29 /* ChatRAG.swift */; };
 		82C9F4C757A0D0D983500BB6 /* LiveCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E6B0436FC8A0C547CD0439 /* LiveCameraView.swift */; };
+		88431C100AC9E45C2C80FA01 /* MapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C33D1688D36158BCF0DF72 /* MapperSelfTest.swift */; };
 		888EEB741883FB3A42BEC543 /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71B3028D1B8FD4221B9D73E /* MetricsLog.swift */; };
 		8A47BD07ABB5F3CC9C6FBDDF /* LLMCore in Frameworks */ = {isa = PBXBuildFile; productRef = EF93CD731E90559D248C2DDF /* LLMCore */; };
 		8A53680AD9ABDCD2997E40EB /* AgentTools.swift in Sources */ = {isa = PBXBuildFile; fileRef = 686E1819D8AA5793902F77C0 /* AgentTools.swift */; };
 		9792DA2C2EAAE834097473E3 /* CameraPreview.swift in Sources */ = {isa = PBXBuildFile; fileRef = D70AEFE0E393C360888CB479 /* CameraPreview.swift */; };
 		995025639AAEE6A5369E82E4 /* ModelStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE97F2DFFE2EC0715FF841E4 /* ModelStorage.swift */; };
+		9CB258CCB5E086702EF7949D /* MapperDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FE5F0DA1D586A2DAC7185C /* MapperDialog.swift */; };
 		A21A6CE9C3AC10F195DBDA02 /* SingleModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8389BCECD8D7D0371AADE6F6 /* SingleModelsView.swift */; };
 		AB1D55B52059CDF303224B90 /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232C4AC8470D489F1986E885 /* ModelsSelfTest.swift */; };
 		B17C1718D7D3586A84B64817 /* CameraCapture.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EAA33503CC9FB29F5860A1D /* CameraCapture.swift */; };
@@ -57,26 +72,35 @@
 		B6DC404EC48941D472CEDD9C /* ChatViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A67996693D6EED8CF7B063B /* ChatViewModel.swift */; };
 		B76F449B50272C247602D222 /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA280AC78F92F66FA8166524 /* HubDownloader.swift */; };
 		BD05CA76AA07E25C07499A9F /* StreamPresenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 100733AA3A2EA5B56D7EBA48 /* StreamPresenter.swift */; };
+		BD41E7156C9CB75418D72D5C /* GemmaMapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63595B80EC58F06E7EFB5E0 /* GemmaMapperSelfTest.swift */; };
 		C376DC0281251AB1430BC93F /* MetricsLog.swift in Sources */ = {isa = PBXBuildFile; fileRef = F71B3028D1B8FD4221B9D73E /* MetricsLog.swift */; };
+		C60CB65CB9C45662C3B0ABFD /* MapperHeadlessSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54C1353E1E64B93E582FC5D /* MapperHeadlessSelfTest.swift */; };
+		C6C8792BBF89B901ABC677CF /* MapperOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = F5CBB1046B2A8C9A2A069974 /* MapperOCR.swift */; };
 		CAC08FBE699866B9EA9A0FB9 /* SelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 90E99B2D09ABA329DA63E7ED /* SelfTest.swift */; };
 		CB3A3CADFAE058FBE6E1285F /* ByteFormatting.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C10E4C83707E7673C1B78D5 /* ByteFormatting.swift */; };
 		CC14C8B81A68BF0118BB2A68 /* LiveSelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DFDF9461E49BA5734EBC25C /* LiveSelfTestView.swift */; };
 		CD37D6768B9BAFDBAF81C676 /* AgentPromptBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0046A7FEE346BC778C0A5465 /* AgentPromptBuilder.swift */; };
 		D0DAD10286C07331D3BA9DFC /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CADC58BBB8B7CCAEA652F51 /* ChatAttachments.swift */; };
 		D5EFD7385C8EFE2D282BDB3F /* HubDownloader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FA280AC78F92F66FA8166524 /* HubDownloader.swift */; };
+		D5F997E998BE506FF8AA0B55 /* inspection-slip.png in Resources */ = {isa = PBXBuildFile; fileRef = 3561B5EA6DABA34A201E8E21 /* inspection-slip.png */; };
+		D6CD1C02AC2805EB8CFDE5BC /* MapperViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8745CFE843CA57C4AEBD67B3 /* MapperViewModel.swift */; };
 		DB6F56D4C2C1EC49158BA8A1 /* LiveCameraView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9E6B0436FC8A0C547CD0439 /* LiveCameraView.swift */; };
 		DB9C1A9789A762F65489EA08 /* PlatformColors.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA1C06A96D2987BDF096F911 /* PlatformColors.swift */; };
 		DDA1F9100545C7143324C268 /* SplitModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8973A40748F05BF2C9E2A /* SplitModelsView.swift */; };
+		DE4F36D1F12CDDB25392A9C7 /* inspection-slip.png in Resources */ = {isa = PBXBuildFile; fileRef = 3561B5EA6DABA34A201E8E21 /* inspection-slip.png */; };
 		E62634D303A695686AA547C2 /* GUIDriver.swift in Sources */ = {isa = PBXBuildFile; fileRef = BCEAB0001D56F41744EEB096 /* GUIDriver.swift */; };
 		ED05D014D2620765C50A9DEE /* AgentSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B15F898C339E93E734C972F9 /* AgentSelfTest.swift */; };
 		EF4E0FC8E6520E5AF34C653D /* SplitModelsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 83A8973A40748F05BF2C9E2A /* SplitModelsView.swift */; };
+		EF98FBDD3CC0A9788D900B4F /* MapperView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9253B4B22D5271D65EA9D13 /* MapperView.swift */; };
 		F2B44E7ABE75507099B82631 /* SelfTestView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC5E6FAC1EE922C07F53D730 /* SelfTestView.swift */; };
+		F2B7014C0ABD903CDC51A921 /* GemmaMapperSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = A63595B80EC58F06E7EFB5E0 /* GemmaMapperSelfTest.swift */; };
 		F4329B53CA1EA78C8A83F3E2 /* LiveCameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7674445AD974E6D6F69BEBB4 /* LiveCameraViewModel.swift */; };
 		F71ACE9DFE3B20D91106FFC5 /* LiveCameraViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7674445AD974E6D6F69BEBB4 /* LiveCameraViewModel.swift */; };
 		F8E2D2E33EFDA2FE3D76FF98 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360CC408273BC4675E1E216D /* AgentView.swift */; };
 		F9CAEFA9ED10D5273D33555E /* ModelsSelfTest.swift in Sources */ = {isa = PBXBuildFile; fileRef = 232C4AC8470D489F1986E885 /* ModelsSelfTest.swift */; };
 		FC02F1ED73F33AE15F64702D /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 360CC408273BC4675E1E216D /* AgentView.swift */; };
 		FDB167A655B78DD22E8D660B /* ChatAttachments.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7CADC58BBB8B7CCAEA652F51 /* ChatAttachments.swift */; };
+		FDBFFC04F8A5551B0E64B6C5 /* MapperDialog.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52FE5F0DA1D586A2DAC7185C /* MapperDialog.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -88,9 +112,12 @@
 		15DE30E6C418095BF3E95832 /* SingleChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleChatView.swift; sourceTree = "<group>"; };
 		232C4AC8470D489F1986E885 /* ModelsSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsSelfTest.swift; sourceTree = "<group>"; };
 		271EDA7CB51A7AA1B945FE0D /* CoreLLMKit */ = {isa = PBXFileReference; lastKnownFileType = folder; name = CoreLLMKit; path = CoreLLMKit; sourceTree = SOURCE_ROOT; };
+		33FB550584B3FECBEA2DEA98 /* MapperSpeech.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSpeech.swift; sourceTree = "<group>"; };
+		3561B5EA6DABA34A201E8E21 /* inspection-slip.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "inspection-slip.png"; sourceTree = "<group>"; };
 		360CC408273BC4675E1E216D /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		3A67996693D6EED8CF7B063B /* ChatViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatViewModel.swift; sourceTree = "<group>"; };
 		4EC31AE58C3538D4D44146B1 /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		52FE5F0DA1D586A2DAC7185C /* MapperDialog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperDialog.swift; sourceTree = "<group>"; };
 		678A71E1FC1AC78FFD471950 /* LLMModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LLMModels.swift; sourceTree = "<group>"; };
 		686E1819D8AA5793902F77C0 /* AgentTools.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentTools.swift; sourceTree = "<group>"; };
 		6AEDC251F7A924881EAB02B7 /* ModelsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelsViewModel.swift; sourceTree = "<group>"; };
@@ -98,13 +125,17 @@
 		7CADC58BBB8B7CCAEA652F51 /* ChatAttachments.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatAttachments.swift; sourceTree = "<group>"; };
 		8389BCECD8D7D0371AADE6F6 /* SingleModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SingleModelsView.swift; sourceTree = "<group>"; };
 		83A8973A40748F05BF2C9E2A /* SplitModelsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitModelsView.swift; sourceTree = "<group>"; };
+		8745CFE843CA57C4AEBD67B3 /* MapperViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperViewModel.swift; sourceTree = "<group>"; };
 		8E6752FED97B5D2A305835BD /* SplitChatView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplitChatView.swift; sourceTree = "<group>"; };
 		90E99B2D09ABA329DA63E7ED /* SelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SelfTest.swift; sourceTree = "<group>"; };
 		9EAA33503CC9FB29F5860A1D /* CameraCapture.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCapture.swift; sourceTree = "<group>"; };
 		A328C86EC6271B6777949B21 /* CoreMLSamples-iOS-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = "CoreMLSamples-iOS-Info.plist"; sourceTree = "<group>"; };
 		A4D9633B21380342895E3B57 /* DemoRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoRootView.swift; sourceTree = "<group>"; };
+		A63595B80EC58F06E7EFB5E0 /* GemmaMapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GemmaMapperSelfTest.swift; sourceTree = "<group>"; };
+		A9253B4B22D5271D65EA9D13 /* MapperView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperView.swift; sourceTree = "<group>"; };
 		AA1C06A96D2987BDF096F911 /* PlatformColors.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlatformColors.swift; sourceTree = "<group>"; };
 		B15F898C339E93E734C972F9 /* AgentSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentSelfTest.swift; sourceTree = "<group>"; };
+		B54C1353E1E64B93E582FC5D /* MapperHeadlessSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperHeadlessSelfTest.swift; sourceTree = "<group>"; };
 		B9E6B0436FC8A0C547CD0439 /* LiveCameraView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraView.swift; sourceTree = "<group>"; };
 		BCEAB0001D56F41744EEB096 /* GUIDriver.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GUIDriver.swift; sourceTree = "<group>"; };
 		C1402A805D88D8DC132D29C3 /* Local.xcconfig.template */ = {isa = PBXFileReference; path = Local.xcconfig.template; sourceTree = "<group>"; };
@@ -113,12 +144,17 @@
 		CE97F2DFFE2EC0715FF841E4 /* ModelStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelStorage.swift; sourceTree = "<group>"; };
 		D1BBC6C769DF1B8FCCB45BF6 /* AgentViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentViewModel.swift; sourceTree = "<group>"; };
 		D70AEFE0E393C360888CB479 /* CameraPreview.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraPreview.swift; sourceTree = "<group>"; };
+		D8C33D1688D36158BCF0DF72 /* MapperSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperSelfTest.swift; sourceTree = "<group>"; };
 		E6C66B82BCC4FB0010A83B05 /* CoreMLSamples.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		E7F9DD49D767AB4274C4EC33 /* MapperDialogSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperDialogSelfTest.swift; sourceTree = "<group>"; };
 		EA7C826B184090447155133B /* CoreMLSamples.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = CoreMLSamples.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F59028632F23123EC3DFA3EE /* AgentToolCallParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentToolCallParser.swift; sourceTree = "<group>"; };
+		F5CBB1046B2A8C9A2A069974 /* MapperOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MapperOCR.swift; sourceTree = "<group>"; };
 		F65D0A6EC636E2DD50933E62 /* LiveCameraSelfTest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiveCameraSelfTest.swift; sourceTree = "<group>"; };
 		F71B3028D1B8FD4221B9D73E /* MetricsLog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MetricsLog.swift; sourceTree = "<group>"; };
+		F8A0981B88068D36BF413418 /* gliner_parity.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = gliner_parity.json; sourceTree = "<group>"; };
 		FA280AC78F92F66FA8166524 /* HubDownloader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HubDownloader.swift; sourceTree = "<group>"; };
+		FC2C90E9A3FF76FB13822F29 /* ChatRAG.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ChatRAG.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -149,6 +185,7 @@
 				88BA7F9EF6479142EA2C5CF1 /* Agent */,
 				7FA36E4C14BB1B86E69A3195 /* Chat */,
 				10DC0882663A620A0FF1F44D /* LiveCamera */,
+				403ABBD592EDD1BA17E69383 /* Mapper */,
 				BF6D3951001B7464AB8A43DB /* ModelManager */,
 			);
 			path = Demos;
@@ -175,6 +212,23 @@
 				AC0A429AF2A32EB9CB06F826 /* Packages */,
 				75828DCAB56593BFDADB3D3A /* Products */,
 			);
+			sourceTree = "<group>";
+		};
+		403ABBD592EDD1BA17E69383 /* Mapper */ = {
+			isa = PBXGroup;
+			children = (
+				A63595B80EC58F06E7EFB5E0 /* GemmaMapperSelfTest.swift */,
+				52FE5F0DA1D586A2DAC7185C /* MapperDialog.swift */,
+				E7F9DD49D767AB4274C4EC33 /* MapperDialogSelfTest.swift */,
+				B54C1353E1E64B93E582FC5D /* MapperHeadlessSelfTest.swift */,
+				F5CBB1046B2A8C9A2A069974 /* MapperOCR.swift */,
+				D8C33D1688D36158BCF0DF72 /* MapperSelfTest.swift */,
+				33FB550584B3FECBEA2DEA98 /* MapperSpeech.swift */,
+				A9253B4B22D5271D65EA9D13 /* MapperView.swift */,
+				8745CFE843CA57C4AEBD67B3 /* MapperViewModel.swift */,
+				B654058378E03AF8338DD3A1 /* Fixtures */,
+			);
+			path = Mapper;
 			sourceTree = "<group>";
 		};
 		41932EEBB44303D50CAD489B /* CoreMLSamples */ = {
@@ -214,6 +268,7 @@
 			children = (
 				4EC31AE58C3538D4D44146B1 /* AudioRecorder.swift */,
 				7CADC58BBB8B7CCAEA652F51 /* ChatAttachments.swift */,
+				FC2C90E9A3FF76FB13822F29 /* ChatRAG.swift */,
 				3A67996693D6EED8CF7B063B /* ChatViewModel.swift */,
 				90E99B2D09ABA329DA63E7ED /* SelfTest.swift */,
 				CC5E6FAC1EE922C07F53D730 /* SelfTestView.swift */,
@@ -245,6 +300,15 @@
 			name = Packages;
 			sourceTree = "<group>";
 		};
+		B654058378E03AF8338DD3A1 /* Fixtures */ = {
+			isa = PBXGroup;
+			children = (
+				F8A0981B88068D36BF413418 /* gliner_parity.json */,
+				3561B5EA6DABA34A201E8E21 /* inspection-slip.png */,
+			);
+			path = Fixtures;
+			sourceTree = "<group>";
+		};
 		BF6D3951001B7464AB8A43DB /* ModelManager */ = {
 			isa = PBXGroup;
 			children = (
@@ -268,6 +332,7 @@
 			buildConfigurationList = 25C7498EFBC4EE9458F43BA9 /* Build configuration list for PBXNativeTarget "CoreMLSamples-iOS" */;
 			buildPhases = (
 				6AE140758A126C8477CC1C0F /* Sources */,
+				426E51353A1ACD8993EEC8CD /* Resources */,
 				CC488667230499B8DFCCD3FA /* Frameworks */,
 			);
 			buildRules = (
@@ -288,6 +353,7 @@
 			buildConfigurationList = 6A7CA815F2558297370D2BA4 /* Build configuration list for PBXNativeTarget "CoreMLSamples" */;
 			buildPhases = (
 				730B60FD3D055F4321EA8041 /* Sources */,
+				BA4CEAA252CC7DAC0E81B16B /* Resources */,
 				064F09EE6B2599E8DBFB3829 /* Frameworks */,
 			);
 			buildRules = (
@@ -343,6 +409,27 @@
 		};
 /* End PBXProject section */
 
+/* Begin PBXResourcesBuildPhase section */
+		426E51353A1ACD8993EEC8CD /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2DE1FD348BF1391115D1DB75 /* gliner_parity.json in Resources */,
+				D5F997E998BE506FF8AA0B55 /* inspection-slip.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		BA4CEAA252CC7DAC0E81B16B /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F78047EEACC066C3E5EAFF3 /* gliner_parity.json in Resources */,
+				DE4F36D1F12CDDB25392A9C7 /* inspection-slip.png in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
 /* Begin PBXSourcesBuildPhase section */
 		6AE140758A126C8477CC1C0F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
@@ -359,16 +446,26 @@
 				2211F54B5E20914A24147725 /* CameraCapture.swift in Sources */,
 				9792DA2C2EAAE834097473E3 /* CameraPreview.swift in Sources */,
 				D0DAD10286C07331D3BA9DFC /* ChatAttachments.swift in Sources */,
+				8182626A1C39919F968C4374 /* ChatRAG.swift in Sources */,
 				4734E17730383CA592210F47 /* ChatViewModel.swift in Sources */,
 				12479795A24B27CE6BB08C36 /* DemoAppMain.swift in Sources */,
 				47A6085E35DAA57FFA5A31B1 /* DemoRootView.swift in Sources */,
 				E62634D303A695686AA547C2 /* GUIDriver.swift in Sources */,
+				F2B7014C0ABD903CDC51A921 /* GemmaMapperSelfTest.swift in Sources */,
 				B76F449B50272C247602D222 /* HubDownloader.swift in Sources */,
 				B24A571D6842F6771541DD1A /* LLMModels.swift in Sources */,
 				6A94169A74D5265A4B75424B /* LiveCameraSelfTest.swift in Sources */,
 				82C9F4C757A0D0D983500BB6 /* LiveCameraView.swift in Sources */,
 				F71ACE9DFE3B20D91106FFC5 /* LiveCameraViewModel.swift in Sources */,
 				0B5178800EAE0785C6ADE477 /* LiveSelfTestView.swift in Sources */,
+				FDBFFC04F8A5551B0E64B6C5 /* MapperDialog.swift in Sources */,
+				67B118CF2CB8FC686455D68B /* MapperDialogSelfTest.swift in Sources */,
+				30CF9E131C9D76666D8C9F94 /* MapperHeadlessSelfTest.swift in Sources */,
+				C6C8792BBF89B901ABC677CF /* MapperOCR.swift in Sources */,
+				290C25C6B2FCD11138306066 /* MapperSelfTest.swift in Sources */,
+				3D72A36BF2FF51E4DAE61F0F /* MapperSpeech.swift in Sources */,
+				2FA2753E30F04B2B86DC1D67 /* MapperView.swift in Sources */,
+				2A5AB4CAD356D614C6743372 /* MapperViewModel.swift in Sources */,
 				888EEB741883FB3A42BEC543 /* MetricsLog.swift in Sources */,
 				995025639AAEE6A5369E82E4 /* ModelStorage.swift in Sources */,
 				AB1D55B52059CDF303224B90 /* ModelsSelfTest.swift in Sources */,
@@ -399,16 +496,26 @@
 				B17C1718D7D3586A84B64817 /* CameraCapture.swift in Sources */,
 				18B3B8A143E77D78BFF128FB /* CameraPreview.swift in Sources */,
 				FDB167A655B78DD22E8D660B /* ChatAttachments.swift in Sources */,
+				1943840FD23F2BA212C249B3 /* ChatRAG.swift in Sources */,
 				B6DC404EC48941D472CEDD9C /* ChatViewModel.swift in Sources */,
 				45144A35F9202BD990FDC9DD /* DemoAppMain.swift in Sources */,
 				6C5513D8EFDABFBC5E4DD02D /* DemoRootView.swift in Sources */,
 				672239E174760DB56E8DA501 /* GUIDriver.swift in Sources */,
+				BD41E7156C9CB75418D72D5C /* GemmaMapperSelfTest.swift in Sources */,
 				D5EFD7385C8EFE2D282BDB3F /* HubDownloader.swift in Sources */,
 				27449904B1C24B33E9A4E9B3 /* LLMModels.swift in Sources */,
 				63AB4FB5EBF2DB6EC8A1C101 /* LiveCameraSelfTest.swift in Sources */,
 				DB6F56D4C2C1EC49158BA8A1 /* LiveCameraView.swift in Sources */,
 				F4329B53CA1EA78C8A83F3E2 /* LiveCameraViewModel.swift in Sources */,
 				CC14C8B81A68BF0118BB2A68 /* LiveSelfTestView.swift in Sources */,
+				9CB258CCB5E086702EF7949D /* MapperDialog.swift in Sources */,
+				03E3DE0F324244B5B16086A8 /* MapperDialogSelfTest.swift in Sources */,
+				C60CB65CB9C45662C3B0ABFD /* MapperHeadlessSelfTest.swift in Sources */,
+				41BDD996F4C518C200599E27 /* MapperOCR.swift in Sources */,
+				88431C100AC9E45C2C80FA01 /* MapperSelfTest.swift in Sources */,
+				02F4ED29AFE687F433411708 /* MapperSpeech.swift in Sources */,
+				EF98FBDD3CC0A9788D900B4F /* MapperView.swift in Sources */,
+				D6CD1C02AC2805EB8CFDE5BC /* MapperViewModel.swift in Sources */,
 				C376DC0281251AB1430BC93F /* MetricsLog.swift in Sources */,
 				1F93808DB050D6C4533858DB /* ModelStorage.swift in Sources */,
 				F9CAEFA9ED10D5273D33555E /* ModelsSelfTest.swift in Sources */,
@@ -443,6 +550,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Reads camera frames so the on-device model can describe what is in view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -468,6 +576,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -502,6 +611,7 @@
 				INFOPLIST_KEY_NSCameraUsageDescription = "Reads camera frames so the on-device model can describe what is in view.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
@@ -650,6 +760,7 @@
 				INFOPLIST_KEY_CFBundleDisplayName = "Core ML Demos";
 				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Records a short clip so the on-device model can transcribe it.";
+				INFOPLIST_KEY_NSSpeechRecognitionUsageDescription = "Transcribes a spoken inspection note on the device so it can be mapped onto the sheet.";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";

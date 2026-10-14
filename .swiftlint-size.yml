@@ -1,0 +1,34 @@
+# 大きさと複雑度の記録(合否に使わない)。architecture.md A14。
+# 実行: swiftlint lint --config .swiftlint-size.yml --quiet
+# 出た行は「分割を検討する合図」。超えたまま残すなら、PR に理由を書く。終了コードは見ない。
+# 数値は SwiftLint 0.63.2 の既定値。独自の値は置かない。
+
+# ★ .swiftlint.yml と同じフォルダにする。
+included:
+  - CoreLLMKit/Sources
+  - CoreLLMKit/Tests
+  - CoreMLSamples
+
+excluded:
+  - .build
+  - DerivedData
+  - build
+
+only_rules:
+  - cyclomatic_complexity
+  - function_body_length
+  - type_body_length
+  - file_length
+
+cyclomatic_complexity:
+  warning: 10
+  error: 20
+function_body_length:
+  warning: 50
+  error: 100
+type_body_length:
+  warning: 250
+  error: 350
+file_length:
+  warning: 400
+  error: 1000

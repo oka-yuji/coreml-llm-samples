@@ -1,0 +1,18 @@
+include:
+  - project.yml
+
+targets:
+  CoreMLSamples:
+    sources:
+      - path: models/gliner2-5-multi-coreml/gliner2_multi_classification_fp16_L128_K8.mlpackage
+        buildPhase: resources
+      - path: models/gliner2-5-multi-coreml/tokenizer
+        type: folder
+        buildPhase: resources
+  CoreMLSamples-iOS:
+    sources:
+      - path: models/gliner2-5-multi-coreml/gliner2_multi_classification_fp16_L128_K8.mlpackage
+        buildPhase: resources
+      - path: models/gliner2-5-multi-coreml/tokenizer
+        type: folder
+        buildPhase: resources

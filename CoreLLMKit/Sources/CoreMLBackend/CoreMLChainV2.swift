@@ -36,18 +36,21 @@ private final class Int8Sidecar {
 
     func read(row: Int, offset: Int, count: Int, into destination: UnsafeMutablePointer<Float16>) {
         precondition(row >= 0 && row < rows && offset >= 0 && offset + count <= cols)
-        var factor = scaleData.withUnsafeBytes {
-            $0.load(fromByteOffset: row * 4, as: Float32.self)
-        } / 127.0
+        var factor =
+            scaleData.withUnsafeBytes {
+                $0.load(fromByteOffset: row * 4, as: Float32.self)
+            } / 127.0
         let base = row * cols + offset
         data.withUnsafeBytes { raw in
             let p = raw.bindMemory(to: Int8.self).baseAddress! + base
             vDSP_vflt8(p, 1, scratch, 1, vDSP_Length(count))
             vDSP_vsmul(scratch, 1, &factor, scratch, 1, vDSP_Length(count))
-            var src = vImage_Buffer(data: scratch, height: 1,
-                                    width: vImagePixelCount(count), rowBytes: count * 4)
-            var dst = vImage_Buffer(data: destination, height: 1,
-                                    width: vImagePixelCount(count), rowBytes: count * 2)
+            var src = vImage_Buffer(
+                data: scratch, height: 1,
+                width: vImagePixelCount(count), rowBytes: count * 4)
+            var dst = vImage_Buffer(
+                data: destination, height: 1,
+                width: vImagePixelCount(count), rowBytes: count * 2)
             _ = vImageConvert_PlanarFtoPlanar16F(&src, &dst, vImage_Flags(kvImageNoFlags))
         }
     }
@@ -57,8 +60,18 @@ private enum V2Sidecar {
     case fp16(Sidecar)
     case int8(Int8Sidecar)
 
-    var rows: Int { switch self { case .fp16(let s): s.rows; case .int8(let s): s.rows } }
-    var cols: Int { switch self { case .fp16(let s): s.cols; case .int8(let s): s.cols } }
+    var rows: Int {
+        switch self {
+        case .fp16(let s): s.rows
+        case .int8(let s): s.rows
+        }
+    }
+    var cols: Int {
+        switch self {
+        case .fp16(let s): s.cols
+        case .int8(let s): s.cols
+        }
+    }
 
     static func make(bundleURL: URL, spec: ChainConfigV2.Sidecars.File) throws -> V2Sidecar {
         let rows = spec.shape[0]
@@ -68,10 +81,11 @@ private enum V2Sidecar {
                 throw LLMEngineError.incompatibleBundle(
                     reason: "\(spec.file): an int8 sidecar requires a scale entry")
             }
-            return .int8(try Int8Sidecar(
-                int8: bundleURL.appending(path: spec.file),
-                scale: bundleURL.appending(path: scaleName),
-                rows: rows, cols: cols))
+            return .int8(
+                try Int8Sidecar(
+                    int8: bundleURL.appending(path: spec.file),
+                    scale: bundleURL.appending(path: scaleName),
+                    rows: rows, cols: cols))
         }
         return .fp16(try Sidecar(url: bundleURL.appending(path: spec.file), rows: rows, cols: cols))
     }
@@ -178,8 +192,9 @@ final class CoreMLChainV2 {
     }
 
     func mtpHeadStatsSnapshot() -> MTPHeadStats {
-        MTPHeadStats(rounds: mtpRounds, rollbacks: mtpRollbacks, tried: mtpDraftTried, hit: mtpDraftHit,
-                     writebacks: mtpWritebacks, writebackSeconds: mtpWritebackSeconds)
+        MTPHeadStats(
+            rounds: mtpRounds, rollbacks: mtpRollbacks, tried: mtpDraftTried, hit: mtpDraftHit,
+            writebacks: mtpWritebacks, writebackSeconds: mtpWritebackSeconds)
     }
 
     private(set) var draftLen: Int
@@ -274,8 +289,10 @@ final class CoreMLChainV2 {
 
     private var ladderStoreSyncedRows = 0
 
-    init(bundleURL: URL, computeUnits: MLComputeUnits) async throws {
-        guard computeUnits == .cpuAndGPU || computeUnits == .all else {
+    init(
+        bundleURL: URL, computeUnits: MLComputeUnits, allowUnsafeComputeUnits: Bool = false
+    ) async throws {
+        guard computeUnits == .cpuAndGPU || computeUnits == .all || allowUnsafeComputeUnits else {
             throw LLMEngineError.incompatibleBundle(
                 reason: "v2 stateful requires the GPU (computeUnits=\(computeUnits.rawValue)). "
                     + "CPU_ONLY / ANE crash with a native segfault when multiple MLState instances load together. "
@@ -297,8 +314,9 @@ final class CoreMLChainV2 {
                     let cfg = MLModelConfiguration()
                     cfg.computeUnits = computeUnits
                     cfg.functionName = function
-                    out.append(try await CoreMLChain.loadCompiled(
-                        bundleURL: bundleURL, name: name, configuration: cfg))
+                    out.append(
+                        try await CoreMLChain.loadCompiled(
+                            bundleURL: bundleURL, name: name, configuration: cfg))
                 }
                 return out
             }
@@ -342,8 +360,9 @@ final class CoreMLChainV2 {
                     let cfg = MLModelConfiguration()
                     cfg.computeUnits = computeUnits
                     cfg.functionName = vm.function
-                    verify.append(try await CoreMLChain.loadCompiled(
-                        bundleURL: bundleURL, name: name, configuration: cfg))
+                    verify.append(
+                        try await CoreMLChain.loadCompiled(
+                            bundleURL: bundleURL, name: name, configuration: cfg))
                 }
             } catch {
                 loadError = error
@@ -354,7 +373,8 @@ final class CoreMLChainV2 {
                     .sorted()
                     .map { (output: $0, state: String($0.dropLast("_slots".count))) }
             }
-            let unusable: String? = loadError.map { "\(vm.function) failed to load (\($0))" }
+            let unusable: String? =
+                loadError.map { "\(vm.function) failed to load (\($0))" }
                 ?? (config.usesSplitOnehot
                     ? "this bundle splits onehot (ring / ladder); static verify needs a single onehot"
                     : nil)
@@ -362,8 +382,9 @@ final class CoreMLChainV2 {
                     ? "the verify function exposes no <state>_slots output" : nil)
                 ?? (vm.S < 2 ? "verify S=\(vm.S) leaves no room for a draft" : nil)
             if let unusable {
-                FileHandle.standardError.write(Data(
-                    "[v2] verify function unusable: \(unusable); decoding with main\n".utf8))
+                FileHandle.standardError.write(
+                    Data(
+                        "[v2] verify function unusable: \(unusable); decoding with main\n".utf8))
                 chunksVerify = nil
                 verifySlots = []
                 verifyS = 0
@@ -463,8 +484,9 @@ final class CoreMLChainV2 {
 
         if let storeS = config.storeLayers["sliding_attention"]
             ?? config.layerTypes.lastIndex(of: "sliding_attention"),
-           let storeF = config.storeLayers["full_attention"]
-            ?? config.layerTypes.lastIndex(of: "full_attention") {
+            let storeF = config.storeLayers["full_attention"]
+                ?? config.layerTypes.lastIndex(of: "full_attention")
+        {
             storeKName = (sliding: "k_\(storeS)_out", full: "k_\(storeF)_out")
             storeVName = (sliding: "v_\(storeS)_out", full: "v_\(storeF)_out")
         } else {
@@ -481,17 +503,19 @@ final class CoreMLChainV2 {
         position = 0
 
         if config.isHybrid {
-            let spec = mtpHeadURL == nil
+            let spec =
+                mtpHeadURL == nil
                 ? "no mtp.mlmodelc (speculative decoding disabled)"
                 : (chunksVerify != nil
-                   ? "built-in MTP head (lossless: static verify + slot write-back)"
-                   : "mtp.mlmodelc present but the bundle has no usable static verify block (speculation disabled)")
+                    ? "built-in MTP head (lossless: static verify + slot write-back)"
+                    : "mtp.mlmodelc present but the bundle has no usable static verify block (speculation disabled)")
             let loadedFns = ["main"] + (chunksVerify != nil ? ["verify(S=\(verifyS))"] : [])
             let path = chunksVerify != nil ? "verify" : "main"
-            FileHandle.standardError.write(Data(
-                ("[v2] hybrid bundle (linear_attention): \(spec); "
-                 + "loaded functions: \(loadedFns.joined(separator: "+")); decode path = \(path); "
-                 + "rewind restricted to no-op (conv_state/rec_state cannot be rewound)\n").utf8))
+            FileHandle.standardError.write(
+                Data(
+                    ("[v2] hybrid bundle (linear_attention): \(spec); "
+                        + "loaded functions: \(loadedFns.joined(separator: "+")); decode path = \(path); "
+                        + "rewind restricted to no-op (conv_state/rec_state cannot be rewound)\n").utf8))
         }
 
         let warmStart = clock.now
@@ -518,17 +542,30 @@ final class CoreMLChainV2 {
         promoted = false
         draftLen = baseDraftLen
         recentAccept.removeAll(keepingCapacity: true)
-        storeSKS = nil; storeSVS = nil; storeSKF = nil; storeSVF = nil
+        storeSKS = nil
+        storeSVS = nil
+        storeSKF = nil
+        storeSVF = nil
         ladderStoreSyncedRows = 0
         ladderCapturePre = false
-        drafterPreRounds = 0; drafterFullRounds = 0
-        pldRounds = 0; drafterFallbackRounds = 0; pldDraftedTokens = 0; pldAcceptedTokens = 0
-        treeAltFired = 0; treeAltRecovered = 0
+        drafterPreRounds = 0
+        drafterFullRounds = 0
+        pldRounds = 0
+        drafterFallbackRounds = 0
+        pldDraftedTokens = 0
+        pldAcceptedTokens = 0
+        treeAltFired = 0
+        treeAltRecovered = 0
         mtpState = mtpHead?.makeState()
-        mtpRounds = 0; mtpRollbacks = 0
-        mtpWritebacks = 0; mtpWritebackSeconds = 0
+        mtpRounds = 0
+        mtpRollbacks = 0
+        mtpWritebacks = 0
+        mtpWritebackSeconds = 0
         verifySlotArrays.removeAll(keepingCapacity: true)
-        for i in mtpDraftTried.indices { mtpDraftTried[i] = 0; mtpDraftHit[i] = 0 }
+        for i in mtpDraftTried.indices {
+            mtpDraftTried[i] = 0
+            mtpDraftHit[i] = 0
+        }
     }
 
     func rewind(to newPosition: Int) throws {
@@ -539,7 +576,10 @@ final class CoreMLChainV2 {
                     + "reset() and prefill the whole conversation instead")
         }
         position = max(0, min(newPosition, config.effectiveContextLength))
-        storeSKS = nil; storeSVS = nil; storeSKF = nil; storeSVF = nil
+        storeSKS = nil
+        storeSVS = nil
+        storeSKF = nil
+        storeSVF = nil
 
         ladderStoreSyncedRows = min(ladderStoreSyncedRows, position)
     }
@@ -633,13 +673,15 @@ final class CoreMLChainV2 {
                 let perBytes = perElems * 2
                 src.withUnsafeBytes { s in
                     states[ci].withMultiArray(for: slot.state) { arr in
-                        precondition(arr.count == perElems,
-                                     "one \(slot.output) slot is \(perElems) elements but state "
-                                         + "\(slot.state) is \(arr.count)")
+                        precondition(
+                            arr.count == perElems,
+                            "one \(slot.output) slot is \(perElems) elements but state "
+                                + "\(slot.state) is \(arr.count)")
                         arr.withUnsafeMutableBytes { d, _ in
-                            precondition(d.count >= perBytes && s.count >= (j + 1) * perBytes,
-                                         "\(slot.output) write-back is out of bounds (slot=\(j) "
-                                             + "per=\(perBytes)B src=\(s.count)B dst=\(d.count)B)")
+                            precondition(
+                                d.count >= perBytes && s.count >= (j + 1) * perBytes,
+                                "\(slot.output) write-back is out of bounds (slot=\(j) "
+                                    + "per=\(perBytes)B src=\(s.count)B dst=\(d.count)B)")
                             _ = memcpy(d.baseAddress!, s.baseAddress! + j * perBytes, perBytes)
                         }
                     }
@@ -653,8 +695,9 @@ final class CoreMLChainV2 {
     }
 
     func commitVerified(_ accepted: Int, writeBackState: Bool = true) {
-        precondition(accepted >= 1 && accepted <= verifyS,
-                     "accepted \(accepted) is outside 1...\(verifyS)")
+        precondition(
+            accepted >= 1 && accepted <= verifyS,
+            "accepted \(accepted) is outside 1...\(verifyS)")
         if writeBackState && accepted < verifyS { writeBackSlot(accepted - 1) }
         position += accepted
     }
@@ -662,8 +705,10 @@ final class CoreMLChainV2 {
     private func mtpBuf(_ s: Int) throws -> (embed: MLMultiArray, hidden: MLMultiArray) {
         if let b = mtpBufs[s] { return b }
         let shape = [NSNumber(value: s), NSNumber(value: config.H)]
-        let b = (embed: try MLMultiArray(shape: shape, dataType: .float16),
-                 hidden: try MLMultiArray(shape: shape, dataType: .float16))
+        let b = (
+            embed: try MLMultiArray(shape: shape, dataType: .float16),
+            hidden: try MLMultiArray(shape: shape, dataType: .float16)
+        )
         mtpBufs[s] = b
         return b
     }
@@ -695,7 +740,8 @@ final class CoreMLChainV2 {
         let out = try model.prediction(
             from: MLDictionaryFeatureProvider(dictionary: dictionary), using: state)
         guard let hh = out.featureValue(for: "hidden_head")?.multiArrayValue,
-              let hn = out.featureValue(for: "hidden_next")?.multiArrayValue else {
+            let hn = out.featureValue(for: "hidden_next")?.multiArrayValue
+        else {
             throw LLMEngineError.generationFailed(
                 reason: "the MTP head did not return hidden_head / hidden_next")
         }
@@ -711,12 +757,16 @@ final class CoreMLChainV2 {
 
     private func allocateLadderStoreBuffers() throws {
         let last = chunks.count - 1
-        guard let sIdx = config.layerTypes.lastIndex(of: "sliding_attention")
+        guard
+            let sIdx = config.layerTypes.lastIndex(of: "sliding_attention")
                 ?? config.storeLayers["sliding_attention"],
-              let fIdx = config.layerTypes.lastIndex(of: "full_attention")
-                ?? config.storeLayers["full_attention"] else {
+            let fIdx = config.layerTypes.lastIndex(of: "full_attention")
+                ?? config.storeLayers["full_attention"]
+        else {
             throw LLMEngineError.generationFailed(
-                reason: "the ladder store layers (sliding/full) cannot be resolved from layer_types / store_layers; MTP is impossible")
+                reason:
+                    "the ladder store layers (sliding/full) cannot be resolved from layer_types / store_layers; MTP is impossible"
+            )
         }
         let names = (slidingK: "k_\(sIdx)", slidingV: "v_\(sIdx)", fullK: "k_\(fIdx)", fullV: "v_\(fIdx)")
         ladderStoreStateNames = names
@@ -724,17 +774,19 @@ final class CoreMLChainV2 {
         func allocLike(_ name: String) throws -> MLMultiArray {
             guard chunks[last].modelDescription.stateDescriptionsByName[name] != nil else {
                 throw LLMEngineError.generationFailed(
-                    reason: "ladder store state \(name) is absent from the final chunk (index \(last)); MTP capture is impossible")
+                    reason:
+                        "ladder store state \(name) is absent from the final chunk (index \(last)); MTP capture is impossible"
+                )
             }
             var out: MLMultiArray?
             var caught: Error?
             states[last].withMultiArray(for: name) { arr in
-                do { out = try MLMultiArray(shape: arr.shape, dataType: arr.dataType) }
-                catch { caught = error }
+                do { out = try MLMultiArray(shape: arr.shape, dataType: arr.dataType) } catch { caught = error }
             }
             if let caught { throw caught }
             guard let out else {
-                throw LLMEngineError.generationFailed(reason: "failed to allocate a buffer for ladder store state \(name)")
+                throw LLMEngineError.generationFailed(
+                    reason: "failed to allocate a buffer for ladder store state \(name)")
             }
             return out
         }
@@ -753,8 +805,10 @@ final class CoreMLChainV2 {
                 try MLMultiArray(
                     shape: [1, NSNumber(value: w32), NSNumber(value: d)], dataType: big.dataType)
             }
-            let pk = try allocSmall(); let pv = try allocSmall()
-            zeroBuffer(pk); zeroBuffer(pv)
+            let pk = try allocSmall()
+            let pv = try allocSmall()
+            zeroBuffer(pk)
+            zeroBuffer(pv)
             ladderStoreFullKPre = pk
             ladderStoreFullVPre = pv
         }
@@ -770,8 +824,9 @@ final class CoreMLChainV2 {
 
     private func captureLadderStoreKV() throws {
         guard let names = ladderStoreStateNames,
-              let sk = ladderStoreSlidingK, let sv = ladderStoreSlidingV,
-              let fkBig = ladderStoreFullK, let fvBig = ladderStoreFullV else { return }
+            let sk = ladderStoreSlidingK, let sv = ladderStoreSlidingV,
+            let fkBig = ladderStoreFullK, let fvBig = ladderStoreFullV
+        else { return }
         let last = chunks.count - 1
 
         try copyState(chunk: last, name: names.slidingK, into: sk)
@@ -791,17 +846,23 @@ final class CoreMLChainV2 {
         try copyFullStateRows(chunk: last, name: names.fullK, into: fk, from: ladderStoreSyncedRows, upTo: upTo)
         try copyFullStateRows(chunk: last, name: names.fullV, into: fv, from: ladderStoreSyncedRows, upTo: upTo)
         ladderStoreSyncedRows = upTo
-        storeSKS = sk; storeSVS = sv; storeSKF = fk; storeSVF = fv
+        storeSKS = sk
+        storeSVS = sv
+        storeSKF = fk
+        storeSVF = fv
     }
 
-    private func copyFullStateRows(chunk ci: Int, name: String, into dest: MLMultiArray,
-                                   from: Int, upTo: Int) throws {
+    private func copyFullStateRows(
+        chunk ci: Int, name: String, into dest: MLMultiArray,
+        from: Int, upTo: Int
+    ) throws {
         var didIncremental = false
         states[ci].withMultiArray(for: name) { arr in
 
             guard Self.isCContiguous(arr), Self.isCContiguous(dest),
-                  arr.shape.count == 3, arr.shape[0].intValue == 1,
-                  dest.shape.count == 3, dest.shape[0].intValue == 1 else { return }
+                arr.shape.count == 3, arr.shape[0].intValue == 1,
+                dest.shape.count == 3, dest.shape[0].intValue == 1
+            else { return }
             let srcRows = arr.shape[1].intValue
             let destRows = dest.shape[1].intValue
             guard srcRows > 0, destRows > 0 else { return }
@@ -847,7 +908,8 @@ final class CoreMLChainV2 {
                 dest.withUnsafeMutableBytes { dst, _ in
                     guard src.count == dst.count else {
                         caught = LLMEngineError.generationFailed(
-                            reason: "ladder store state \(name) byte-count mismatch (state=\(src.count) buf=\(dst.count))")
+                            reason:
+                                "ladder store state \(name) byte-count mismatch (state=\(src.count) buf=\(dst.count))")
                         return
                     }
                     _ = memcpy(dst.baseAddress!, src.baseAddress!, src.count)
@@ -1032,7 +1094,8 @@ final class CoreMLChainV2 {
             }
             let provider = try MLDictionaryFeatureProvider(
                 dictionary: dictionary.filter { chunkInputNames[ci].contains($0.key) })
-            let output = statefulChunk[ci]
+            let output =
+                statefulChunk[ci]
                 ? try activeChunks[ci].prediction(from: provider, using: states[ci])
                 : try activeChunks[ci].prediction(from: provider)
             if hasSharedKV, let storeKName, let storeVName {
@@ -1084,7 +1147,8 @@ final class CoreMLChainV2 {
             try captureLadderStoreKV()
         }
 
-        let hasDrafter = mtpLoaded && drafter != nil && drafterHost != nil
+        let hasDrafter =
+            mtpLoaded && drafter != nil && drafterHost != nil
             && draftEmbed != nil && draftHidden != nil && lastHiddenBuffer != nil
             && storeSKS != nil && storeSVS != nil && storeSKF != nil && storeSVF != nil
         guard pldEnabled || hasDrafter, position + draftLen < config.effectiveContextLength else {
@@ -1092,7 +1156,8 @@ final class CoreMLChainV2 {
             return MTPRound(emitted: [prediction], next: next, accepted: 0, drafted: 0)
         }
 
-        let pldCopied: [Int] = pldEnabled
+        let pldCopied: [Int] =
+            pldEnabled
             ? PromptLookup.draft(
                 context: context, last: prediction,
                 maxDraft: min(draftLen, config.effectiveContextLength - 1 - position),
@@ -1103,8 +1168,9 @@ final class CoreMLChainV2 {
         if usedPLD {
             drafts = [prediction] + pldCopied
         } else if hasDrafter, let drafter, let drafterHost, let draftEmbed, let draftHidden,
-                  let lastHiddenBuffer,
-                  let sks = storeSKS, let svs = storeSVS, let skf = storeSKF, let svf = storeSVF {
+            let lastHiddenBuffer,
+            let sks = storeSKS, let svs = storeSVS, let skf = storeSKF, let svf = storeSVF
+        {
             if pldEnabled { drafterFallbackRounds += 1 }
 
             let usePre = config.isLadder && !promoted && drafterPre != nil && drafterHostPre != nil
@@ -1115,13 +1181,15 @@ final class CoreMLChainV2 {
             activeHost.update(position: position - 1)
             copyFlat(from: lastHiddenBuffer, to: draftHidden, count: config.H)
 
-            _ = try draftStep(token: lastToken, drafter: activeDrafter, host: activeHost,
-                              sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
+            _ = try draftStep(
+                token: lastToken, drafter: activeDrafter, host: activeHost,
+                sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
             drafts = [prediction]
             var tok = prediction
             for _ in 1..<draftLen {
-                tok = try draftStep(token: tok, drafter: activeDrafter, host: activeHost,
-                                    sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
+                tok = try draftStep(
+                    token: tok, drafter: activeDrafter, host: activeHost,
+                    sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
                 drafts.append(tok)
             }
         } else {
@@ -1138,17 +1206,23 @@ final class CoreMLChainV2 {
         var altSlot = 0
 
         if treeActive, !config.usesSplitOnehot, usedPLD, drafts.count >= 2, hasDrafter,
-           let drafter, let drafterHost, let draftEmbed, let draftHidden, let lastHiddenBuffer,
-           let sks = storeSKS, let svs = storeSVS, let skf = storeSKF, let svf = storeSVF {
+            let drafter, let drafterHost, let draftEmbed, let draftHidden, let lastHiddenBuffer,
+            let sks = storeSKS, let svs = storeSVS, let skf = storeSKF, let svf = storeSVF
+        {
             let slot = base + drafts.count
             if slot <= config.effectiveContextLength - 1 {
                 drafterHost.update(position: position - 1)
                 copyFlat(from: lastHiddenBuffer, to: draftHidden, count: config.H)
-                _ = try draftStep(token: lastToken, drafter: drafter, host: drafterHost,
-                                  sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
-                let a1 = try draftStep(token: prediction, drafter: drafter, host: drafterHost,
-                                       sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
-                if a1 != drafts[1] { altToken = a1; altSlot = slot }
+                _ = try draftStep(
+                    token: lastToken, drafter: drafter, host: drafterHost,
+                    sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
+                let a1 = try draftStep(
+                    token: prediction, drafter: drafter, host: drafterHost,
+                    sks: sks, svs: svs, skf: skf, svf: svf, embed: draftEmbed, hidden: draftHidden)
+                if a1 != drafts[1] {
+                    altToken = a1
+                    altSlot = slot
+                }
             }
         }
 
@@ -1217,7 +1291,8 @@ final class CoreMLChainV2 {
 
     private func mtpRoundStaticVerify(prediction: Int) throws -> MTPRound {
         guard mtpLoaded, mtpHead != nil, let lastHiddenBuffer, position >= 1, verifyS >= 2,
-              position + verifyS <= config.effectiveContextLength else {
+            position + verifyS <= config.effectiveContextLength
+        else {
             let next = try decodeStep(tokenID: prediction)
             return MTPRound(emitted: [prediction], next: next, accepted: 0, drafted: 0)
         }
@@ -1249,8 +1324,9 @@ final class CoreMLChainV2 {
         for i in 1...triedUpTo where i - 1 < mtpDraftTried.count { mtpDraftTried[i - 1] += 1 }
         for i in 1..<accepted where i - 1 < mtpDraftHit.count { mtpDraftHit[i - 1] += 1 }
 
-        return MTPRound(emitted: Array(drafts[0..<accepted]), next: targets[accepted - 1],
-                        accepted: accepted, drafted: drafts.count)
+        return MTPRound(
+            emitted: Array(drafts[0..<accepted]), next: targets[accepted - 1],
+            accepted: accepted, drafted: drafts.count)
     }
 
     private func draftStep(
@@ -1259,14 +1335,16 @@ final class CoreMLChainV2 {
         embed: MLMultiArray, hidden: MLMultiArray
     ) throws -> Int {
         embed.withF16 { buf in embedSidecar.read(row: tok, into: buf.baseAddress!) }
-        let out = try drafter.prediction(from: MLDictionaryFeatureProvider(dictionary: [
-            "embed": embed, "hidden": hidden,
-            "cos_s": host.cosS, "sin_s": host.sinS, "cos_f": host.cosF, "sin_f": host.sinF,
-            "mask_s": host.maskS, "mask_f": host.maskF,
-            "sks": sks, "svs": svs, "skf": skf, "svf": svf,
-        ]))
+        let out = try drafter.prediction(
+            from: MLDictionaryFeatureProvider(dictionary: [
+                "embed": embed, "hidden": hidden,
+                "cos_s": host.cosS, "sin_s": host.sinS, "cos_f": host.cosF, "sin_f": host.sinF,
+                "mask_s": host.maskS, "mask_f": host.maskF,
+                "sks": sks, "svs": svs, "skf": skf, "svf": svf,
+            ]))
         guard let t = out.featureValue(for: "token")?.multiArrayValue,
-              let h = out.featureValue(for: "hidden_next")?.multiArrayValue else {
+            let h = out.featureValue(for: "hidden_next")?.multiArrayValue
+        else {
             throw LLMEngineError.generationFailed(reason: "drafter produced invalid output")
         }
         copyFlat(from: h, to: hidden, count: config.H)
@@ -1277,8 +1355,11 @@ final class CoreMLChainV2 {
         recentAccept.append(Double(accepted) / Double(max(drafted, 1)))
         guard recentAccept.count >= 4 else { return }
         let mean = recentAccept.reduce(0, +) / Double(recentAccept.count)
-        if mean > 0.9 { draftLen = min(draftLen + 2, maxDraftLen) }
-        else if mean < 0.5 { draftLen = max(draftLen - 2, 4) }
+        if mean > 0.9 {
+            draftLen = min(draftLen + 2, maxDraftLen)
+        } else if mean < 0.5 {
+            draftLen = max(draftLen - 2, 4)
+        }
         recentAccept.removeAll(keepingCapacity: true)
     }
 
@@ -1358,8 +1439,9 @@ extension CoreMLChainV2 {
         var ids: [Int] = []
         var rowRefs: [SoftRowRef?] = []
         func appendSoft(_ soft: SoftTokenRows, placeholder: Int, kind: String) {
-            precondition(soft.hidden == config.H,
-                         "\(kind) soft tokens hidden \(soft.hidden) != chain H \(config.H)")
+            precondition(
+                soft.hidden == config.H,
+                "\(kind) soft tokens hidden \(soft.hidden) != chain H \(config.H)")
             for r in 0..<soft.rows {
                 ids.append(placeholder)
                 rowRefs.append(SoftRowRef(tokens: soft, row: r))
@@ -1368,7 +1450,10 @@ extension CoreMLChainV2 {
         for seg in segments {
             switch seg {
             case .tokens(let ts):
-                for t in ts { ids.append(t); rowRefs.append(nil) }
+                for t in ts {
+                    ids.append(t)
+                    rowRefs.append(nil)
+                }
             case .image(let soft):
                 appendSoft(soft, placeholder: MultimodalSlot.imagePlaceholderID, kind: "image")
             case .audio(let soft):
@@ -1580,7 +1665,10 @@ extension CoreMLChainV2 {
 
         position = manifest.position
         lastToken = manifest.processedTokens.last ?? 0
-        storeSKS = nil; storeSVS = nil; storeSKF = nil; storeSVF = nil
+        storeSKS = nil
+        storeSVS = nil
+        storeSKF = nil
+        storeSVF = nil
         ladderStoreSyncedRows = 0
         mtpState = mtpHead?.makeState()
         verifySlotArrays.removeAll(keepingCapacity: true)
