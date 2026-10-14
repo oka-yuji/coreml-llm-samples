@@ -54,6 +54,24 @@ public struct ModelManifest: Sendable, Codable, Hashable {
 
     public var computeUnits: String?
 
+    /// `resident` (default) or `sequential`. `CORELLM_PREFILL_MODE` overrides it.
+    public var prefillMode: String?
+
+    /// Early exit: prefill the prompt only through the chunks that own KV (layers below
+    /// `first_shared`), then run the KV-sharing chunks once, as a decode step on the prompt's last
+    /// token. Their prefill functions are never loaded. `false`/absent is off.
+    /// `CORELLM_PREFILL_EARLY_EXIT` overrides it.
+    public var prefillEarlyExit: Bool?
+
+    /// `default` (the Core ML default) or `fastPrediction`. `CORELLM_SPECIALIZATION` overrides it.
+    public var specializationStrategy: String?
+
+    /// Specialize the prefill functions in the background right after the model loads, so the
+    /// first long prompt does not pay for it. `false`/absent is off, `true` prewarms every prefill
+    /// width, and a comma-separated list such as `32` prewarms only those.
+    /// `CORELLM_PREFILL_PREWARM` overrides it.
+    public var prefillPrewarm: String?
+
     public init(
         name: String,
         architecture: String,
@@ -68,7 +86,11 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         promptSuffixThinking: String? = nil,
         eos: [Int]? = nil,
         sidecarStage: String? = nil,
-        computeUnits: String? = nil
+        computeUnits: String? = nil,
+        prefillMode: String? = nil,
+        specializationStrategy: String? = nil,
+        prefillPrewarm: String? = nil,
+        prefillEarlyExit: Bool? = nil
     ) {
         self.name = name
         self.architecture = architecture
@@ -84,6 +106,10 @@ public struct ModelManifest: Sendable, Codable, Hashable {
         self.eos = eos
         self.sidecarStage = sidecarStage
         self.computeUnits = computeUnits
+        self.prefillMode = prefillMode
+        self.specializationStrategy = specializationStrategy
+        self.prefillPrewarm = prefillPrewarm
+        self.prefillEarlyExit = prefillEarlyExit
     }
 }
 

@@ -7,6 +7,12 @@ struct DemoApp: App {
             #if os(iOS)
             if SelfTest.isRequested {
                 SelfTestView()
+            } else if MapperHeadlessSelfTest.isRequested {
+                MapperHeadlessSelfTestView()
+            } else if GemmaMapperSelfTest.isRequested {
+                GemmaMapperSelfTestView()
+            } else if MapperDialogSelfTest.isRequested {
+                MapperDialogSelfTestView()
             } else if LiveCameraSelfTest.isRequested {
                 LiveSelfTestView()
             } else {
@@ -25,6 +31,8 @@ enum DemoAppMain {
     static func main() {
 
         UserDefaults.standard.removeObject(forKey: "huggingface_token")
+        // Reading this performs CORELLM_CLEAR_E5RT_CACHE, so it has to happen before any load.
+        E5RTCache.startupLines.forEach { print($0) }
         #if os(macOS)
         if CommandLine.arguments.contains("--selftest") {
             SelfTest.run()

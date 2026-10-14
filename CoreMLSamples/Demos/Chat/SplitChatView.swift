@@ -20,6 +20,9 @@ struct SplitChatView: View {
         }
         .frame(minWidth: 560, minHeight: 480)
         .onChange(of: vm.speculative) { _, on in vm.speculationToggleChanged(to: on) }
+        // Loading the last chat bundle happens here rather than at launch: it is the
+        // biggest model in the app and it used to be read while another demo ran.
+        .task { await vm.autoLoadLastBundleOnce() }
     }
 
     private var header: some View {
@@ -134,6 +137,7 @@ struct SplitChatView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
+            RAGControls()
             Toggle("Speculation", isOn: $vm.speculative)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -284,6 +288,7 @@ private struct MessageRow: View {
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(isUser ? Color.accentColor.opacity(0.12) : Color.bubbleBackground))
+            RAGSourceFooter(sources: message.sources)
         }
     }
 }

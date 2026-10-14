@@ -9,8 +9,18 @@ enum Demo: String, CaseIterable, Identifiable {
     case agent
     case liveCamera
     case models
+    case mapper
 
     var id: String { rawValue }
+
+    /// `--demo mapper` opens straight onto a demo, so screenshots and scripted
+    /// runs do not depend on tapping a tab.
+    static var launchSelection: Demo? {
+        guard let index = CommandLine.arguments.firstIndex(of: "--demo"),
+            index + 1 < CommandLine.arguments.count
+        else { return nil }
+        return Demo(rawValue: CommandLine.arguments[index + 1])
+    }
 
     static var available: [Demo] {
         #if os(macOS)
@@ -26,6 +36,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "Agent"
         case .liveCamera: return "Live Camera"
         case .models: return "Models"
+        case .mapper: return "Mapper"
         }
     }
 
@@ -35,6 +46,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "Search the web and run multi-step tasks with tool calls"
         case .liveCamera: return "Describe what the camera sees, frame after frame"
         case .models: return "Download and manage model bundles"
+        case .mapper: return "Map a spoken Japanese note onto an inspection sheet"
         }
     }
 
@@ -44,6 +56,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: return "sparkles"
         case .liveCamera: return "camera.viewfinder"
         case .models: return "square.and.arrow.down"
+        case .mapper: return "list.clipboard"
         }
     }
 
@@ -53,6 +66,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: AgentView()
         case .liveCamera: LiveCameraView()
         case .models: SplitModelsView()
+        case .mapper: MapperView()
         }
     }
 
@@ -62,6 +76,7 @@ enum Demo: String, CaseIterable, Identifiable {
         case .agent: AgentView()
         case .liveCamera: LiveCameraView()
         case .models: SingleModelsView()
+        case .mapper: MapperView()
         }
     }
 }
@@ -69,7 +84,9 @@ enum Demo: String, CaseIterable, Identifiable {
 @MainActor
 @Observable
 final class DemoNavigator {
-    var selection: Demo? = .chat
+    // Mapper is the demo being shown, so it is the one the app opens on. `--demo`
+    // still wins, for screenshots and scripted runs.
+    var selection: Demo? = Demo.launchSelection ?? .mapper
 }
 
 enum DeviceKind {
@@ -133,7 +150,9 @@ struct SplitRootView: View {
             GUIDriver.shared.attach(
                 navigator: navigator, chat: chatVM, models: modelsVM, agent: agentVM)
             #endif
-            await chatVM.autoLoadLastBundleOnce()
+            // The chat bundle is loaded when Chat is opened, not here: on a 6 GB phone
+            // it is ~2 GB and it was taking the ANE and the memory while another demo
+            // was running. `autoLoadLastBundleOnce` is still once per launch.
         }
     }
 }
@@ -159,7 +178,6 @@ struct SingleRootView: View {
         .environment(chatVM)
         .environment(modelsVM)
         .environment(agentVM)
-        .task { await chatVM.autoLoadLastBundleOnce() }
     }
 }
 

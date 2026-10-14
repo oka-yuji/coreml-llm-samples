@@ -59,6 +59,7 @@ struct MetricsRecord: Codable {
     var footprintAtEndMB: Double?
     var peakFootprintMB: Double?
     var availableMemoryMB: Double?
+    var sysWiredMB: Double?
 
     var thermalStateStart: String?
     var thermalStateEnd: String?
@@ -281,11 +282,13 @@ enum MetricsLog {
     private static func base(kind: String) -> MetricsRecord {
         let (model, os) = deviceAndOS()
         let (level, state) = battery()
-        return MetricsRecord(
+        var record = MetricsRecord(
             kind: kind,
             timestamp: ISO8601DateFormatter().string(from: Date()),
             deviceModel: model, osVersion: os, appBuild: appBuild(),
             thermalStateStart: thermalName(), batteryLevel: level, batteryState: state)
+        record.sysWiredMB = megabytes(sysWiredBytes())
+        return record
     }
 
     private static let queue = DispatchQueue(label: "coreml-llm-samples.metrics-log")
@@ -323,6 +326,21 @@ enum MetricsLog {
     private static func megabytes(_ bytes: Int?) -> Double? {
         guard let bytes else { return nil }
         return Double(bytes) / 1_048_576
+    }
+
+    /// System-wide wired memory (host_statistics64 wire_count). On iOS this is where ANE
+    /// weight residency shows up, so it sits next to the per-stage phys_footprint numbers.
+    static func sysWiredBytes() -> Int? {
+        var stats = vm_statistics64_data_t()
+        var count = mach_msg_type_number_t(
+            MemoryLayout<vm_statistics64_data_t>.size / MemoryLayout<integer_t>.size)
+        let result = withUnsafeMutablePointer(to: &stats) { pointer -> kern_return_t in
+            pointer.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
+                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+            }
+        }
+        guard result == KERN_SUCCESS else { return nil }
+        return Int(stats.wire_count) * sysconf(_SC_PAGESIZE)
     }
 
     private static func availableMemoryBytes() -> Int? {
@@ -389,5 +407,102 @@ enum MetricsLog {
         values.isExcludedFromBackup = true
         try? target.setResourceValues(values)
         #endif
+    }
+}
+
+/// Where this app's Core ML artifacts live, and how big they are.
+///
+/// `MLModel(contentsOf:)` specializes a model for the ANE, and a hit on that specialization makes
+/// a chunk load in ~0.2 s where a miss costs ~10 s. On macOS the artifacts land in
+/// `~/Library/Caches/com.apple.e5rt.e5bundlecache`; on iOS that directory is **not** in the app's
+/// container, so the app can neither measure nor clear it. The scan below reports the whole
+/// container `Library/` tree so the growth after a load is visible wherever it lands.
+///
+/// `CORELLM_CLEAR_E5RT_CACHE=1` deletes any `*e5*bundlecache*` directory it finds inside this
+/// app's own container, and says so when there is none.
+enum E5RTCache {
+    /// Read once, at startup, before anything loads a model. Reading it performs the clear.
+    static let startupLines: [String] = report(phase: "startup", clear: true)
+
+    /// Same scan, after a load, so the caller can see which directory grew.
+    static func afterLoadLines() -> [String] { report(phase: "afterload", clear: false) }
+
+    private static var libraryURL: URL? {
+        FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
+    }
+
+    private static func report(phase: String, clear: Bool) -> [String] {
+        guard let library = libraryURL else { return ["[e5rt] \(phase) no library directory"] }
+        var lines = ["[e5rt] \(phase) library=\(library.path(percentEncoded: false))"]
+        for entry in children(of: library) {
+            let (files, bytes) = measure(entry)
+            lines.append(String(format: "[e5rt] %@ %@ files=%d size=%.1f MiB",
+                                phase, entry.lastPathComponent, files, Double(bytes) / 1_048_576))
+            // One level deeper for the two that matter, so a growing cache is attributable.
+            guard ["Caches", "Application Support"].contains(entry.lastPathComponent) else { continue }
+            for child in children(of: entry) {
+                let (f, b) = measure(child)
+                lines.append(String(format: "[e5rt] %@   %@/%@ files=%d size=%.1f MiB",
+                                    phase, entry.lastPathComponent, child.lastPathComponent,
+                                    f, Double(b) / 1_048_576))
+            }
+        }
+        let found = bundleCaches(under: library)
+        lines.append("[e5rt] \(phase) e5bundlecache in container: "
+            + (found.isEmpty ? "none" : found.map { $0.path(percentEncoded: false) }.joined(separator: " ")))
+        guard clear, ProcessInfo.processInfo.environment["CORELLM_CLEAR_E5RT_CACHE"] == "1" else {
+            return lines
+        }
+        guard !found.isEmpty else {
+            lines.append("[e5rt] clear requested but nothing to clear — "
+                + "on iOS the specialization cache is outside the app container")
+            return lines
+        }
+        for url in found {
+            do {
+                try FileManager.default.removeItem(at: url)
+                lines.append("[e5rt] cleared \(url.lastPathComponent)")
+            } catch {
+                lines.append("[e5rt] clear failed \(url.lastPathComponent): \(error)")
+            }
+        }
+        return lines
+    }
+
+    private static func children(of url: URL) -> [URL] {
+        ((try? FileManager.default.contentsOfDirectory(
+            at: url, includingPropertiesForKeys: nil, options: [])) ?? []).sorted {
+                $0.lastPathComponent < $1.lastPathComponent
+            }
+    }
+
+    /// Any directory in the container whose name looks like the e5rt bundle cache.
+    private static func bundleCaches(under root: URL) -> [URL] {
+        guard let walker = FileManager.default.enumerator(
+            at: root, includingPropertiesForKeys: [.isDirectoryKey],
+            options: [], errorHandler: { _, _ in true }) else { return [] }
+        var found: [URL] = []
+        for case let child as URL in walker
+        where child.lastPathComponent.lowercased().contains("bundlecache") {
+            found.append(child)
+            walker.skipDescendants()
+        }
+        return found
+    }
+
+    /// `(file count, bytes)` for a directory tree; `(0, 0)` when it is not there.
+    private static func measure(_ url: URL) -> (Int, Int) {
+        guard let walker = FileManager.default.enumerator(
+            at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+            options: [], errorHandler: { _, _ in true }) else { return (0, 0) }
+        var files = 0
+        var bytes = 0
+        for case let child as URL in walker {
+            let values = try? child.resourceValues(forKeys: [.fileSizeKey, .isRegularFileKey])
+            guard values?.isRegularFile == true else { continue }
+            files += 1
+            bytes += values?.fileSize ?? 0
+        }
+        return (files, bytes)
     }
 }

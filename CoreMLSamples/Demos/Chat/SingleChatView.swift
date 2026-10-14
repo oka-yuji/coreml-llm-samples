@@ -29,6 +29,9 @@ struct SingleChatView: View {
                     .disabled(!vm.canReset)
             }
         }
+        // Loading the last chat bundle happens here rather than at launch: it is the
+        // biggest model in the app and it used to be read while another demo ran.
+        .task { await vm.autoLoadLastBundleOnce() }
     }
 
     private var emptyState: some View {
@@ -116,6 +119,7 @@ struct SingleChatView: View {
                 .lineLimit(1)
                 .truncationMode(.tail)
             Spacer()
+            RAGControls()
             Toggle("Spec", isOn: $vm.speculative)
                 .toggleStyle(.switch)
                 .controlSize(.mini)
@@ -249,6 +253,7 @@ private struct ChatBubble: View {
                 .background(
                     RoundedRectangle(cornerRadius: 10)
                         .fill(isUser ? AnyShapeStyle(Color.accentColor.opacity(0.15)) : AnyShapeStyle(.quaternary)))
+            RAGSourceFooter(sources: message.sources)
         }
     }
 }

@@ -1,0 +1,133 @@
+Launched application with com.coreml-llm-samples.DemoApp bundle identifier.
+Waiting for the application to terminate…
+[e5rt] startup library=/var/mobile/Containers/Data/Application/802194C5-D5DC-4B8C-9CB9-1EBCDF8BEADA/Library/
+[e5rt] startup Caches files=416 size=4772.2 MiB
+[e5rt] startup   Caches/com.apple.dyld files=1 size=0.1 MiB
+[e5rt] startup   Caches/com.apple.speech.localspeechrecognition files=0 size=0.0 MiB
+[e5rt] startup   Caches/com.coreml-llm-samples.DemoApp files=415 size=4772.0 MiB
+[e5rt] startup Cookies files=1 size=0.0 MiB
+[e5rt] startup HTTPStorages files=3 size=0.1 MiB
+[e5rt] startup Preferences files=1 size=0.0 MiB
+[e5rt] startup Saved Application State files=3 size=0.0 MiB
+[e5rt] startup SplashBoard files=8 size=21.9 MiB
+[e5rt] startup e5bundlecache in container: /private/var/mobile/Containers/Data/Application/802194C5-D5DC-4B8C-9CB9-1EBCDF8BEADA/Library/Caches/com.coreml-llm-samples.DemoApp/com.apple.e5rt.e5bundlecache/
+=== Mapper dialog self-test — iPhone iOS 26.6.2 — 2026-10-04T08:57:52Z ===
+NOTE: nobody is speaking, so every answer times out. This checks the voice, the audio session, the retry/skip path and that it terminates.
+speech authorization: 3 (authorized)
+microphone: granted
+ja-JP recognizer: present, onDevice=true
+ja-JP voices: 9
+  - Kyoko [default] com.apple.voice.compact.ja-JP.Kyoko
+  - Eddy [default] com.apple.eloquence.ja-JP.Eddy
+  - Flo [default] com.apple.eloquence.ja-JP.Flo
+  - Grandma [default] com.apple.eloquence.ja-JP.Grandma
+  - Grandpa [default] com.apple.eloquence.ja-JP.Grandpa
+  - Reed [default] com.apple.eloquence.ja-JP.Reed
+  - Rocko [default] com.apple.eloquence.ja-JP.Rocko
+  - Sandy [default] com.apple.eloquence.ja-JP.Sandy
+  - Shelley [default] com.apple.eloquence.ja-JP.Shelley
+chosen: Kyoko (default)
+--- questions ---
+  吐出圧: 「吐出圧は？」
+  温度: 「温度は？」
+  油漏れ: 「油漏れは、あり、なし？」
+  異音: 「異音は、正常、異常、未点検？」
+  振動: 「振動は、正常、異常、未点検？」
+  次回作業: 「次回作業は、給油、交換、清掃、なし？」
+--- yes/no keywords ---
+  「はい」 -> 肯定
+  「うん」 -> 肯定
+  「合ってる」 -> 肯定
+  「そう」 -> 肯定
+  「OK」 -> 肯定
+  「いいえ」 -> 否定
+  「違う」 -> 否定
+  「もう一度」 -> 否定
+  「えーっと」 -> 判定不能(分類にまわす)
+--- spoken unit normalisation ---
+  「0.45メガパスカル」 -> 「0.45MPa」 -> 0.45MPa
+  「72度」 -> 「72度」 -> 72度
+  「摂氏72度」 -> 「72度」 -> 72度
+  「0.5キロパスカル」 -> 「0.5kPa」 -> 0.5kPa
+  「れいてんよんご」 -> 「れいてんよんご」 -> 数値なし
+--- running the dialog with no speaker (expect 6 skips) ---
+step: loading model
+step: model loaded (読み込み完了 7.11 秒)
+step: dialog created
+step: requesting permission
+step: permission granted=true
+step: speaking one test utterance
+step: test utterance done
+step: starting dialog with 15 scripted answers
+  dialog| mode: text
+  dialog| field: 吐出圧
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「0.45メガパスカル」
+  dialog|   listen done: 「0.45メガパスカル」
+    fed| 「はい」
+  dialog| field: 温度
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「」
+  dialog|   listen done: 「」
+  dialog|   say (attempt 1)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「72度」
+  dialog|   listen done: 「72度」
+    fed| 「はい」
+  dialog| field: 油漏れ
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「なし」
+  dialog|   listen done: 「なし」
+    fed| 「いいえ」
+  dialog|   say (attempt 1)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「あり」
+  dialog|   listen done: 「あり」
+    fed| 「はい」
+  dialog| field: 異音
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「正常」
+  dialog|   listen done: 「正常」
+    fed| 「はい」
+  dialog| field: 振動
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「」
+  dialog|   listen done: 「」
+  dialog|   say (attempt 1)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「」
+  dialog|   listen done: 「」
+  dialog| field: 次回作業
+  dialog|   say (attempt 0)
+  dialog|   say done
+  dialog|   listen start
+    fed| 「給油」
+  dialog|   listen done: 「給油」
+    fed| 「はい」
+  dialog| all fields done
+step: unused scripted answers: 0
+dialog finished in 1.8 s, stage=完了
+entries: 7
+  吐出圧 | Q「吐出圧は？」 heard「0.45メガパスカル」 -> 0.45MPa confirm=はい 0.1s
+  温度 | Q「温度は？」 heard「72度」 -> 72度 confirm=はい 0.3s
+  油漏れ | Q「油漏れは、あり、なし？」 heard「なし」 -> なし confirm=いいえ 0.3s
+  油漏れ | Q「油漏れは、あり、なし？」 heard「あり」 -> あり confirm=はい 0.5s
+  異音 | Q「異音は、正常、異常、未点検？」 heard「正常」 -> 正常 confirm=はい 0.2s
+  振動 | Q「振動は、正常、異常、未点検？」 heard「」 -> 未入力 confirm=— 0.3s
+  次回作業 | Q「次回作業は、給油、交換、清掃、なし？」 heard「給油」 -> 給油 confirm=はい 0.3s
+results: 吐出圧=0.45 | 温度=72 | 油漏れ=あり | 異音=正常 | 振動=未入力 | 次回作業=給油
+1 項目あたり 中央値 0.3 秒 / 最長 0.5 秒(7 項目)
+=== done ===
