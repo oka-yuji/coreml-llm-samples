@@ -199,8 +199,9 @@ fast, but a load after a reboot or a reinstall can pay the cold cost again. Late
 KV cache. Sending your first medium-to-long prompt adds a separate one-time, per-width prefill
 specialization (see Troubleshooting below).
 
-Four switches exist for measuring and shaping this; all four are **off by default** and none of them
-changes a single token of output (each verified byte-identical on an iPhone 15):
+Four switches exist for measuring and shaping this; all four are **off by default**.
+The recorded iPhone 15 cases were byte-identical, but the sequential padded-prefill path does not
+guarantee byte-identical output for every input or device; the Mac counterexample is retained below:
 
 | Setting | Environment variable | What it does |
 |---|---|---|
