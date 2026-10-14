@@ -254,7 +254,8 @@ public struct GLiNERMapper: Sendable {
                     text: text, task: MapperForm.mentionTask(for: field.name),
                     labels: MapperForm.mentionLabels)
                 calls += 1
-                gatedOut = Self.rank(labels: MapperForm.mentionLabels, scores: gate)
+                gatedOut =
+                    Self.rank(labels: MapperForm.mentionLabels, scores: gate)
                     .first?.label == "述べていない"
             }
 
@@ -265,7 +266,8 @@ public struct GLiNERMapper: Sendable {
             let best = ranked[0]
             let status: MapperFieldResult.Status
             if gatedOut || best.label == MapperForm.noMention
-                || best.score < MapperForm.mentionThreshold {
+                || best.score < MapperForm.mentionThreshold
+            {
                 status = .absent
             } else if best.score >= MapperForm.autoFillThreshold {
                 status = .autoFilled

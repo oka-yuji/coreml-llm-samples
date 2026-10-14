@@ -19,14 +19,14 @@ struct LiveCameraView: View {
 
     var body: some View {
         liveScreen
-        .navigationTitle("Live Camera")
-        #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
-        #endif
-        .onDisappear { teardown() }
-        .onChange(of: scenePhase) { _, phase in
-            if phase != .active { teardown() }
-        }
+            .navigationTitle("Live Camera")
+            #if os(iOS)
+                .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .onDisappear { teardown() }
+            .onChange(of: scenePhase) { _, phase in
+                if phase != .active { teardown() }
+            }
     }
 
     private var liveScreen: some View {
@@ -120,7 +120,8 @@ struct LiveCameraView: View {
             .padding(.vertical, 3)
             .background(
                 live.cyclePhase == .idle ? Color.secondary.opacity(0.15) : Color.accentColor.opacity(0.2),
-                in: Capsule())
+                in: Capsule()
+            )
             .foregroundStyle(live.cyclePhase == .idle ? Color.secondary : Color.accentColor)
     }
 
@@ -180,9 +181,12 @@ struct LiveCameraView: View {
     }
 
     private var languagePicker: some View {
-        Picker("Caption language", selection: Binding(
-            get: { live.language },
-            set: { live.selectLanguage($0) })) {
+        Picker(
+            "Caption language",
+            selection: Binding(
+                get: { live.language },
+                set: { live.selectLanguage($0) })
+        ) {
             ForEach(LiveCaptionLanguage.allCases) { language in
                 Text(language.label).tag(language)
             }
@@ -192,9 +196,12 @@ struct LiveCameraView: View {
     }
 
     private var modePicker: some View {
-        Picker("Caption mode", selection: Binding(
-            get: { live.mode },
-            set: { live.selectMode($0) })) {
+        Picker(
+            "Caption mode",
+            selection: Binding(
+                get: { live.mode },
+                set: { live.selectMode($0) })
+        ) {
             ForEach(availableModes) { mode in
                 Text(mode.label).tag(mode)
             }
@@ -205,12 +212,15 @@ struct LiveCameraView: View {
     }
 
     private var bundlePicker: some View {
-        Picker("Model", selection: Binding(
-            get: { selectedBundle },
-            set: { next in
-                selectedBundle = next
-                if let next { LiveEngineProvision.rememberBundle(next) }
-            })) {
+        Picker(
+            "Model",
+            selection: Binding(
+                get: { selectedBundle },
+                set: { next in
+                    selectedBundle = next
+                    if let next { LiveEngineProvision.rememberBundle(next) }
+                })
+        ) {
             ForEach(visionBundles, id: \.self) { url in
                 Text(LiveEngineProvision.shortName(url)).tag(URL?.some(url))
             }
@@ -271,7 +281,10 @@ struct LiveCameraView: View {
         offerModels = false
         live.errorText = ""
         stage("Starting the camera…")
-        defer { starting = false; loadingStage = "" }
+        defer {
+            starting = false
+            loadingStage = ""
+        }
 
         if !cameraReady {
             await prepareCamera()

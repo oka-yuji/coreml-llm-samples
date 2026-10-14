@@ -177,8 +177,9 @@ final class ChatViewModel {
     var canCheckpoint: Bool { isModelLoaded && !isGenerating && !isLoading }
 
     private var checkpointURL: URL {
-        let base = (try? FileManager.default.url(
-            for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
+        let base =
+            (try? FileManager.default.url(
+                for: .applicationSupportDirectory, in: .userDomainMask, appropriateFor: nil, create: true))
             ?? URL(fileURLWithPath: NSTemporaryDirectory())
         return base.appending(path: "CoreLLMCheckpoints/chat-kv", directoryHint: .isDirectory)
     }
@@ -195,7 +196,8 @@ final class ChatViewModel {
 
     var loadingMessage: String {
         guard isCompilingLongLoad else { return "Loading model…" }
-        let ane = loadingComputeUnits == ComputeUnitPreference.all.rawValue
+        let ane =
+            loadingComputeUnits == ComputeUnitPreference.all.rawValue
             || loadingComputeUnits == ComputeUnitPreference.cpuAndNeuralEngine.rawValue
         return ane
             ? "Compiling for the Neural Engine — one-time on this device (about 90 s). "
@@ -225,7 +227,8 @@ final class ChatViewModel {
             let bundle = try ModelBundle(contentsOf: url)
             modelName = bundle.manifest.name
             loadedContextLength = bundle.manifest.contextLength
-            let preference = computeUnitsOverride
+            let preference =
+                computeUnitsOverride
                 ?? bundle.manifest.computeUnits
                 .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
             loadingComputeUnits = preference.rawValue
@@ -257,7 +260,8 @@ final class ChatViewModel {
             statusLine = ""
             stopLoadProgressTimer()
             let loadSeconds = Date().timeIntervalSince(startedAt)
-            loadStatus = loadSeconds >= 30
+            loadStatus =
+                loadSeconds >= 30
                 ? "Loaded (compiled for this device — future loads take a few seconds)."
                 : "Loaded."
             rememberLastLoadedBundle(folderName: url.lastPathComponent)
@@ -297,8 +301,9 @@ final class ChatViewModel {
                     Task { @MainActor in self.statusLine = line }
                 }
                 prewarmLog = result.steps.map {
-                    String(format: "[prewarm] prefill%d chunk=%d load=%.2fs avail=%.0f MiB",
-                           $0.width, $0.chunk, $0.seconds, $0.availableMB)
+                    String(
+                        format: "[prewarm] prefill%d chunk=%d load=%.2fs avail=%.0f MiB",
+                        $0.width, $0.chunk, $0.seconds, $0.availableMB)
                 }
                 prewarmSummary = String(
                     format: "prewarm %@ steps=%d in %.1fs",
@@ -317,7 +322,8 @@ final class ChatViewModel {
         guard !isModelLoaded, canLoad else { return }
         let defaults = UserDefaults.standard
         guard let folderName = defaults.string(forKey: Self.lastLoadedBundleDefaultsKey),
-              !folderName.isEmpty else { return }
+            !folderName.isEmpty
+        else { return }
         guard let url = ModelStorage.locateBundle(folderName: folderName) else {
             defaults.removeObject(forKey: Self.lastLoadedBundleDefaultsKey)
             return
@@ -477,9 +483,10 @@ final class ChatViewModel {
         input = ""
         attachedImageURL = nil
         attachedAudio = nil
-        messages.append(Message(
-            role: .user, text: userText, attachedImageURL: imageURL,
-            attachedAudioSeconds: audio?.seconds))
+        messages.append(
+            Message(
+                role: .user, text: userText, attachedImageURL: imageURL,
+                attachedAudioSeconds: audio?.seconds))
         let assistantID = UUID()
         messages.append(Message(id: assistantID, role: .assistant, text: ""))
         statusLine = ""
@@ -494,7 +501,8 @@ final class ChatViewModel {
         if imageURL != nil { audioContextActive = false }
 
         if audio != nil || (audioContextActive && imageURL == nil) {
-            let instruction = userText.isEmpty
+            let instruction =
+                userText.isEmpty
                 ? CoreMLEngine.defaultTranscriptionInstruction : userText
             let useSpeculation = speculative
             let cap = maxTokens
@@ -569,7 +577,8 @@ final class ChatViewModel {
 
         let prompt = RAGContext.prompt(
             question: question, sources: retrieval.sources, today: RAGContext.today())
-        let promptTokens = (try? await engine.countTokens(prompt))
+        let promptTokens =
+            (try? await engine.countTokens(prompt))
             ?? RAGRetriever.estimateTokens(prompt)
         let config = GenerationConfig(
             maxNewTokens: maxTokens, temperature: 0, multiTokenPrediction: speculative)
@@ -713,8 +722,9 @@ final class ChatViewModel {
                     loadStatus = String(format: "Model loaded in %.1fs", seconds(m.duration))
                     loadedModelLoadSeconds = seconds(m.duration)
                 case .prefillCompleted(let p):
-                    loadStatus = "Prefilled \(p.promptTokens) prompt tokens"
-                    + (p.reusedTokens > 0 ? " (reused \(p.reusedTokens) from KV cache)" : "")
+                    loadStatus =
+                        "Prefilled \(p.promptTokens) prompt tokens"
+                        + (p.reusedTokens > 0 ? " (reused \(p.reusedTokens) from KV cache)" : "")
                 case .token(let chunk):
                     warming = false
                     hasWarmedUp = true

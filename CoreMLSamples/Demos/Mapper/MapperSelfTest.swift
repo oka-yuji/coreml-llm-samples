@@ -111,17 +111,22 @@ struct MapperSelfTest: Sendable {
         var deltaSum: Float = 0
         let encoder = mapper.classifier.encoder
         for call in fixture.calls {
-            guard let inputs = try? encoder.encode(
-                text: call.text, task: call.task, labels: call.labels) else {
+            guard
+                let inputs = try? encoder.encode(
+                    text: call.text, task: call.task, labels: call.labels)
+            else {
                 result.arrayMismatches += 1
                 continue
             }
             if inputs.inputIDs != call.input_ids || inputs.attentionMask != call.attention_mask
-                || inputs.markerIndices != call.marker_indices || inputs.markerMask != call.marker_mask {
+                || inputs.markerIndices != call.marker_indices || inputs.markerMask != call.marker_mask
+            {
                 result.arrayMismatches += 1
             }
-            guard let scores = try? mapper.classifier.scores(
-                text: call.text, task: call.task, labels: call.labels) else { continue }
+            guard
+                let scores = try? mapper.classifier.scores(
+                    text: call.text, task: call.task, labels: call.labels)
+            else { continue }
             for (index, pair) in zip(scores, call.probabilities).enumerated() {
                 let delta = abs(pair.0 - pair.1)
                 result.scoresCompared += 1
@@ -129,7 +134,8 @@ struct MapperSelfTest: Sendable {
                 if delta > 0.02 { result.scoresOverBudget += 1 }
                 if delta > result.worstDelta {
                     result.worstDelta = delta
-                    result.worstDetail = "\(call.task)/\(call.labels[index]) "
+                    result.worstDetail =
+                        "\(call.task)/\(call.labels[index]) "
                         + "device=\(pair.0) python=\(pair.1) text=「\(call.text)」"
                 }
             }
@@ -160,7 +166,8 @@ struct MapperSelfTest: Sendable {
                 // field names, not values, so "top-2 label == expected value"
                 // is not defined for them.
                 if expected != nil,
-                    case .list = MapperForm.fields.first(where: { $0.key == field.key })?.kind {
+                    case .list = MapperForm.fields.first(where: { $0.key == field.key })?.kind
+                {
                     report.top2Total += 1
                     if field.topTwo.contains(where: { $0.label == expected }) {
                         report.top2Matched += 1
@@ -172,16 +179,17 @@ struct MapperSelfTest: Sendable {
                     allMatch = false
                     report.failures.append(
                         "\(testCase.text) / \(field.name): got "
-                        + "\(field.value.isEmpty ? "未言及" : field.value)(\(String(format: "%.2f", field.score)))"
-                        + " expected \(expected ?? "未言及")")
+                            + "\(field.value.isEmpty ? "未言及" : field.value)(\(String(format: "%.2f", field.score)))"
+                            + " expected \(expected ?? "未言及")")
                 }
             }
             if allMatch { report.allFieldsMatched += 1 }
         }
 
         report.fieldScores = MapperForm.fields.map {
-            .init(key: $0.key, name: $0.name, matched: matched[$0.key] ?? 0,
-                  total: fixture.cases.count)
+            .init(
+                key: $0.key, name: $0.name, matched: matched[$0.key] ?? 0,
+                total: fixture.cases.count)
         }
         return report
     }

@@ -30,7 +30,8 @@ struct RAGSettings: Sendable {
     @MainActor
     static func fromDefaults() -> RAGSettings {
         var settings = RAGSettings()
-        settings.braveAPIKey = UserDefaults.standard
+        settings.braveAPIKey =
+            UserDefaults.standard
             .string(forKey: AgentViewModel.braveKeyDefaultsKey) ?? ""
         return settings
     }
@@ -92,8 +93,9 @@ enum RAGRetriever {
                 PDFDocument(url: url)?.string
             }
             if local.isEmpty {
-                out.notes.append("端末内文書: \(settings.documentsDirectory.path(percentEncoded: false)) "
-                    + "に読める文書がありません")
+                out.notes.append(
+                    "端末内文書: \(settings.documentsDirectory.path(percentEncoded: false)) "
+                        + "に読める文書がありません")
             }
             candidates += local
         }
@@ -130,7 +132,8 @@ enum RAGRetriever {
     ) async -> [RAGSource] {
         let results: [AgentTools.SearchResult]
         do {
-            results = settings.braveAPIKey.isEmpty
+            results =
+                settings.braveAPIKey.isEmpty
                 ? try await AgentTools.duckDuckGoResults(
                     query: question, limit: settings.searchResults)
                 : try await AgentTools.braveResults(
@@ -148,12 +151,14 @@ enum RAGRetriever {
             return []
         }
 
-        let wanted = results
+        let wanted =
+            results
             .prefix(settings.pagesToRead)
             .compactMap { result -> (AgentTools.SearchResult, URL)? in
                 guard let url = URL(string: result.url), let scheme = url.scheme?.lowercased(),
-                      scheme == "http" || scheme == "https",
-                      !AgentTools.isLocalOrPrivate(url.host()) else { return nil }
+                    scheme == "http" || scheme == "https",
+                    !AgentTools.isLocalOrPrivate(url.host())
+                else { return nil }
                 return (result, url)
             }
 
@@ -194,7 +199,8 @@ enum RAGRetriever {
         }
         guard !text.isEmpty else { return nil }
 
-        let date = RAGContext.publishedDate(html: html)
+        let date =
+            RAGContext.publishedDate(html: html)
             ?? RAGContext.isoDate(in: result.snippet)
             ?? RAGContext.isoDate(in: String(text.prefix(600)))
             ?? ""
@@ -205,7 +211,6 @@ enum RAGRetriever {
         }
     }
 }
-
 
 // MARK: - UI
 

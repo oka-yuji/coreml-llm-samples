@@ -48,7 +48,13 @@ public enum MapperSheetJSON {
         for index in reply.indices {
             let character = reply[index]
             if inString {
-                if escaped { escaped = false } else if character == "\\" { escaped = true } else if character == "\"" { inString = false }
+                if escaped {
+                    escaped = false
+                } else if character == "\\" {
+                    escaped = true
+                } else if character == "\"" {
+                    inString = false
+                }
                 continue
             }
             switch character {

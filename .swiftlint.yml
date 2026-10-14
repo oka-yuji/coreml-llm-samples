@@ -1,0 +1,121 @@
+# Swift 開発規約の lint(合否に使うもの)。SwiftLint 0.63.2 で確認。
+# 実行: swiftlint lint --config .swiftlint.yml --baseline .swiftlint-baseline.json --strict --no-cache
+# 書式は swift-format に任せる。大きさと複雑度は .swiftlint-size.yml(合否に使わない)。
+# 導入先で書き換えるのは「★」の付いた行だけ。
+# custom rule のパス(included / excluded)は、絶対パスに対する正規表現。上位のフォルダ名に偶然一致しないよう、
+# リポジトリ固有のフォルダ名で書く(例: ".*/DailyVlogKit/Tests/.*")。
+# custom rule の正規表現は、正常例と違反例 111 個で確かめた(review-log/05-pilot.md)。
+
+# ★ 手書きのソースとテストの、実在するフォルダに限る。
+included:
+  - CoreLLMKit/Sources
+  - CoreLLMKit/Tests
+  - CoreMLSamples
+
+excluded:
+  - .build
+  - DerivedData
+  - build
+
+# 有効にするルールを明示する。ツールを更新しても、ルールが勝手に増えない。
+only_rules:
+  # 落ちる書き方(A13)。例外は、理由を付けてその行だけ抑制する。
+  - force_cast
+  - force_try
+  - force_unwrapping
+  # 書き間違い
+  - duplicate_conditions
+  - duplicate_enum_cases
+  - duplicated_key_in_dictionary_literal
+  - identical_operands
+  # 寿命と、捨てられる失敗
+  - unowned_variable_capture
+  - unhandled_throwing_task
+  # 抑制コマンドの管理(広すぎる抑制、要らなくなった抑制)
+  - blanket_disable_command
+  - invalid_swiftlint_command
+  - superfluous_disable_command
+  # 下の custom_rules を有効にする
+  - custom_rules
+
+custom_rules:
+  # A2: 純ロジックの target が import してよいのは Foundation と、純ロジックの target だけ。
+  # 属性(@testable など)やアクセスレベル(public など)の付いた import、字下げした import も数える。
+  pure_logic_imports:
+    included: "(?!).*\\.swift"  # ★ 純ロジックの target の Sources
+    regex: '\bimport\s+(?:(?:typealias|struct|class|enum|protocol|let|var|func)\s+)?+(?!Foundation\b)\w+'  # ★ 純ロジックの target が複数あれば (?!(?:Foundation|Other)\b) にする
+    match_kinds: [keyword, identifier]
+    message: "純ロジックの target が import してよいのは Foundation と、純ロジックの target だけ(architecture.md A2)"
+    severity: error
+
+  # A2: 純ロジックに並行処理を書かない。
+  pure_logic_no_concurrency:
+    included: "(?!).*\\.swift"  # ★
+    regex: '\b(async|await|actor|Task)\b'
+    match_kinds: [keyword, identifier, typeidentifier]
+    message: "純ロジックに async / await / Task / actor を書かない(architecture.md A2)"
+    severity: error
+
+  # A3: 純ロジックは、時刻・乱数・UUID・現在のロケールなどを自分で取得しない。
+  # 型を書かない `.now` や `.init()`(例: `let now: Date = .init()`)は数えない。レビューで見る。
+  pure_logic_no_ambient:
+    included: "(?!).*\\.swift"  # ★
+    regex: '\bDate\(\)|\bDate\.now\b|\bUUID\(\)|\.random\(|\.randomElement\(\)|\.shuffled?\(\)|\b(Calendar|TimeZone|Locale)\.(current|autoupdatingCurrent)\b'
+    match_kinds: [identifier, typeidentifier]
+    message: "純ロジックは時刻・乱数・UUID・現在のロケールを自分で取得しない。action や引数で受け取る(architecture.md A3)"
+    severity: error
+
+  # A4: @Observable のクラスと await を同じファイルに書かない(汎用 Store を除く)。
+  # 同期だけの @Observable と、await を持つ別の型が同じファイルにあると当たる。別のファイルに分ける。
+  # ファイル全体にまたがる一致なので、コメントや文字列の await も数える(match_kinds では除けない)。
+  # 診断は一致の始まり(ふつうは @Observable の行)に出る。語だけで当たったら、その直前の行で理由を付けて抑制する。
+  # 抑制の理由に await と書かない(その行から一致が始まり、抑制が効かなくなる)。
+  # baseline に載ったファイルは、await を足しても新しい違反にならない。別ファイルの extension の await も数えない。
+  observable_no_await:
+    excluded: ".*/CoreMLSamples/Store\\.swift"  # ★ 汎用 Store の実際のパスだけ(ファイル名だけで除外しない)
+    regex: '@Observable\b.*\bawait\b|\bawait\b.*@Observable\b'
+    message: "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)"
+    severity: error
+
+  # A4: Task を作るのは汎用 Store だけ。
+  # Task という名前の自前の型や、`-> Task<Void, Never> {` などの宣言に当たったら、理由を付けてその行だけ抑制する。
+  task_only_in_store:
+    excluded:
+      - ".*/CoreMLSamples/Store\\.swift"  # ★ 汎用 Store の実際のパスだけ
+      - ".*/CoreLLMKit/Tests/.*"           # ★ テストのフォルダ
+    regex: '\bTask\s*(<[^>]*>\s*)?(\.detached\s*)?[\{\(]'
+    match_kinds: [identifier, typeidentifier]
+    message: "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    severity: error
+
+  # A12: コンパイラの検査を止める書き方。安全だと言える条件をコメントに書き、その行だけ抑制する。
+  concurrency_escape:
+    regex: '@unchecked\s+Sendable|nonisolated\s*\(\s*unsafe\s*\)|@preconcurrency\s+import'
+    match_kinds: [attribute.builtin, keyword, identifier, typeidentifier]
+    message: "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)"
+    severity: error
+
+  # 抑制には理由を付ける(例: // swiftlint:disable:next force_unwrapping - 固定の URL)。
+  disable_needs_reason:
+    regex: 'swiftlint:disable(:next|:this|:previous)?( +[a-z_]+)+ *$'
+    message: "抑制には理由を付ける(ルール名の後に ` - 理由`)"
+    severity: error
+
+  # T2: Swift Testing のテストで XCTest の API を使わない(Swift 6.3 では失敗が報告されない)。
+  # 既存の XCTest は baseline で凍結される。新しく XCTest を置くとき(性能計測など)は、理由を付けて
+  # 範囲で抑制する(`// swiftlint:disable no_xctest_in_swift_testing - 理由` 〜 `// swiftlint:enable …`)。
+  no_xctest_in_swift_testing:
+    included: ".*/CoreLLMKit/Tests/.*\\.swift"  # ★ Swift Testing を置くテストとヘルパーのフォルダ(XCTest の UI テストのフォルダは含めない)
+    regex: '\b(XCTest|XCTAssert\w*|XCTFail|XCTUnwrap|XCTExpectFailure)\b'
+    match_kinds: [identifier, typeidentifier]
+    message: "Swift Testing のテストとヘルパーでは Testing の API を使う(testing.md T2)"
+    severity: error
+
+  # T8: テストで実時間の待ちを同期に使わない。
+  # `clock.sleep(…)` などの `.sleep(` は数えない(fake の Clock と区別できない)。`ContinuousClock().sleep` はレビューで見る。
+  test_no_real_time_wait:
+    included: ".*/CoreLLMKit/Tests/.*\\.swift"  # ★
+    regex: '\b(Task|Thread)\.sleep\b|(?<![\w.])u?sleep\('
+    match_kinds: [identifier, typeidentifier]
+    message: "テストで実時間の待ちを使わない。順序は continuation や AsyncStream の fake で制御する(testing.md T8)"
+    severity: error

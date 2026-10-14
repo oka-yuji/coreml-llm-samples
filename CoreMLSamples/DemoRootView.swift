@@ -1,7 +1,8 @@
 import Observation
 import SwiftUI
+
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 enum Demo: String, CaseIterable, Identifiable {
@@ -24,9 +25,9 @@ enum Demo: String, CaseIterable, Identifiable {
 
     static var available: [Demo] {
         #if os(macOS)
-        allCases.filter { $0 != .liveCamera }
+            allCases.filter { $0 != .liveCamera }
         #else
-        allCases
+            allCases
         #endif
     }
 
@@ -95,9 +96,9 @@ enum DeviceKind {
     @MainActor
     static var current: DeviceKind {
         #if os(macOS)
-        return .mac
+            return .mac
         #else
-        return UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
+            return UIDevice.current.userInterfaceIdiom == .phone ? .iPhone : .iPad
         #endif
     }
 }
@@ -147,8 +148,8 @@ struct SplitRootView: View {
         .environment(agentVM)
         .task {
             #if os(macOS)
-            GUIDriver.shared.attach(
-                navigator: navigator, chat: chatVM, models: modelsVM, agent: agentVM)
+                GUIDriver.shared.attach(
+                    navigator: navigator, chat: chatVM, models: modelsVM, agent: agentVM)
             #endif
             // The chat bundle is loaded when Chat is opened, not here: on a 6 GB phone
             // it is ~2 GB and it was taking the ANE and the memory while another demo

@@ -74,19 +74,21 @@ final class MapperSpeech {
 
     /// e.g. "マイク=許可, 音声認識=未" — shown in the dialog panel.
     var permissionSummary: String {
-        let speechWord: String = switch SFSpeechRecognizer.authorizationStatus() {
-        case .authorized: "許可"
-        case .notDetermined: "未"
-        default: "拒否"
-        }
+        let speechWord: String =
+            switch SFSpeechRecognizer.authorizationStatus() {
+            case .authorized: "許可"
+            case .notDetermined: "未"
+            default: "拒否"
+            }
         #if os(iOS)
-        let micWord: String = switch AVAudioApplication.shared.recordPermission {
-        case .granted: "許可"
-        case .undetermined: "未"
-        default: "拒否"
-        }
+            let micWord: String =
+                switch AVAudioApplication.shared.recordPermission {
+                case .granted: "許可"
+                case .undetermined: "未"
+                default: "拒否"
+                }
         #else
-        let micWord = "—"
+            let micWord = "—"
         #endif
         return "マイク=\(micWord), 音声認識=\(speechWord)"
     }
@@ -97,92 +99,94 @@ final class MapperSpeech {
     /// 24 kHz input or a silent microphone.
     func routeDescription() -> String {
         #if os(iOS)
-        let session = AVAudioSession.sharedInstance()
-        let inputs = session.currentRoute.inputs
-            .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
-        let outputs = session.currentRoute.outputs
-            .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
-        return "in=[\(inputs.isEmpty ? "none" : inputs)] out=[\(outputs.isEmpty ? "none" : outputs)] "
-            + "\(Int(session.sampleRate))Hz"
+            let session = AVAudioSession.sharedInstance()
+            let inputs = session.currentRoute.inputs
+                .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
+            let outputs = session.currentRoute.outputs
+                .map { "\($0.portType.rawValue)/\($0.portName)" }.joined(separator: ",")
+            return "in=[\(inputs.isEmpty ? "none" : inputs)] out=[\(outputs.isEmpty ? "none" : outputs)] "
+                + "\(Int(session.sampleRate))Hz"
         #else
-        return "n/a"
+            return "n/a"
         #endif
     }
 
     #if os(iOS)
-    static let bluetoothPorts: Set<AVAudioSession.Port> = [.bluetoothHFP, .bluetoothLE, .bluetoothA2DP]
+        static let bluetoothPorts: Set<AVAudioSession.Port> = [.bluetoothHFP, .bluetoothLE, .bluetoothA2DP]
 
-    /// Chooses the route for the dialog and waits until it is actually in effect.
-    ///
-    /// With a headset paired we keep **both** ends on it — adding `.defaultToSpeaker`
-    /// would send playback to the handset while recording stayed on the headset, which
-    /// is the worst of both. With no headset we pin the built-in mic and speaker.
-    ///
-    /// The wait matters: switching into HFP takes a moment, and recording started
-    /// mid-switch captures silence — which is what "No speech detected" looked like.
-    /// `try?` hid whether the preference was accepted at all; say so either way.
-    private func setPreferred(_ port: AVAudioSessionPortDescription, on session: AVAudioSession) {
-        do {
-            try session.setPreferredInput(port)
-            log("route: setPreferredInput(\(port.portName)) ok")
-        } catch {
-            log("route: setPreferredInput(\(port.portName)) 失敗 \(error.localizedDescription)")
+        /// Chooses the route for the dialog and waits until it is actually in effect.
+        ///
+        /// With a headset paired we keep **both** ends on it — adding `.defaultToSpeaker`
+        /// would send playback to the handset while recording stayed on the headset, which
+        /// is the worst of both. With no headset we pin the built-in mic and speaker.
+        ///
+        /// The wait matters: switching into HFP takes a moment, and recording started
+        /// mid-switch captures silence — which is what "No speech detected" looked like.
+        /// `try?` hid whether the preference was accepted at all; say so either way.
+        private func setPreferred(_ port: AVAudioSessionPortDescription, on session: AVAudioSession) {
+            do {
+                try session.setPreferredInput(port)
+                log("route: setPreferredInput(\(port.portName)) ok")
+            } catch {
+                log("route: setPreferredInput(\(port.portName)) 失敗 \(error.localizedDescription)")
+            }
         }
-    }
 
-    private func setBuiltInRoute(on session: AVAudioSession) throws {
-        try session.setCategory(
-            .playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .duckOthers])
-        if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
-            setPreferred(builtIn, on: session)
-        }
-    }
-
-    @discardableResult
-    func configureVoiceSession() async -> String {
-        let session = AVAudioSession.sharedInstance()
-        do {
-            // A record-capable category first, so availableInputs lists the headset.
+        private func setBuiltInRoute(on session: AVAudioSession) throws {
             try session.setCategory(
-                .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
-            try session.setActive(true)
+                .playAndRecord, mode: .spokenAudio, options: [.defaultToSpeaker, .duckOthers])
+            if let builtIn = session.availableInputs?.first(where: { $0.portType == .builtInMic }) {
+                setPreferred(builtIn, on: session)
+            }
+        }
 
-            let bluetooth = session.availableInputs?.first { Self.bluetoothPorts.contains($0.portType) }
-            if let bluetooth {
+        @discardableResult
+        func configureVoiceSession() async -> String {
+            let session = AVAudioSession.sharedInstance()
+            do {
+                // A record-capable category first, so availableInputs lists the headset.
                 try session.setCategory(
                     .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
-                setPreferred(bluetooth, on: session)
-                log("route: Bluetooth を使います(\(bluetooth.portName))")
-            } else {
-                try setBuiltInRoute(on: session)
-                log("route: 本体マイク／スピーカーを使います")
-            }
-            try session.setActive(true)
+                try session.setActive(true)
 
-            // Wait for the chosen port to actually become the current input, then
-            // check it really happened — the wait expiring is not the same as success.
-            if let wanted = bluetooth?.portType {
-                let deadline = Date().addingTimeInterval(1.5)
-                while Date() < deadline,
-                    session.currentRoute.inputs.first?.portType != wanted {
-                    try? await Task.sleep(for: .milliseconds(100))
-                }
-                if session.currentRoute.inputs.first?.portType != wanted {
-                    log("route: Bluetooth に切り替わらず → 本体に戻します")
+                let bluetooth = session.availableInputs?.first { Self.bluetoothPorts.contains($0.portType) }
+                if let bluetooth {
+                    try session.setCategory(
+                        .playAndRecord, mode: .spokenAudio, options: [.allowBluetoothHFP, .duckOthers])
+                    setPreferred(bluetooth, on: session)
+                    log("route: Bluetooth を使います(\(bluetooth.portName))")
+                } else {
                     try setBuiltInRoute(on: session)
-                    try session.setActive(true)
+                    log("route: 本体マイク／スピーカーを使います")
                 }
+                try session.setActive(true)
+
+                // Wait for the chosen port to actually become the current input, then
+                // check it really happened — the wait expiring is not the same as success.
+                if let wanted = bluetooth?.portType {
+                    let deadline = Date().addingTimeInterval(1.5)
+                    while Date() < deadline,
+                        session.currentRoute.inputs.first?.portType != wanted
+                    {
+                        try? await Task.sleep(for: .milliseconds(100))
+                    }
+                    if session.currentRoute.inputs.first?.portType != wanted {
+                        log("route: Bluetooth に切り替わらず → 本体に戻します")
+                        try setBuiltInRoute(on: session)
+                        try session.setActive(true)
+                    }
+                }
+                lastSessionError = nil
+            } catch {
+                lastSessionError = error.localizedDescription
+                let nsError = error as NSError
+                log(
+                    "route: セッション設定に失敗 \(error.localizedDescription) "
+                        + "[\(nsError.domain) \(nsError.code)]")
             }
-            lastSessionError = nil
-        } catch {
-            lastSessionError = error.localizedDescription
-            let nsError = error as NSError
-            log("route: セッション設定に失敗 \(error.localizedDescription) "
-                + "[\(nsError.domain) \(nsError.code)]")
+            logRoute("start")
+            return routeDescription()
         }
-        logRoute("start")
-        return routeDescription()
-    }
     #endif
 
     private(set) var lastSessionError: String?
@@ -249,7 +253,7 @@ final class MapperSpeech {
             Task { @MainActor in self?.refreshAvailability() }
         }
         #if os(iOS)
-        AVAudioApplication.requestRecordPermission { _ in }
+            AVAudioApplication.requestRecordPermission { _ in }
         #endif
     }
 
@@ -265,19 +269,19 @@ final class MapperSpeech {
             }
         }
         #if os(iOS)
-        if AVAudioApplication.shared.recordPermission == .undetermined {
-            _ = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
-                AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
+            if AVAudioApplication.shared.recordPermission == .undetermined {
+                _ = await withCheckedContinuation { (continuation: CheckedContinuation<Bool, Never>) in
+                    AVAudioApplication.requestRecordPermission { continuation.resume(returning: $0) }
+                }
             }
-        }
         #endif
         refreshAvailability()
         #if os(iOS)
-        // The microphone matters as much as the recogniser; returning true on the
-        // speech grant alone let the dialog start with no way to hear anything.
-        let micOK = AVAudioApplication.shared.recordPermission == .granted
+            // The microphone matters as much as the recogniser; returning true on the
+            // speech grant alone let the dialog start with no way to hear anything.
+            let micOK = AVAudioApplication.shared.recordPermission == .granted
         #else
-        let micOK = true
+            let micOK = true
         #endif
         return SFSpeechRecognizer.authorizationStatus() == .authorized && micOK
     }
@@ -292,8 +296,9 @@ final class MapperSpeech {
             requestPermission()
             return
         }
-        log("guards ok, authorized; available=\(recognizer.isAvailable) "
-            + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
+        log(
+            "guards ok, authorized; available=\(recognizer.isAvailable) "
+                + "onDevice=\(recognizer.supportsOnDeviceRecognition)")
         generation += 1
         let turn = generation
         self.onFinal = onFinal
@@ -313,20 +318,20 @@ final class MapperSpeech {
 
         do {
             #if os(iOS)
-            let session = AVAudioSession.sharedInstance()
-            // In dialog mode the category is set once, by the dialog, before any
-            // speech plays. Re-setting it here is what made the input node hand back
-            // a stale format and trap inside installTap.
-            if !usesPlayAndRecord {
-                try session.setCategory(.record, mode: .measurement, options: .duckOthers)
-            }
-            // The dialog already chose and settled the route in configureVoiceSession();
-            // re-setting the category here would undo the Bluetooth preference.
-            if !usesPlayAndRecord {
-                try session.setActive(true)
-            }
-            logRoute("listen")
-            log("session active")
+                let session = AVAudioSession.sharedInstance()
+                // In dialog mode the category is set once, by the dialog, before any
+                // speech plays. Re-setting it here is what made the input node hand back
+                // a stale format and trap inside installTap.
+                if !usesPlayAndRecord {
+                    try session.setCategory(.record, mode: .measurement, options: .duckOthers)
+                }
+                // The dialog already chose and settled the route in configureVoiceSession();
+                // re-setting the category here would undo the Bluetooth preference.
+                if !usesPlayAndRecord {
+                    try session.setActive(true)
+                }
+                logRoute("listen")
+                log("session active")
             #endif
 
             // A fresh engine each turn, so no format is carried over from the last one.
@@ -356,7 +361,8 @@ final class MapperSpeech {
                 guard let decibels = probe.add(buffer) else { return }
                 // Four quiet readings in a row is about two seconds of nothing.
                 let quiet = probe.noteQuiet(decibels < -70)
-                let line = quiet == 4
+                let line =
+                    quiet == 4
                     ? "level: \(Int(decibels)) dB — 音が届いていません(\(route))"
                     : String(format: "level: %.0f dB", decibels)
                 Task { @MainActor in
@@ -370,14 +376,16 @@ final class MapperSpeech {
             log("engine started")
         } catch {
             statusText = "音声入力: 開始失敗 \(error.localizedDescription)"
-            log("stt start failed: \(error.localizedDescription) "
-                + "[\((error as NSError).domain) \((error as NSError).code)]")
+            log(
+                "stt start failed: \(error.localizedDescription) "
+                    + "[\((error as NSError).domain) \((error as NSError).code)]")
             self.request = nil
             return
         }
 
-        log("creating recognition task (onDevice=\(request.requiresOnDeviceRecognition) "
-            + "available=\(recognizer.isAvailable) onDeviceSupported=\(recognizer.supportsOnDeviceRecognition))")
+        log(
+            "creating recognition task (onDevice=\(request.requiresOnDeviceRecognition) "
+                + "available=\(recognizer.isAvailable) onDeviceSupported=\(recognizer.supportsOnDeviceRecognition))")
         // Speech calls this from its own queue. `@Sendable` marks it nonisolated;
         // without it Swift 6 infers main-actor isolation from the enclosing context
         // and the runtime traps on entry — before a single line of the body runs,
@@ -389,7 +397,8 @@ final class MapperSpeech {
             let isFinal = result?.isFinal ?? false
             let failure = error?.localizedDescription
             let failureDetail = (error as NSError?).map { "[\($0.domain) \($0.code)]" } ?? ""
-            print("[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none") \(failureDetail)")
+            print(
+                "[speech] callback text=\(text ?? "nil") final=\(isFinal) error=\(failure ?? "none") \(failureDetail)")
             Task { @MainActor in
                 guard let self, self.generation == turn else { return }
                 if text == nil, failure == nil, !isFinal {
@@ -485,16 +494,17 @@ final class MapperSpeech {
         task = nil
         request = nil
         #if os(iOS)
-        // In dialog mode the session stays active: speech playback follows straight
-        // after, and tearing the session down between turns makes it stutter.
-        if !usesPlayAndRecord { try? AVAudioSession.sharedInstance().setActive(false) }
+            // In dialog mode the session stays active: speech playback follows straight
+            // after, and tearing the session down between turns makes it stutter.
+            if !usesPlayAndRecord { try? AVAudioSession.sharedInstance().setActive(false) }
         #endif
         // Hand the callback over exactly once: a late finish must not drive the
         // next question's turn.
         let deliver = onFinal
         onFinal = nil
         deliver?(text)
-        statusText = text.isEmpty
+        statusText =
+            text.isEmpty
             ? "音声入力: 認識できませんでした"
             : "音声入力: 認識完了(編集してからマッピングできます)"
     }

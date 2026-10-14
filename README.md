@@ -223,3 +223,11 @@ conditions behind them.
 - **Model weights:** distributed separately on Hugging Face, each under its own license (see the
   **License** column above and the weights section of the relevant model card). The weights are
   *not* covered by this repository's MIT license.
+
+## Mapper and local experiments
+
+Mapper turns an inspection note into fields and supports tap-based follow-up input on iPhone. Voice input requires speech recognition permission and an available on-device speech model; tap-based input does not.
+
+To run its model, place `gliner2_multi_classification_fp16_L128_K8.mlpackage` and the `tokenizer/` directory under `models/gliner2-5-multi-coreml/`, then run `xcodegen generate` from the repository root and rebuild. These local resources are optional: a clean checkout builds without them, and Mapper reports the missing resources when opened.
+
+The Chat sample also includes the [RAG path](docs/rag-demo.md), opt-in prefill residency diagnostics, and the `--cu` self-test override. The default model behavior is unchanged unless an option or manifest selects an experiment. Model-specific verification records retain their original hardware and input limits.

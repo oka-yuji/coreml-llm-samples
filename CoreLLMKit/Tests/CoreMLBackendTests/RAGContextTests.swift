@@ -48,8 +48,9 @@ struct RAGContextSuite {
     @Test("packing never exceeds the token budget and keeps the best first")
     func packStaysUnderBudget() {
         let sources = (1...12).map {
-            RAGSource(title: "出典\($0)", url: "https://example.com/\($0)", date: "2026-09-0\($0 % 9 + 1)",
-                      text: String(repeating: "本文", count: 100))
+            RAGSource(
+                title: "出典\($0)", url: "https://example.com/\($0)", date: "2026-09-0\($0 % 9 + 1)",
+                text: String(repeating: "本文", count: 100))
         }
         let packed = RAGContext.pack(sources, budget: 900, count: fakeCount)
         #expect(!packed.isEmpty)
@@ -73,7 +74,7 @@ struct RAGContextSuite {
     func promptAndCitations() {
         let sources = [
             RAGSource(title: "点検手順書", url: "tenken.md", date: "2026-04-01", text: "月次点検は毎月1日に行う。"),
-            RAGSource(title: "ニュース", url: "https://example.com/n", text: "本文")
+            RAGSource(title: "ニュース", url: "https://example.com/n", text: "本文"),
         ]
         let prompt = RAGContext.prompt(question: "月次点検はいつ?", sources: sources, today: "2026-09-24")
         #expect(prompt.hasPrefix(RAGContext.instruction(today: "2026-09-24")))
@@ -82,10 +83,11 @@ struct RAGContextSuite {
         #expect(prompt.hasSuffix("質問: 月次点検はいつ?"))
 
         let citations = RAGContext.citations(sources)
-        #expect(citations == [
-            "[1] 点検手順書 — tenken.md (2026-04-01)",
-            "[2] ニュース — https://example.com/n (日付不明)"
-        ])
+        #expect(
+            citations == [
+                "[1] 点検手順書 — tenken.md (2026-04-01)",
+                "[2] ニュース — https://example.com/n (日付不明)",
+            ])
     }
 
     @Test("the instruction is byte-identical between turns so the KV prefix is reused")
@@ -105,14 +107,18 @@ struct RAGContextSuite {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
 
-        try Data("""
+        try Data(
+            """
             # 発電機 点検手順書 2026-04-01
             月次点検では冷却水の量と油圧を確認する。冷却水が下限線を下回っていたら補充する。
-            """.utf8).write(to: directory.appending(path: "tenken.md"))
-        try Data("""
+            """.utf8
+        ).write(to: directory.appending(path: "tenken.md"))
+        try Data(
+            """
             # 社内ネットワーク 利用規約
             無線LANのパスワードは半年ごとに変更する。来客用ネットワークは業務端末に使わない。
-            """.utf8).write(to: directory.appending(path: "network.txt"))
+            """.utf8
+        ).write(to: directory.appending(path: "network.txt"))
         // Not an indexed extension — it must be ignored.
         try Data("noise".utf8).write(to: directory.appending(path: "notes.json"))
 

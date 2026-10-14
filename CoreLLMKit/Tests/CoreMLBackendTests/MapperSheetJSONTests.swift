@@ -1,5 +1,6 @@
 import Foundation
 import Testing
+
 @testable import CoreMLBackend
 
 // The generated-JSON route to the U1 sheet. No model needed, so these always run.
@@ -15,9 +16,9 @@ struct MapperSheetJSONSuite {
     @Test("a clean sheet parses, nulls become 未言及")
     func parsesCleanSheet() throws {
         let reply = """
-        {"discharge_pressure": "0.45", "temperature": "72", "oil_leak": null,
-         "abnormal_sound": "正常", "vibration": null, "next_action": "給油"}
-        """
+            {"discharge_pressure": "0.45", "temperature": "72", "oil_leak": null,
+             "abnormal_sound": "正常", "vibration": null, "next_action": "給油"}
+            """
         let fields = try #require(MapperSheetJSON.parse(reply))
         #expect(fields.count == 6)
         #expect(field(fields, "discharge_pressure").value == "0.45")
@@ -33,15 +34,15 @@ struct MapperSheetJSONSuite {
     @Test("JSON wrapped in prose or a fenced block is still found")
     func findsEmbeddedObject() throws {
         let reply = """
-        はい、わかりました。
+            はい、わかりました。
 
-        ```json
-        {"discharge_pressure": null, "temperature": "85", "oil_leak": "なし",
-         "abnormal_sound": null, "vibration": null, "next_action": "交換"}
-        ```
+            ```json
+            {"discharge_pressure": null, "temperature": "85", "oil_leak": "なし",
+             "abnormal_sound": null, "vibration": null, "next_action": "交換"}
+            ```
 
-        以上です。
-        """
+            以上です。
+            """
         let fields = try #require(MapperSheetJSON.parse(reply))
         #expect(field(fields, "temperature").value == "85")
         #expect(field(fields, "next_action").value == "交換")
@@ -50,14 +51,16 @@ struct MapperSheetJSONSuite {
 
     @Test("a brace inside a string does not end the object")
     func ignoresBracesInStrings() throws {
-        let reply = #"{"discharge_pressure": "0.5}", "temperature": null, "oil_leak": null, "abnormal_sound": null, "vibration": null, "next_action": null}"#
+        let reply =
+            #"{"discharge_pressure": "0.5}", "temperature": null, "oil_leak": null, "abnormal_sound": null, "vibration": null, "next_action": null}"#
         let fields = try #require(MapperSheetJSON.parse(reply))
         #expect(field(fields, "discharge_pressure").value == "0.5}")
     }
 
     @Test("bare JSON numbers render minimally, not as 72.0")
     func rendersNumbers() throws {
-        let reply = #"{"discharge_pressure": 0.45, "temperature": 72, "oil_leak": null, "abnormal_sound": null, "vibration": null, "next_action": null}"#
+        let reply =
+            #"{"discharge_pressure": 0.45, "temperature": 72, "oil_leak": null, "abnormal_sound": null, "vibration": null, "next_action": null}"#
         let fields = try #require(MapperSheetJSON.parse(reply))
         #expect(field(fields, "temperature").value == "72")
         #expect(field(fields, "discharge_pressure").value == "0.45")
@@ -79,7 +82,8 @@ struct MapperSheetJSONSuite {
 
     @Test("scoring is exact: a near miss is a miss")
     func scoringIsExact() throws {
-        let reply = #"{"discharge_pressure": "0.45MPa", "temperature": "72", "oil_leak": "漏れなし", "abnormal_sound": "異常あり", "vibration": null, "next_action": null}"#
+        let reply =
+            #"{"discharge_pressure": "0.45MPa", "temperature": "72", "oil_leak": "漏れなし", "abnormal_sound": "異常あり", "vibration": null, "next_action": null}"#
         let fields = try #require(MapperSheetJSON.parse(reply))
         // Right value, wrong spelling — no rescue layer, so these do not count.
         #expect(!MapperScoring.matches(field(fields, "discharge_pressure"), expected: "0.45"))

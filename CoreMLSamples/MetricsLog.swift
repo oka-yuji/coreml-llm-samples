@@ -1,7 +1,8 @@
 import Foundation
 import LLMCore
+
 #if canImport(UIKit)
-import UIKit
+    import UIKit
 #endif
 
 struct MetricsRecord: Codable {
@@ -345,9 +346,9 @@ enum MetricsLog {
 
     private static func availableMemoryBytes() -> Int? {
         #if os(iOS)
-        return Int(os_proc_available_memory())
+            return Int(os_proc_available_memory())
         #else
-        return nil
+            return nil
         #endif
     }
 
@@ -360,9 +361,9 @@ enum MetricsLog {
 
     private static func deviceAndOS() -> (String, String) {
         #if os(macOS)
-        let key = "hw.model"
+            let key = "hw.model"
         #else
-        let key = "hw.machine"
+            let key = "hw.machine"
         #endif
         var size = 0
         sysctlbyname(key, nil, &size, nil, 0)
@@ -385,27 +386,27 @@ enum MetricsLog {
     @MainActor
     private static func battery() -> (Double?, String?) {
         #if canImport(UIKit) && !os(macOS)
-        UIDevice.current.isBatteryMonitoringEnabled = true
-        let level = UIDevice.current.batteryLevel
-        let state: String
-        switch UIDevice.current.batteryState {
-        case .charging: state = "charging"
-        case .full: state = "full"
-        case .unplugged: state = "unplugged"
-        default: state = "unknown"
-        }
-        return (level >= 0 ? Double(level) : nil, state)
+            UIDevice.current.isBatteryMonitoringEnabled = true
+            let level = UIDevice.current.batteryLevel
+            let state: String
+            switch UIDevice.current.batteryState {
+            case .charging: state = "charging"
+            case .full: state = "full"
+            case .unplugged: state = "unplugged"
+            default: state = "unknown"
+            }
+            return (level >= 0 ? Double(level) : nil, state)
         #else
-        return (nil, nil)
+            return (nil, nil)
         #endif
     }
 
     private static func excludeFromBackup(_ url: URL) {
         #if !os(macOS)
-        var target = url
-        var values = URLResourceValues()
-        values.isExcludedFromBackup = true
-        try? target.setResourceValues(values)
+            var target = url
+            var values = URLResourceValues()
+            values.isExcludedFromBackup = true
+            try? target.setResourceValues(values)
         #endif
     }
 }
@@ -436,26 +437,32 @@ enum E5RTCache {
         var lines = ["[e5rt] \(phase) library=\(library.path(percentEncoded: false))"]
         for entry in children(of: library) {
             let (files, bytes) = measure(entry)
-            lines.append(String(format: "[e5rt] %@ %@ files=%d size=%.1f MiB",
-                                phase, entry.lastPathComponent, files, Double(bytes) / 1_048_576))
+            lines.append(
+                String(
+                    format: "[e5rt] %@ %@ files=%d size=%.1f MiB",
+                    phase, entry.lastPathComponent, files, Double(bytes) / 1_048_576))
             // One level deeper for the two that matter, so a growing cache is attributable.
             guard ["Caches", "Application Support"].contains(entry.lastPathComponent) else { continue }
             for child in children(of: entry) {
                 let (f, b) = measure(child)
-                lines.append(String(format: "[e5rt] %@   %@/%@ files=%d size=%.1f MiB",
-                                    phase, entry.lastPathComponent, child.lastPathComponent,
-                                    f, Double(b) / 1_048_576))
+                lines.append(
+                    String(
+                        format: "[e5rt] %@   %@/%@ files=%d size=%.1f MiB",
+                        phase, entry.lastPathComponent, child.lastPathComponent,
+                        f, Double(b) / 1_048_576))
             }
         }
         let found = bundleCaches(under: library)
-        lines.append("[e5rt] \(phase) e5bundlecache in container: "
-            + (found.isEmpty ? "none" : found.map { $0.path(percentEncoded: false) }.joined(separator: " ")))
+        lines.append(
+            "[e5rt] \(phase) e5bundlecache in container: "
+                + (found.isEmpty ? "none" : found.map { $0.path(percentEncoded: false) }.joined(separator: " ")))
         guard clear, ProcessInfo.processInfo.environment["CORELLM_CLEAR_E5RT_CACHE"] == "1" else {
             return lines
         }
         guard !found.isEmpty else {
-            lines.append("[e5rt] clear requested but nothing to clear — "
-                + "on iOS the specialization cache is outside the app container")
+            lines.append(
+                "[e5rt] clear requested but nothing to clear — "
+                    + "on iOS the specialization cache is outside the app container")
             return lines
         }
         for url in found {
@@ -478,9 +485,11 @@ enum E5RTCache {
 
     /// Any directory in the container whose name looks like the e5rt bundle cache.
     private static func bundleCaches(under root: URL) -> [URL] {
-        guard let walker = FileManager.default.enumerator(
-            at: root, includingPropertiesForKeys: [.isDirectoryKey],
-            options: [], errorHandler: { _, _ in true }) else { return [] }
+        guard
+            let walker = FileManager.default.enumerator(
+                at: root, includingPropertiesForKeys: [.isDirectoryKey],
+                options: [], errorHandler: { _, _ in true })
+        else { return [] }
         var found: [URL] = []
         for case let child as URL in walker
         where child.lastPathComponent.lowercased().contains("bundlecache") {
@@ -492,9 +501,11 @@ enum E5RTCache {
 
     /// `(file count, bytes)` for a directory tree; `(0, 0)` when it is not there.
     private static func measure(_ url: URL) -> (Int, Int) {
-        guard let walker = FileManager.default.enumerator(
-            at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
-            options: [], errorHandler: { _, _ in true }) else { return (0, 0) }
+        guard
+            let walker = FileManager.default.enumerator(
+                at: url, includingPropertiesForKeys: [.fileSizeKey, .isRegularFileKey],
+                options: [], errorHandler: { _, _ in true })
+        else { return (0, 0) }
         var files = 0
         var bytes = 0
         for case let child as URL in walker {

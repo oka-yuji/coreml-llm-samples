@@ -1,0 +1,3092 @@
+[
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioEncoder.swift",
+        "character": 34,
+        "line": 63
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                    d.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "character": 64,
+        "line": 63,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioEncoder.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                    d.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "character": 37,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "line": 70
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                    (dst.baseAddress! + padLeft).update(from: src.baseAddress!, count: real)"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "line": 70,
+        "character": 78,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift"
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning"
+    },
+    "text": "                    (dst.baseAddress! + padLeft).update(from: src.baseAddress!, count: real)"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "line": 100,
+        "character": 35
+      },
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                buffer.baseAddress!.withMemoryRebound(to: DSPDoubleComplex.self, capacity: half) { packed in"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "character": 84,
+        "line": 103,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                            var split = DSPDoubleSplitComplex(realp: re.baseAddress!, imagp: im.baseAddress!)"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "character": 108,
+        "line": 103
+      },
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                            var split = DSPDoubleSplitComplex(realp: re.baseAddress!, imagp: im.baseAddress!)"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "line": 142,
+        "character": 41
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            let dst = buffer.baseAddress!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "line": 150,
+        "character": 41
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            let dst = buffer.baseAddress!"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/AudioPreprocess.swift",
+        "character": 35,
+        "line": 199
+      },
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleIdentifier": "concurrency_escape",
+      "ruleName": "concurrency_escape"
+    },
+    "text": "    final class SingleBufferFeed: @unchecked Sendable {"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 55,
+        "line": 407
+      },
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "                owned.withF16 { dst in dst.baseAddress!.update(from: src.baseAddress!, count: src.count) }"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "character": 85,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 407
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "                owned.withF16 { dst in dst.baseAddress!.update(from: src.baseAddress!, count: src.count) }"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 467,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 82
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            embedsBuffer.withF16 { ov.tokens.readRow(ov.row, into: $0.baseAddress!) }"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 468,
+        "character": 79
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "            tokidBuffer.withF16 { pleSidecar.read(row: 0, into: $0.baseAddress!) }"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "location": {
+        "line": 470,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 88
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "            embedsBuffer.withF16 { embedSidecar.read(row: tokenID, into: $0.baseAddress!) }"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 471,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 85
+      },
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "            tokidBuffer.withF16 { pleSidecar.read(row: tokenID, into: $0.baseAddress!) }"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "character": 64,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 653
+      }
+    },
+    "text": "                                features[\"sks\"] = store[storeS]!.0"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 654,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 64
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                                features[\"svs\"] = store[storeS]!.1"
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 655,
+        "character": 64,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                                features[\"skf\"] = store[storeF]!.0"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "character": 64,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 656
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                                features[\"svf\"] = store[storeF]!.1"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 48,
+        "line": 828
+      }
+    },
+    "text": "                features[\"sks\"] = store[storeS]!.0"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "line": 829,
+        "character": 48,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning"
+    },
+    "text": "                features[\"svs\"] = store[storeS]!.1"
+  },
+  {
+    "text": "                features[\"skf\"] = store[storeF]!.0",
+    "violation": {
+      "location": {
+        "line": 830,
+        "character": 48,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                features[\"svf\"] = store[storeF]!.1",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "character": 48,
+        "line": 831,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "        precondition(softRows == nil || softRows!.count == ids.count)",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 49,
+        "line": 1003
+      },
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "                    ov.tokens.readRow(ov.row, into: buf.baseAddress! + i * H)",
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 1008,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 68
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                    embedSidecar.read(row: t, into: buf.baseAddress! + i * H)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "line": 1010,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 68
+      },
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                pleSidecar.read(row: row, into: buf.baseAddress! + i * plecols)",
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 64,
+        "line": 1019
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                    (d.baseAddress! + (p + r) * hd).update(from: s.baseAddress! + r * hd, count: hd)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 1047,
+        "character": 35
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                    (d.baseAddress! + (p + r) * hd).update(from: s.baseAddress! + r * hd, count: hd)",
+    "violation": {
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 79,
+        "line": 1047
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 32,
+        "line": 1056
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "line": 1056,
+        "character": 62,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      }
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * H, count: H)",
+    "violation": {
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "character": 32,
+        "line": 1064,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * H, count: H)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 1064,
+        "character": 62
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 71,
+        "line": 1182
+      },
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "        data.withUnsafeBufferPointer { dst.update(from: $0.baseAddress! + r * hidden, count: hidden) }"
+  },
+  {
+    "violation": {
+      "location": {
+        "character": 36,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "line": 1441
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning"
+    },
+    "text": "                    dst.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "line": 1441,
+        "character": 66,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift"
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                    dst.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 1444,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 51
+      },
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                        let base = src.baseAddress! + r * rowStride"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 43,
+        "line": 1468
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                _ = memcpy(dst.baseAddress!, srcRaw.baseAddress!, want)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 1468,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift",
+        "character": 64
+      },
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                _ = memcpy(dst.baseAddress!, srcRaw.baseAddress!, want)"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 144,
+        "character": 66
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            embedSidecar.read(row: tokenID, into: buf.baseAddress!)"
+  },
+  {
+    "violation": {
+      "location": {
+        "line": 153,
+        "character": 46,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                        into: buf.baseAddress!"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 200,
+        "character": 61
+      },
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "        let storeS = config.storeLayers[\"sliding_attention\"]!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 201,
+        "character": 58
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "        let storeF = config.storeLayers[\"full_attention\"]!"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 206,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "character": 66
+      },
+      "severity": "warning"
+    },
+    "text": "                embedSidecar.read(row: tok, into: buf.baseAddress!)"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 252,
+        "character": 66
+      },
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                embedSidecar.read(row: tok, into: buf.baseAddress! + i * config.H)"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "character": 50,
+        "line": 264,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift"
+      },
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                            into: buf.baseAddress! + i * n * config.PLE"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 303,
+        "character": 65
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning"
+    },
+    "text": "            let storeS = config.storeLayers[\"sliding_attention\"]!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "character": 62,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "line": 304
+      },
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "            let storeF = config.storeLayers[\"full_attention\"]!"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift",
+        "character": 32,
+        "line": 332
+      }
+    },
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "line": 332,
+        "character": 62,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift"
+      },
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)"
+  },
+  {
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "line": 340,
+        "character": 32,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * config.H, count: config.H)"
+  },
+  {
+    "violation": {
+      "location": {
+        "line": 340,
+        "character": 62,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChain.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * config.H, count: config.H)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "concurrency_escape",
+      "location": {
+        "character": 33,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 6
+      },
+      "ruleIdentifier": "concurrency_escape",
+      "severity": "error",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)"
+    },
+    "text": "private struct UncheckedBox<T>: @unchecked Sendable {"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 45,
+        "character": 62
+      },
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "            let p = raw.bindMemory(to: Int8.self).baseAddress! + base"
+  },
+  {
+    "violation": {
+      "location": {
+        "line": 350,
+        "character": 41,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "            let models = loaded.map { $0! }"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 630,
+        "character": 66
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 685,
+        "character": 53,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    },
+    "text": "                            _ = memcpy(d.baseAddress!, s.baseAddress! + j * perBytes, perBytes)"
+  },
+  {
+    "text": "                            _ = memcpy(d.baseAddress!, s.baseAddress! + j * perBytes, perBytes)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 69,
+        "line": 685
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                embedSidecar.read(row: t, into: dst.baseAddress! + r * config.H)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 64,
+        "line": 726
+      },
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: s * config.H)",
+    "violation": {
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "character": 32,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 731
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: s * config.H)",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 731,
+        "character": 62
+      },
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                    _ = memcpy(dst.baseAddress! + offset, src.baseAddress! + offset, length)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 47,
+        "line": 882
+      },
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                    _ = memcpy(dst.baseAddress! + offset, src.baseAddress! + offset, length)",
+    "violation": {
+      "location": {
+        "line": 882,
+        "character": 74,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                    _ = memcpy(dst.baseAddress!, src.baseAddress!, src.count)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 47,
+        "line": 915
+      },
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                    _ = memcpy(dst.baseAddress!, src.baseAddress!, src.count)",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "character": 65,
+        "line": 915,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      }
+    }
+  },
+  {
+    "text": "        precondition(softRows == nil || softRows!.count == promptIDs.count)",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 934,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 49
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                        ov.tokens.readRow(ov.row, into: buf.baseAddress! + r * config.H)",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 1015,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 72
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                        embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 74,
+        "line": 1017
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                    embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)",
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 1024,
+        "character": 70,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1032,
+        "character": 52
+      }
+    },
+    "text": "            let activeChunks = promoted ? chunks128! : chunks"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1033,
+        "character": 52
+      },
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            let activeHost = promoted ? hostCtx128k! : hostCtx32k!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 1033,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 66
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            let activeHost = promoted ? hostCtx128k! : hostCtx32k!"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "character": 66,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1052
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "                embedSidecar.read(row: tok, into: buf.baseAddress! + r * config.H)"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 67,
+        "line": 1054
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            embedSidecar.read(row: altToken, into: buf.baseAddress! + mainCount * config.H)"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "line": 1079,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 55
+      },
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "                dictionary[\"onehot_s\"] = feats.onehotS!"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 55,
+        "line": 1080
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning"
+    },
+    "text": "                dictionary[\"onehot_f\"] = feats.onehotF!"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "character": 52,
+        "line": 1082,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "                dictionary[\"onehot\"] = feats.onehot!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1337,
+        "character": 81
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "        embed.withF16 { buf in embedSidecar.read(row: tok, into: buf.baseAddress!) }"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 31,
+        "line": 1385
+      }
+    },
+    "text": "                    pleSidecar!.read("
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "line": 1387,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 46
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                        into: dst.baseAddress! + r * nLayers * ple)"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "character": 27,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1394
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "                pleSidecar!.read("
+  },
+  {
+    "text": "                    into: dst.baseAddress! + r * nLayers * ple)",
+    "violation": {
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 42,
+        "line": 1396
+      },
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * config.H, count: config.H)",
+    "violation": {
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "line": 1415,
+        "character": 32
+      },
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress! + row * config.H, count: config.H)",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 62,
+        "line": 1415
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "location": {
+        "line": 1423,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 32
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "                dst.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "location": {
+        "character": 62,
+        "line": 1423,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                        let data = Data(bytes: raw.baseAddress!, count: raw.count)",
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 63,
+        "line": 1605
+      }
+    }
+  },
+  {
+    "text": "                            _ = memcpy(raw.baseAddress!, src.baseAddress!, entry.byteCount)",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 1658,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift",
+        "character": 55
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "                            _ = memcpy(raw.baseAddress!, src.baseAddress!, entry.byteCount)",
+    "violation": {
+      "location": {
+        "line": 1658,
+        "character": 73,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLChainV2.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "            let task = Task {",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "character": 24,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/CoreMLEngine.swift",
+        "line": 820
+      }
+    }
+  },
+  {
+    "text": "    static let wordPattern = try! NSRegularExpression(",
+    "violation": {
+      "severity": "error",
+      "ruleDescription": "Force tries should be avoided",
+      "reason": "Force tries should be avoided",
+      "ruleIdentifier": "force_try",
+      "ruleName": "Force Try",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/GLiNERClassifier.swift",
+        "line": 105,
+        "character": 30
+      }
+    }
+  },
+  {
+    "text": "public final class GLiNERClassifier: @unchecked Sendable {",
+    "violation": {
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleIdentifier": "concurrency_escape",
+      "ruleDescription": "",
+      "location": {
+        "character": 38,
+        "line": 187,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/GLiNERClassifier.swift"
+      },
+      "ruleName": "concurrency_escape",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "        values.withUnsafeBufferPointer { pointer.update(from: $0.baseAddress!, count: values.count) }",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "character": 77,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/GLiNERClassifier.swift",
+        "line": 214
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "        values.withUnsafeBufferPointer { pointer.update(from: $0.baseAddress!, count: values.count) }",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 221,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/GLiNERClassifier.swift",
+        "character": 77
+      },
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "            b.onehotS!.withF16 { buf in",
+    "violation": {
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/HostInputs.swift",
+        "line": 344,
+        "character": 22
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "            b.onehotF!.withF16 { buf in",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 363,
+        "character": 22,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/HostInputs.swift"
+      },
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "            b.onehot!.withF16 { buf in",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "character": 21,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/HostInputs.swift",
+        "line": 374
+      },
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "        b.onehot!.withF16 { buf in",
+    "violation": {
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/HostInputs.swift",
+        "character": 17,
+        "line": 488
+      },
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "public struct LiveFrameImage: @unchecked Sendable {",
+    "violation": {
+      "location": {
+        "line": 4,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/LiveVision.swift",
+        "character": 31
+      },
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleName": "concurrency_escape",
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleIdentifier": "concurrency_escape"
+    }
+  },
+  {
+    "text": "                _ = memcpy(destination, raw.baseAddress!.advanced(by: byteOffset), n * MemoryLayout<Float16>.size)",
+    "violation": {
+      "location": {
+        "character": 56,
+        "line": 51,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/QuantizedSidecar.swift"
+      },
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "                let p = raw.bindMemory(to: Int8.self).baseAddress!",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "character": 66,
+        "line": 58,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/QuantizedSidecar.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping"
+    }
+  },
+  {
+    "text": "            _ = memcpy(destination, raw.baseAddress!.advanced(by: byteOffset), n * MemoryLayout<Float16>.size)",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "line": 26,
+        "character": 52,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/Sidecar.swift"
+      }
+    }
+  },
+  {
+    "text": "                    d.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 131,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/VisionEncoder.swift",
+        "character": 34
+      },
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "                    d.baseAddress!.update(from: src.baseAddress!, count: count)",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "file": "CoreLLMKit/Sources/CoreMLBackend/VisionEncoder.swift",
+        "character": 64,
+        "line": 131
+      },
+      "reason": "Force unwrapping should be avoided"
+    }
+  },
+  {
+    "text": "            let dst = buf.baseAddress!",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "character": 38,
+        "file": "CoreLLMKit/Sources/CoreMLBackend/VisionPreprocess.swift",
+        "line": 59
+      }
+    }
+  },
+  {
+    "violation": {
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "line": 10,
+        "character": 35,
+        "file": "CoreLLMKit/Tests/CoreMLBackendTests/MapperSheetJSONTests.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleName": "Force Unwrapping",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "    fields.first { $0.key == key }!"
+  },
+  {
+    "violation": {
+      "location": {
+        "line": 12,
+        "file": "CoreMLSamples/Demos/Agent/AgentSelfTest.swift",
+        "character": 9
+      },
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "        Task {"
+  },
+  {
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "line": 44,
+        "file": "CoreMLSamples/Demos/Agent/AgentSelfTest.swift",
+        "character": 9
+      }
+    },
+    "text": "        Task { @MainActor in"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "reason": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreMLSamples/Demos/Agent/AgentSelfTest.swift",
+        "line": 572,
+        "character": 47
+      },
+      "ruleName": "Force Unwrapping"
+    },
+    "text": "                let url = URL(string: address)!"
+  },
+  {
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "ruleDescription": "",
+      "location": {
+        "file": "CoreMLSamples/Demos/Agent/AgentTools.swift",
+        "line": 694,
+        "character": 24
+      },
+      "ruleIdentifier": "task_only_in_store"
+    },
+    "text": "        let watchdog = Task { [weak self] in"
+  },
+  {
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "character": 13,
+        "file": "CoreMLSamples/Demos/Agent/AgentTools.swift",
+        "line": 733
+      },
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error"
+    },
+    "text": "            Task { @MainActor in self.abort(with: CancellationError()) }"
+  },
+  {
+    "violation": {
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "location": {
+        "character": 1,
+        "line": 12,
+        "file": "CoreMLSamples/Demos/Agent/AgentViewModel.swift"
+      },
+      "ruleIdentifier": "observable_no_await",
+      "ruleDescription": "",
+      "ruleName": "observable_no_await",
+      "severity": "error"
+    },
+    "text": "@Observable"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "character": 16,
+        "line": 145,
+        "file": "CoreMLSamples/Demos/Agent/AgentViewModel.swift"
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error"
+    },
+    "text": "        task = Task { [self] in"
+  },
+  {
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "character": 53,
+        "file": "CoreMLSamples/Demos/Agent/AgentViewModel.swift",
+        "line": 165
+      }
+    },
+    "text": "        if let engine = chat.engineHandle?.engine { Task { await engine.resetConversation() } }"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "location": {
+        "character": 33,
+        "line": 444,
+        "file": "CoreMLSamples/Demos/Agent/AgentViewModel.swift"
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store"
+    },
+    "text": "                overlap = await Task.detached { Self.gramOverlap(body, clipped) }.value"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "line": 566,
+        "character": 23,
+        "file": "CoreMLSamples/Demos/Agent/AgentViewModel.swift"
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    },
+    "text": "        displayTask = Task { [weak self] in"
+  },
+  {
+    "violation": {
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleDescription": "",
+      "ruleName": "concurrency_escape",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/AudioRecorder.swift",
+        "line": 5,
+        "character": 28
+      },
+      "ruleIdentifier": "concurrency_escape"
+    },
+    "text": "final class AudioRecorder: @unchecked Sendable {"
+  },
+  {
+    "text": "    private final class SingleBufferFeed: @unchecked Sendable {",
+    "violation": {
+      "ruleName": "concurrency_escape",
+      "severity": "error",
+      "ruleIdentifier": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/AudioRecorder.swift",
+        "line": 18,
+        "character": 43
+      },
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "            Task { await stage(item) }",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "character": 13,
+        "line": 100,
+        "file": "CoreMLSamples/Demos/Chat/ChatAttachments.swift"
+      }
+    }
+  },
+  {
+    "text": "@Observable",
+    "violation": {
+      "ruleDescription": "",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 7,
+        "character": 1
+      },
+      "ruleName": "observable_no_await",
+      "ruleIdentifier": "observable_no_await",
+      "severity": "error",
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)"
+    }
+  },
+  {
+    "text": "        prewarm = Task { [self] in",
+    "violation": {
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 19,
+        "line": 293
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "                    Task { @MainActor in self.statusLine = line }",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "location": {
+        "character": 21,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 301
+      },
+      "ruleDescription": "",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "        loadProgressTimer = Task { [weak self] in",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 29,
+        "line": 343
+      }
+    }
+  },
+  {
+    "text": "        Task { [self] in",
+    "violation": {
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "line": 423,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 9
+      }
+    }
+  },
+  {
+    "text": "            recordingTimer = Task { [weak self] in",
+    "violation": {
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "line": 438,
+        "character": 30,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift"
+      },
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "            generation = Task { [self] in",
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "character": 26,
+        "line": 509,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift"
+      },
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "            generation = Task { [self] in",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 26,
+        "line": 520
+      },
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "            generation = Task { [self] in",
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 532,
+        "character": 26
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "        generation = Task { [self] in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 541,
+        "character": 22
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "        Task { [self] in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "location": {
+        "character": 9,
+        "line": 600,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift"
+      },
+      "ruleDescription": "",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "        Task { await engine.resetConversation() }",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "line": 618,
+        "character": 9,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift"
+      }
+    }
+  },
+  {
+    "text": "        Task { [self] in",
+    "violation": {
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "line": 641,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 9
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "        Task { [self] in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "character": 9,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 665
+      },
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "        displayTask = Task { [weak self] in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "line": 687,
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "character": 23
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "        if let engine { Task { await engine.resetConversation() } }",
+    "violation": {
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/ChatViewModel.swift",
+        "line": 955,
+        "character": 25
+      },
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "        Task { @MainActor in",
+    "violation": {
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "line": 93,
+        "file": "CoreMLSamples/Demos/Chat/SelfTest.swift",
+        "character": 9
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "final class WiredSampler: @unchecked Sendable {",
+    "violation": {
+      "location": {
+        "character": 27,
+        "file": "CoreMLSamples/Demos/Chat/SelfTest.swift",
+        "line": 345
+      },
+      "ruleIdentifier": "concurrency_escape",
+      "ruleName": "concurrency_escape",
+      "severity": "error",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "        return (wired.sorted()[n / 2], wired.min()!, footprint.sorted()[n / 2], available.sorted()[n / 2])",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "location": {
+        "line": 508,
+        "file": "CoreMLSamples/Demos/Chat/SelfTest.swift",
+        "character": 51
+      },
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "    private final class Box<T>: @unchecked Sendable {",
+    "violation": {
+      "ruleName": "concurrency_escape",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/SelfTest.swift",
+        "line": 538,
+        "character": 33
+      },
+      "severity": "error",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleIdentifier": "concurrency_escape",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "@Observable",
+    "violation": {
+      "ruleIdentifier": "observable_no_await",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "character": 1,
+        "file": "CoreMLSamples/Demos/Chat/SelfTestView.swift",
+        "line": 7
+      },
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "ruleName": "observable_no_await"
+    }
+  },
+  {
+    "text": "                    Task { await vm.loadModel(path: url.path(percentEncoded: false)) }",
+    "violation": {
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "character": 21,
+        "file": "CoreMLSamples/Demos/Chat/SingleChatView.swift",
+        "line": 80
+      },
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "                    Task { await vm.loadModel(path: url.path(percentEncoded: false)) }",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Chat/SplitChatView.swift",
+        "line": 97,
+        "character": 21
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "",
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleIdentifier": "concurrency_escape",
+      "ruleName": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "location": {
+        "character": 1,
+        "line": 1,
+        "file": "CoreMLSamples/Demos/LiveCamera/CameraCapture.swift"
+      }
+    }
+  },
+  {
+    "text": "final class CameraCapture: NSObject, LiveFrameSource, @unchecked Sendable {",
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "line": 45,
+        "character": 55,
+        "file": "CoreMLSamples/Demos/LiveCamera/CameraCapture.swift"
+      },
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleName": "concurrency_escape",
+      "ruleIdentifier": "concurrency_escape"
+    }
+  },
+  {
+    "text": "final class FileSequenceFrameSource: LiveFrameSource, @unchecked Sendable {",
+    "violation": {
+      "ruleIdentifier": "concurrency_escape",
+      "ruleDescription": "",
+      "ruleName": "concurrency_escape",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/CameraCapture.swift",
+        "character": 55,
+        "line": 195
+      },
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "            layer as! AVCaptureVideoPreviewLayer",
+    "violation": {
+      "ruleDescription": "Force casts should be avoided",
+      "ruleIdentifier": "force_cast",
+      "severity": "error",
+      "reason": "Force casts should be avoided",
+      "location": {
+        "character": 19,
+        "file": "CoreMLSamples/Demos/LiveCamera/CameraPreview.swift",
+        "line": 22
+      },
+      "ruleName": "Force Cast"
+    }
+  },
+  {
+    "text": "        Task { @MainActor in",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraSelfTest.swift",
+        "line": 62,
+        "character": 9
+      },
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "                    if live.isRunning { live.stop() } else { Task { await startLoop() } }",
+    "violation": {
+      "severity": "error",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "line": 143,
+        "character": 62,
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraView.swift"
+      },
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "            Task { await engine.endLiveVisionSession() }",
+    "violation": {
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "line": 345,
+        "character": 13,
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraView.swift"
+      },
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "            await chat.loadModel(path: preferred.path(percentEncoded: false))",
+    "violation": {
+      "ruleName": "observable_no_await",
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "character": 13,
+        "line": 173
+      },
+      "severity": "error",
+      "ruleIdentifier": "observable_no_await",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "        thermalWatcher = Task { [weak self] in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "character": 26,
+        "line": 338
+      },
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "        loop = Task { [weak self] in",
+    "violation": {
+      "ruleDescription": "",
+      "location": {
+        "character": 16,
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "line": 391
+      },
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "                        Task { @MainActor in",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "line": 426,
+        "character": 25
+      },
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error"
+    }
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "line": 462,
+        "character": 29
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error"
+    },
+    "text": "                            Task { @MainActor [weak self] in"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "line": 551,
+        "character": 10
+      },
+      "severity": "error",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": ""
+    },
+    "text": "    ) -> Task<LiveReadyFrame, Error> {"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/LiveCamera/LiveCameraViewModel.swift",
+        "line": 552,
+        "character": 9
+      }
+    },
+    "text": "        Task.detached(priority: .userInitiated) {"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialog.swift",
+        "line": 98,
+        "character": 28
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    },
+    "text": "            let watchdog = Task { [weak self] in"
+  },
+  {
+    "violation": {
+      "ruleName": "observable_no_await",
+      "ruleDescription": "",
+      "location": {
+        "character": 22,
+        "line": 99,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialog.swift"
+      },
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "ruleIdentifier": "observable_no_await",
+      "severity": "error"
+    },
+    "text": "                try? await Task.sleep(for: timeout)"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "character": 13,
+        "line": 139,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialog.swift"
+      },
+      "ruleName": "task_only_in_store",
+      "severity": "error"
+    },
+    "text": "            Task { @MainActor in self.finish(id) }"
+  },
+  {
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialog.swift",
+        "character": 13,
+        "line": 146
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "            Task { @MainActor in self.finish(id) }"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "line": 121,
+        "character": 75,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning"
+    },
+    "text": "            let oilLeak = MapperForm.fields.first { $0.key == \"oil_leak\" }!"
+  },
+  {
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "character": 79,
+        "line": 122
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "            let sound = MapperForm.fields.first { $0.key == \"abnormal_sound\" }!"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "severity": "warning",
+      "location": {
+        "character": 81,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "line": 123
+      },
+      "ruleDescription": "Force unwrapping should be avoided"
+    },
+    "text": "            let nextAction = MapperForm.fields.first { $0.key == \"next_action\" }!"
+  },
+  {
+    "violation": {
+      "location": {
+        "line": 175,
+        "character": 58,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift"
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning"
+    },
+    "text": "                MapperForm.fields.first { $0.key == key }!"
+  },
+  {
+    "violation": {
+      "severity": "warning",
+      "location": {
+        "line": 232,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "character": 86
+      },
+      "ruleName": "Force Unwrapping",
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    },
+    "text": "            let pressure = MapperForm.fields.first { $0.key == \"discharge_pressure\" }!"
+  },
+  {
+    "text": "            let temperature = MapperForm.fields.first { $0.key == \"temperature\" }!",
+    "violation": {
+      "ruleName": "Force Unwrapping",
+      "severity": "warning",
+      "location": {
+        "line": 233,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "character": 82
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "ruleIdentifier": "force_unwrapping"
+    }
+  },
+  {
+    "text": "                        + (result?.note.isEmpty == false ? \" note=\\(result!.note)\" : \"\"))",
+    "violation": {
+      "ruleIdentifier": "force_unwrapping",
+      "ruleDescription": "Force unwrapping should be avoided",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "line": 255,
+        "character": 75
+      },
+      "reason": "Force unwrapping should be avoided",
+      "ruleName": "Force Unwrapping",
+      "severity": "warning"
+    }
+  },
+  {
+    "text": "            let runner = Task { await dialog.start() }",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "location": {
+        "line": 280,
+        "file": "CoreMLSamples/Demos/Mapper/MapperDialogSelfTest.swift",
+        "character": 26
+      },
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": ""
+    }
+  },
+  {
+    "text": "    @Observable",
+    "violation": {
+      "ruleIdentifier": "observable_no_await",
+      "ruleDescription": "",
+      "ruleName": "observable_no_await",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperHeadlessSelfTest.swift",
+        "line": 19,
+        "character": 5
+      },
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)"
+    }
+  },
+  {
+    "text": "final class AudioLevelProbe: @unchecked Sendable {",
+    "violation": {
+      "ruleDescription": "",
+      "ruleIdentifier": "concurrency_escape",
+      "ruleName": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "severity": "error",
+      "location": {
+        "line": 14,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "character": 30
+      }
+    }
+  },
+  {
+    "text": "@Observable",
+    "violation": {
+      "ruleDescription": "",
+      "ruleIdentifier": "observable_no_await",
+      "severity": "error",
+      "location": {
+        "line": 46,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "character": 1
+      },
+      "ruleName": "observable_no_await",
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)"
+    }
+  },
+  {
+    "text": "            Task { @MainActor in self?.refreshAvailability() }",
+    "violation": {
+      "severity": "error",
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "location": {
+        "line": 253,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "character": 13
+      },
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "            nonisolated(unsafe) let sink = request",
+    "violation": {
+      "ruleIdentifier": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "line": 356,
+        "character": 13
+      },
+      "ruleName": "concurrency_escape"
+    }
+  },
+  {
+    "text": "                Task { @MainActor in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "character": 17,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "line": 368
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "            Task { @MainActor in",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "location": {
+        "line": 402,
+        "character": 13,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift"
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "            Task { @MainActor in",
+    "violation": {
+      "location": {
+        "line": 438,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "character": 13
+      },
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "            Task { @MainActor in",
+    "violation": {
+      "location": {
+        "character": 13,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift",
+        "line": 452
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "            Task { @MainActor in",
+    "violation": {
+      "location": {
+        "character": 13,
+        "line": 475,
+        "file": "CoreMLSamples/Demos/Mapper/MapperSpeech.swift"
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "                    Task { await model.map() }",
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift",
+        "character": 21,
+        "line": 82
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "                        Task { await model.runDialog() }",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "line": 92,
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift",
+        "character": 25
+      }
+    }
+  },
+  {
+    "text": "                        Task {",
+    "violation": {
+      "location": {
+        "line": 122,
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift",
+        "character": 25
+      },
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "                Button(\"20 回計測\") { Task { await model.measure() } }",
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "ruleDescription": "",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift",
+        "character": 36,
+        "line": 314
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    }
+  },
+  {
+    "text": "                Button(\"2 回目読み込み\") { Task { await model.measureSecondLoad() } }",
+    "violation": {
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift",
+        "line": 316,
+        "character": 38
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "                Button(\"自己テスト(30 文)\") { Task { await model.runSelfTest() } }",
+    "violation": {
+      "ruleDescription": "",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "character": 41,
+        "line": 318,
+        "file": "CoreMLSamples/Demos/Mapper/MapperView.swift"
+      },
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "@Observable",
+    "violation": {
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 7,
+        "character": 1
+      },
+      "ruleName": "observable_no_await",
+      "ruleDescription": "",
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "ruleIdentifier": "observable_no_await"
+    }
+  },
+  {
+    "text": "            let (built, seconds) = try await Task.detached(priority: .userInitiated) {",
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "character": 46,
+        "line": 61
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "severity": "error"
+    }
+  },
+  {
+    "text": "            let outcome = try await Task.detached(priority: .userInitiated) {",
+    "violation": {
+      "location": {
+        "character": 37,
+        "line": 92,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift"
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "text": "        let samples = await Task.detached(priority: .userInitiated) { () -> [Double] in",
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "character": 29,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 117
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleIdentifier": "task_only_in_store"
+    }
+  },
+  {
+    "text": "        let seconds = await Task.detached(priority: .userInitiated) { () -> Double? in",
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "severity": "error",
+      "location": {
+        "character": 29,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 145
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store"
+    }
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 168,
+        "character": 32
+      },
+      "ruleName": "task_only_in_store",
+      "ruleIdentifier": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleDescription": "",
+      "severity": "error"
+    },
+    "text": "            var report = await Task.detached(priority: .userInitiated) { test.runAccuracy() }.value"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "character": 32,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 169
+      }
+    },
+    "text": "            let parity = await Task.detached(priority: .userInitiated) { test.runParity() }.value"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "location": {
+        "character": 38,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "line": 200
+      },
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "                let text = try await Task.detached(priority: .userInitiated) {"
+  },
+  {
+    "violation": {
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "location": {
+        "line": 234,
+        "file": "CoreMLSamples/Demos/Mapper/MapperViewModel.swift",
+        "character": 24
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "            let task = Task { await dialog.start() }"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/Demos/ModelManager/HubDownloader.swift",
+        "character": 66,
+        "line": 43
+      },
+      "ruleIdentifier": "concurrency_escape",
+      "ruleName": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "severity": "error",
+      "ruleDescription": ""
+    },
+    "text": "final class HubDownloader: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "ruleName": "concurrency_escape",
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/ModelManager/HubDownloader.swift",
+        "line": 352,
+        "character": 30
+      },
+      "ruleIdentifier": "concurrency_escape"
+    },
+    "text": "final class ProgressTracker: @unchecked Sendable {"
+  },
+  {
+    "violation": {
+      "reason": "安全だと言える条件を隣のコメントに書き、理由を付けてこの行だけ抑制する(architecture.md A12)",
+      "ruleName": "concurrency_escape",
+      "location": {
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsSelfTest.swift",
+        "character": 34,
+        "line": 3
+      },
+      "ruleIdentifier": "concurrency_escape",
+      "ruleDescription": "",
+      "severity": "error"
+    },
+    "text": "private final class ByteCounter: @unchecked Sendable {"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "location": {
+        "character": 9,
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsSelfTest.swift",
+        "line": 30
+      },
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store"
+    },
+    "text": "        Task { @MainActor in"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsSelfTest.swift",
+        "character": 22,
+        "line": 170
+      },
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "        let worker = Task {"
+  },
+  {
+    "violation": {
+      "ruleName": "observable_no_await",
+      "ruleIdentifier": "observable_no_await",
+      "severity": "error",
+      "location": {
+        "character": 1,
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsViewModel.swift",
+        "line": 5
+      },
+      "reason": "@Observable のクラスに await を書かない。非同期の流れは Feature と汎用 Store で書く(architecture.md A4)",
+      "ruleDescription": ""
+    },
+    "text": "@Observable"
+  },
+  {
+    "violation": {
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "severity": "error",
+      "ruleIdentifier": "task_only_in_store",
+      "location": {
+        "line": 96,
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsViewModel.swift",
+        "character": 20
+      }
+    },
+    "text": "        row.task = Task { [weak self] in"
+  },
+  {
+    "violation": {
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "severity": "error",
+      "location": {
+        "file": "CoreMLSamples/Demos/ModelManager/ModelsViewModel.swift",
+        "character": 21,
+        "line": 100
+      }
+    },
+    "text": "                    Task { @MainActor in self.applyProgress(id, progress) }"
+  },
+  {
+    "violation": {
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "severity": "error",
+      "location": {
+        "character": 9,
+        "file": "CoreMLSamples/Demos/ModelManager/SingleModelsView.swift",
+        "line": 68
+      }
+    },
+    "text": "        Task { await chatVM.loadModel(path: path) }"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "location": {
+        "line": 83,
+        "file": "CoreMLSamples/Demos/ModelManager/SplitModelsView.swift",
+        "character": 9
+      },
+      "ruleIdentifier": "task_only_in_store",
+      "ruleDescription": "",
+      "ruleName": "task_only_in_store"
+    },
+    "text": "        Task { await chatVM.loadModel(path: path) }"
+  },
+  {
+    "violation": {
+      "location": {
+        "file": "CoreMLSamples/GUIDriver.swift",
+        "line": 53,
+        "character": 9
+      },
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)",
+      "ruleName": "task_only_in_store",
+      "severity": "error"
+    },
+    "text": "        Task { await run(navigator: navigator, chat: chat, models: models, agent: agent) }"
+  },
+  {
+    "violation": {
+      "severity": "error",
+      "location": {
+        "character": 17,
+        "file": "CoreMLSamples/GUIDriver.swift",
+        "line": 240
+      },
+      "ruleDescription": "",
+      "ruleIdentifier": "task_only_in_store",
+      "ruleName": "task_only_in_store",
+      "reason": "Task を作るのは汎用 Store だけ(architecture.md A4)"
+    },
+    "text": "                Task { await chat.loadModel(path: path) }"
+  }
+]

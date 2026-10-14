@@ -20,7 +20,7 @@ struct SingleChatView: View {
         }
         .navigationTitle(vm.isModelLoaded ? vm.modelName : "Chat")
         #if os(iOS)
-        .navigationBarTitleDisplayMode(.inline)
+            .navigationBarTitleDisplayMode(.inline)
         #endif
         .onChange(of: vm.speculative) { _, on in vm.speculationToggleChanged(to: on) }
         .toolbar {

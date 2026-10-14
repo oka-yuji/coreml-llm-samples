@@ -2,6 +2,7 @@ import CoreML
 import Foundation
 import LLMCore
 import Testing
+
 @testable import CoreMLBackend
 
 // Teacher-forced greedy gate for the round5 op-mix bundle: feed fixture `ids` one token at a
@@ -30,12 +31,14 @@ struct Round5FixtureSuite {
     @Test("round5 chunked chain reproduces the fixture's 21 teacher-forced positions", .enabled(if: round5Exists))
     func teacherForcedPositions() async throws {
         let bundle = try #require(round5URL, round5Skip)
-        let fixtureURL = ProcessInfo.processInfo.environment[round5FixtureEnv].flatMap {
-            $0.isEmpty ? nil : URL(filePath: $0)
-        } ?? bundle.appending(path: "fixture_testio_h6.json")
+        let fixtureURL =
+            ProcessInfo.processInfo.environment[round5FixtureEnv].flatMap {
+                $0.isEmpty ? nil : URL(filePath: $0)
+            } ?? bundle.appending(path: "fixture_testio_h6.json")
 
-        let json = try JSONSerialization.jsonObject(
-            with: Data(contentsOf: fixtureURL)) as? [String: Any] ?? [:]
+        let json =
+            try JSONSerialization.jsonObject(
+                with: Data(contentsOf: fixtureURL)) as? [String: Any] ?? [:]
         let ids = try #require(json["ids"] as? [Int], "fixture has no ids")
         let expected = try #require(json["mac_token_id"] as? [Int], "fixture has no mac_token_id")
         #expect(ids.count == expected.count)
@@ -57,8 +60,9 @@ struct Round5FixtureSuite {
 
         let diffs = zip(got.indices, zip(got, expected)).filter { $0.1.0 != $0.1.1 }
         let report = diffs.map { "pos\($0.0): got \($0.1.0) want \($0.1.1)" }.joined(separator: ", ")
-        print("[round5] units=\(ChunkedSpeculativeChain.cuName(units)) positions=\(ids.count) "
-            + "mismatches=\(diffs.count) \(report)")
+        print(
+            "[round5] units=\(ChunkedSpeculativeChain.cuName(units)) positions=\(ids.count) "
+                + "mismatches=\(diffs.count) \(report)")
         print("[round5] got=\(got)")
         #expect(diffs.isEmpty, "teacher-forced mismatches: \(report)")
     }
@@ -77,17 +81,21 @@ struct Round5EarlyExitSuite {
     @Test("early exit matches the full prefill at every way a prompt can end", .enabled(if: round5Exists))
     func earlyExitMatchesFullPrefill() async throws {
         let bundle = try #require(round5URL, round5Skip)
-        try #require(ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"] == nil,
-                     "CORELLM_PREFILL_EARLY_EXIT would override both chains")
-        let units: MLComputeUnits = ProcessInfo.processInfo.environment[round5UnitsEnv]?.lowercased() == "cpu"
+        try #require(
+            ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"] == nil,
+            "CORELLM_PREFILL_EARLY_EXIT would override both chains")
+        let units: MLComputeUnits =
+            ProcessInfo.processInfo.environment[round5UnitsEnv]?.lowercased() == "cpu"
             ? .cpuOnly : .cpuAndNeuralEngine
 
         let tokenizer = try await HFTokenizer(modelFolder: bundle, eosTokenIDs: [])
         let head = [try #require(tokenizer.bosTokenID)] + (try tokenizer.encode("<|turn>user\n"))
         let tail = try tokenizer.encode("<turn|>\n<|turn>model\n")
-        let body = try tokenizer.encode(String(repeating:
-            "オンデバイス推論では、計算速度よりも先にメモリの上限が効いてくることが多い。"
-            + "重みを 4 bit まで落とせば容量は半分になるが、展開時に LUT を引くコストがかかる。", count: 16))
+        let body = try tokenizer.encode(
+            String(
+                repeating:
+                    "オンデバイス推論では、計算速度よりも先にメモリの上限が効いてくることが多い。"
+                    + "重みを 4 bit まで落とせば容量は半分になるが、展開時に LUT を引くコストがかかる。", count: 16))
         let lengths = [21, 224, 250, 512, 530, 544]
         let prompts = lengths.map { head + body.prefix($0 - head.count - tail.count) + tail }
         #expect(prompts.map(\.count) == lengths)
@@ -109,8 +117,9 @@ struct Round5EarlyExitSuite {
         let early = try await run(earlyExit: true)
 
         for (i, n) in lengths.enumerated() {
-            print("[earlyexit] L=\(n) \(full.tokens[i] == early.tokens[i] ? "same" : "DIFF") "
-                + "full=\(full.tokens[i]) early=\(early.tokens[i])")
+            print(
+                "[earlyexit] L=\(n) \(full.tokens[i] == early.tokens[i] ? "same" : "DIFF") "
+                    + "full=\(full.tokens[i]) early=\(early.tokens[i])")
         }
         print("[earlyexit] loads full: \(full.loads)")
         print("[earlyexit] loads early: \(early.loads)")

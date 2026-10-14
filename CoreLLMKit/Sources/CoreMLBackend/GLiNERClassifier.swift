@@ -103,7 +103,8 @@ public final class GLiNERSchemaEncoder: Sendable {
     /// Japanese has no spaces, so `\w+` runs break on punctuation — "吐出圧0.45MPa"
     /// becomes ["吐出圧0", ".", "45mpa"].
     static let wordPattern = try! NSRegularExpression(
-        pattern: #"(?:https?://[^\s]+|www\.[^\s]+)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|@[a-z0-9_]+|\w+(?:[-_]\w+)*|\S"#,
+        pattern:
+            #"(?:https?://[^\s]+|www\.[^\s]+)|[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}|@[a-z0-9_]+|\w+(?:[-_]\w+)*|\S"#,
         options: [.caseInsensitive])
 
     static func splitWords(_ text: String) -> [String] {
@@ -138,7 +139,10 @@ public final class GLiNERSchemaEncoder: Sendable {
 
         // `_transform_schema(task, labels, "[L]")`
         var combined = ["(", Self.pToken, task, "("]
-        for label in labels { combined.append(Self.lToken); combined.append(label) }
+        for label in labels {
+            combined.append(Self.lToken)
+            combined.append(label)
+        }
         combined.append(")")
         combined.append(")")
         // Single schema, so `_format_input_with_mapping` pops the trailing [SEP_STRUCT].
@@ -197,7 +201,8 @@ public final class GLiNERClassifier: @unchecked Sendable {
             tokenizerFolder: tokenizerFolder, bucketLength: bucketLength, maxOptions: maxOptions)
         let configuration = MLModelConfiguration()
         configuration.computeUnits = computeUnits
-        let compiled = modelURL.pathExtension == "mlpackage"
+        let compiled =
+            modelURL.pathExtension == "mlpackage"
             ? try MLModel.compileModel(at: modelURL) : modelURL
         model = try MLModel(contentsOf: compiled, configuration: configuration)
         loadSeconds = Date().timeIntervalSince(start)

@@ -61,8 +61,10 @@ enum SelfTest {
             maxTokens: value("--max-tokens").flatMap { Int($0) } ?? 128,
             stopAfterSeconds: value("--stop-after").flatMap { Double($0) },
             prompts: value("--prompts-file")
-                .map { (try? String(contentsOfFile: resolve($0), encoding: .utf8))?
-                    .components(separatedBy: "\n===PROMPT===\n") ?? [] }
+                .map {
+                    (try? String(contentsOfFile: resolve($0), encoding: .utf8))?
+                        .components(separatedBy: "\n===PROMPT===\n") ?? []
+                }
                 ?? value("--prompts").map { $0.split(separator: "|").map(String.init) } ?? [],
             wiredTailSeconds: value("--wired-tail").flatMap { Double($0) } ?? 0,
             tag: value("--tag"),
@@ -96,11 +98,11 @@ enum SelfTest {
 
     static func resolve(_ path: String) -> String {
         #if os(iOS)
-        guard !path.hasPrefix("/") else { return path }
-        return ModelStorage.documentsDirectory()
-            .appending(path: path).path(percentEncoded: false)
+            guard !path.hasPrefix("/") else { return path }
+            return ModelStorage.documentsDirectory()
+                .appending(path: path).path(percentEncoded: false)
         #else
-        return path
+            return path
         #endif
     }
 
@@ -116,15 +118,18 @@ enum SelfTest {
         var override: ComputeUnitPreference?
         if let requested = opts.computeUnits {
             guard let parsed = ComputeUnitPreference(rawValue: requested) else {
-                errln("selftest: unknown --cu \(requested) (expected one of "
-                    + ComputeUnitPreference.allCases.map(\.rawValue).joined(separator: ", ") + ")")
+                errln(
+                    "selftest: unknown --cu \(requested) (expected one of "
+                        + ComputeUnitPreference.allCases.map(\.rawValue).joined(separator: ", ") + ")")
                 return 2
             }
             override = parsed
         }
         let freeGB = Double(ModelStorage.availableDiskSpace()) / 1e9
-        errln(String(format: "[selftest] free %.2f GB  |  thermal %@  |  cu %@",
-                     freeGB, thermalName(), override?.rawValue ?? "(manifest)"))
+        errln(
+            String(
+                format: "[selftest] free %.2f GB  |  thermal %@  |  cu %@",
+                freeGB, thermalName(), override?.rawValue ?? "(manifest)"))
         errln("[selftest] tag=\(opts.tag ?? "(none)")")
         for line in E5RTCache.startupLines { errln(line) }
         let vm = ChatViewModel()
@@ -145,24 +150,27 @@ enum SelfTest {
         errln(String(format: "[selftest] modelLoadSeconds=%.2f", loadSeconds))
         for line in vm.loadBreakdown { errln(line) }
         for line in E5RTCache.afterLoadLines() { errln(line) }
-        errln("[selftest] imageAttachment=\(vm.supportsImageAttachment) "
-            + "audioAttachment=\(vm.supportsAudioAttachment)")
+        errln(
+            "[selftest] imageAttachment=\(vm.supportsImageAttachment) "
+                + "audioAttachment=\(vm.supportsAudioAttachment)")
         if vm.ragEnabled {
             let settings = RAGSettings.fromDefaults()
-            errln("[rag] mode=on web=\(vm.ragWeb) local=\(vm.ragLocal) "
-                + "search=\(settings.provider) results=\(settings.searchResults) "
-                + "pages=\(settings.pagesToRead) pageBudget=\(settings.pageCharacterBudget)chars "
-                + "sourceBudget=\(RAGContext.sourceTokenBudget)tok today=\(RAGContext.today())")
+            errln(
+                "[rag] mode=on web=\(vm.ragWeb) local=\(vm.ragLocal) "
+                    + "search=\(settings.provider) results=\(settings.searchResults) "
+                    + "pages=\(settings.pagesToRead) pageBudget=\(settings.pageCharacterBudget)chars "
+                    + "sourceBudget=\(RAGContext.sourceTokenBudget)tok today=\(RAGContext.today())")
             errln("[rag] documents=" + settings.documentsDirectory.path(percentEncoded: false))
         }
-        errln("[selftest] prefillMode="
-            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_MODE"] ?? "(manifest default)")
-            + " specialization="
-            + (ProcessInfo.processInfo.environment["CORELLM_SPECIALIZATION"] ?? "(manifest default)")
-            + " prewarm="
-            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? "(manifest default)")
-            + " earlyExit="
-            + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"] ?? "(manifest default)"))
+        errln(
+            "[selftest] prefillMode="
+                + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_MODE"] ?? "(manifest default)")
+                + " specialization="
+                + (ProcessInfo.processInfo.environment["CORELLM_SPECIALIZATION"] ?? "(manifest default)")
+                + " prewarm="
+                + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_PREWARM"] ?? "(manifest default)")
+                + " earlyExit="
+                + (ProcessInfo.processInfo.environment["CORELLM_PREFILL_EARLY_EXIT"] ?? "(manifest default)"))
         if let prewarm = vm.prewarm {
             let wiredBefore = MetricsLog.sysWiredBytes().map { Double($0) / 1_048_576 }
             let sampler = WiredSampler()
@@ -170,10 +178,12 @@ enum SelfTest {
             sampler.stop()
             for line in vm.prewarmLog { errln(line) }
             let peak = sampler.snapshot().map(\.mib).max()
-            errln(String(format: "[prewarm] %@ wiredBefore=%@ wiredPeak=%@ MiB",
-                         vm.prewarmSummary.isEmpty ? "(off)" : vm.prewarmSummary,
-                         wiredBefore.map { String(format: "%.1f", $0) } ?? "n/a",
-                         peak.map { String(format: "%.1f", $0) } ?? "n/a"))
+            errln(
+                String(
+                    format: "[prewarm] %@ wiredBefore=%@ wiredPeak=%@ MiB",
+                    vm.prewarmSummary.isEmpty ? "(off)" : vm.prewarmSummary,
+                    wiredBefore.map { String(format: "%.1f", $0) } ?? "n/a",
+                    peak.map { String(format: "%.1f", $0) } ?? "n/a"))
         }
         if let image = opts.image.map(resolve) {
             vm.attachImage(URL(fileURLWithPath: image))
@@ -194,8 +204,10 @@ enum SelfTest {
                 errln("selftest: this bundle does not take audio input")
                 return 1
             }
-            errln(String(format: "[selftest] audio %.2fs (%d samples)",
-                         attached.seconds, attached.samples.count))
+            errln(
+                String(
+                    format: "[selftest] audio %.2fs (%d samples)",
+                    attached.seconds, attached.samples.count))
         }
         if let after = opts.stopAfterSeconds {
             return await stopTurn(vm: vm, prompt: opts.prompt ?? "", after: after, sink: sink)
@@ -231,8 +243,9 @@ enum SelfTest {
             }
             sink.out(reply)
             // One line per turn, JSON-quoted, so replies with newlines can be diffed turn by turn.
-            errln("[reply] turn=\(index) "
-                + ((try? JSONEncoder().encode(reply)).map { String(decoding: $0, as: UTF8.self) } ?? "null"))
+            errln(
+                "[reply] turn=\(index) "
+                    + ((try? JSONEncoder().encode(reply)).map { String(decoding: $0, as: UTF8.self) } ?? "null"))
             let wiredAfter = MetricsLog.sysWiredBytes()
             let series = sampler.snapshot()
             if let before = wiredBefore, let after = wiredAfter {
@@ -244,15 +257,16 @@ enum SelfTest {
                 let atTTFT = ttft.flatMap { t in
                     series.min(by: { abs($0.seconds - t) < abs($1.seconds - t) })?.mib
                 }
-                errln(String(
-                    format: "[wired] turn=%d chars=%d before=%.1f ttft=%@ peak=%@ after=%.1f "
-                        + "delta=%+.1f peakDelta=%@ MiB samples=%d",
-                    index, turn.count, base,
-                    atTTFT.map { String(format: "%.1f", $0) } ?? "n/a",
-                    peak.map { String(format: "%.1f", $0) } ?? "n/a",
-                    Double(after) / mib, Double(after - before) / mib,
-                    peak.map { String(format: "%+.1f", $0 - base) } ?? "n/a",
-                    series.count))
+                errln(
+                    String(
+                        format: "[wired] turn=%d chars=%d before=%.1f ttft=%@ peak=%@ after=%.1f "
+                            + "delta=%+.1f peakDelta=%@ MiB samples=%d",
+                        index, turn.count, base,
+                        atTTFT.map { String(format: "%.1f", $0) } ?? "n/a",
+                        peak.map { String(format: "%.1f", $0) } ?? "n/a",
+                        Double(after) / mib, Double(after - before) / mib,
+                        peak.map { String(format: "%+.1f", $0 - base) } ?? "n/a",
+                        series.count))
             } else {
                 errln("[wired] turn=\(index) unavailable (host_statistics64 refused)")
             }
@@ -261,10 +275,13 @@ enum SelfTest {
                 errln("[load] prefill functions so far: \(await engine.prefillLoadSummary)")
             }
             if !tailTaken, opts.wiredTailSeconds > 0,
-               let prompt = Self.firstNumber(in: vm.statusLine, after: "prompt "), prompt >= 512 {
+                let prompt = Self.firstNumber(in: vm.statusLine, after: "prompt "), prompt >= 512
+            {
                 tailTaken = true
-                errln(String(format: "[wired-tail] turn=%d sampling %.0fs after a plain-prefill turn",
-                             index, opts.wiredTailSeconds))
+                errln(
+                    String(
+                        format: "[wired-tail] turn=%d sampling %.0fs after a plain-prefill turn",
+                        index, opts.wiredTailSeconds))
                 let tail = await Self.sampleWired(seconds: opts.wiredTailSeconds)
                 for row in tail where Int((row.seconds * 2).rounded()) % 10 == 0 {
                     errln(String(format: "[wired-tail] t=%.1fs wired=%.1f MiB", row.seconds, row.mib))
@@ -306,9 +323,10 @@ enum SelfTest {
         await generation.value
         let stopSeconds = (clock.now - t0) / .seconds(1)
         let reply = vm.messages.last { $0.role == .assistant }?.text ?? ""
-        errln(String(
-            format: "[selftest] stop after %.1fs settled in %.3fs phase=%@ status=%@ replyChars=%d",
-            after, stopSeconds, vm.phaseDescription, vm.statusLine, reply.count))
+        errln(
+            String(
+                format: "[selftest] stop after %.1fs settled in %.3fs phase=%@ status=%@ replyChars=%d",
+                after, stopSeconds, vm.phaseDescription, vm.statusLine, reply.count))
         sink.out(reply)
         guard case .ready = vm.phase else {
             errln("selftest: stop left the chat in \(vm.phaseDescription), expected ready")
@@ -467,15 +485,16 @@ enum AneProbe {
     /// weights are charged to the app, they come out of here even when wired does not move.
     private static func availableBytes() -> Double {
         #if os(iOS)
-        return Double(os_proc_available_memory())
+            return Double(os_proc_available_memory())
         #else
-        return -1
+            return -1
         #endif
     }
 
     /// Settle, then 40 samples at 0.5 s. The 20 s window keeps system-wired noise near +/-35 MiB.
     private static func sample(settle: Double = 3.0, n: Int = 40, gap: Double = 0.5)
-        -> (wired: Double, wiredMin: Double, footprint: Double, available: Double) {
+        -> (wired: Double, wiredMin: Double, footprint: Double, available: Double)
+    {
         Thread.sleep(forTimeInterval: settle)
         var wired: [Double] = []
         var footprint: [Double] = []
@@ -503,8 +522,11 @@ enum AneProbe {
         var values: [String: MLFeatureValue] = [:]
         for (name, description) in model.modelDescription.inputDescriptionsByName {
             guard let constraint = description.multiArrayConstraint else {
-                throw NSError(domain: "aneprobe", code: 1, userInfo: [
-                    NSLocalizedDescriptionKey: "input \(name) is not a multiArray"])
+                throw NSError(
+                    domain: "aneprobe", code: 1,
+                    userInfo: [
+                        NSLocalizedDescriptionKey: "input \(name) is not a multiArray"
+                    ])
             }
             let array = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
             memset(array.dataPointer, 0, array.count * elementSize(constraint.dataType))
@@ -542,22 +564,28 @@ enum AneProbe {
     ) -> Int32 {
         typealias Sample = (wired: Double, wiredMin: Double, footprint: Double, available: Double)
         var previous: Sample?
-        func emit(_ phase: String, _ stage: String, _ s: Sample,
-                  load: String = "-", predict: String = "-", note: String = "-") {
+        func emit(
+            _ phase: String, _ stage: String, _ s: Sample,
+            load: String = "-", predict: String = "-", note: String = "-"
+        ) {
             let dWired = previous.map { (s.wired - $0.wired) / mib } ?? 0
             let dWiredMin = previous.map { (s.wiredMin - $0.wiredMin) / mib } ?? 0
             let dFootprint = previous.map { (s.footprint - $0.footprint) / mib } ?? 0
             let dAvailable = previous.map { ($0.available - s.available) / mib } ?? 0
-            out(String(
-                format: "%@\t%@\t%.1f\t%+.1f\t%.1f\t%+.1f\t%.1f\t%+.1f\t%.1f\t%+.1f\t%@\t%@\t%@",
-                phase, stage, s.wired / mib, dWired, s.wiredMin / mib, dWiredMin,
-                s.footprint / mib, dFootprint, s.available / mib, dAvailable, load, predict, note))
+            out(
+                String(
+                    format: "%@\t%@\t%.1f\t%+.1f\t%.1f\t%+.1f\t%.1f\t%+.1f\t%.1f\t%+.1f\t%@\t%@\t%@",
+                    phase, stage, s.wired / mib, dWired, s.wiredMin / mib, dWiredMin,
+                    s.footprint / mib, dFootprint, s.available / mib, dAvailable, load, predict, note))
             previous = s
         }
 
-        out("# aneprobe units=\(ChunkedSpeculativeChainUnits.name(units)) stages=\(stages.count) timeout=\(Int(timeout))s")
-        out("phase\tstage\twired_MiB\tdWired_MiB\twiredMin_MiB\tdWiredMin_MiB\tfootprint_MiB"
-            + "\tdFoot_MiB\tavail_MiB\tusedFromAvail_MiB\tload_s\tpredict_ms\tnote")
+        out(
+            "# aneprobe units=\(ChunkedSpeculativeChainUnits.name(units)) stages=\(stages.count) timeout=\(Int(timeout))s"
+        )
+        out(
+            "phase\tstage\twired_MiB\tdWired_MiB\twiredMin_MiB\tdWiredMin_MiB\tfootprint_MiB"
+                + "\tdFoot_MiB\tavail_MiB\tusedFromAvail_MiB\tload_s\tpredict_ms\tnote")
 
         // 30 s idle baseline: the raw drift bounds how much of a delta is real.
         var baseline: [Double] = []
@@ -566,8 +594,10 @@ enum AneProbe {
             if i < 59 { Thread.sleep(forTimeInterval: 0.5) }
         }
         if let low = baseline.min(), let high = baseline.max() {
-            out(String(format: "# baseline_drift_30s_MiB\t%.1f\tmin=%.1f\tmax=%.1f",
-                       (high - low) / mib, low / mib, high / mib))
+            out(
+                String(
+                    format: "# baseline_drift_30s_MiB\t%.1f\tmin=%.1f\tmax=%.1f",
+                    (high - low) / mib, low / mib, high / mib))
         }
         emit("baseline", "-", sample(settle: 0))
 
@@ -598,11 +628,15 @@ enum AneProbe {
                         out("HUNG\t\(tag)\t\(label)\ttimeout=\(Int(timeout))s")
                         return 3
                     }
-                    if let error { out("PREDICT_ERROR\t\(tag)\t\(label)\t\(error)"); exitCode = 4 }
+                    if let error {
+                        out("PREDICT_ERROR\t\(tag)\t\(label)\t\(error)")
+                        exitCode = 4
+                    }
                     timings.append(String(format: "%@=%.1f", label, ms))
                 }
-                emit("predict#\(index)", tag, sample(),
-                     predict: timings.last ?? "-", note: timings.joined(separator: " "))
+                emit(
+                    "predict#\(index)", tag, sample(),
+                    predict: timings.last ?? "-", note: timings.joined(separator: " "))
             } catch {
                 out("LOAD_ERROR\t\(tag)\t\(error)")
                 exitCode = 4

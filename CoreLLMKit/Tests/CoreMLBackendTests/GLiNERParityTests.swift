@@ -1,6 +1,7 @@
 import CoreML
 import Foundation
 import Testing
+
 @testable import CoreMLBackend
 
 // Pins the Swift GLiNER2.5 classification preprocessing to the Python reference
@@ -77,7 +78,7 @@ struct GLiNERParitySuite {
                     .first { $0.element.0 != $0.element.1 }
                 mismatches.append(
                     "call \(index) \(call.text.prefix(16)) input_ids differ at \(first?.offset ?? -1) "
-                    + "swift=\(first?.element.0 ?? -1) python=\(first?.element.1 ?? -1) tokens=\(got.tokens)")
+                        + "swift=\(first?.element.0 ?? -1) python=\(first?.element.1 ?? -1) tokens=\(got.tokens)")
             }
             if got.attentionMask != call.attention_mask {
                 mismatches.append("call \(index) attention_mask differs")
@@ -90,8 +91,10 @@ struct GLiNERParitySuite {
                 mismatches.append("call \(index) marker_mask differs")
             }
         }
-        print("GLiNER preprocessing parity: \(fixture.calls.count - mismatches.count)/\(fixture.calls.count) calls match")
-        let report = "\(mismatches.count)/\(fixture.calls.count) mismatched:\n"
+        print(
+            "GLiNER preprocessing parity: \(fixture.calls.count - mismatches.count)/\(fixture.calls.count) calls match")
+        let report =
+            "\(mismatches.count)/\(fixture.calls.count) mismatched:\n"
             + mismatches.prefix(5).joined(separator: "\n")
         #expect(mismatches.isEmpty, Comment(rawValue: report))
     }
@@ -112,7 +115,7 @@ struct GLiNERParitySuite {
             where swift.value != python.value || swift.unit != python.unit || swift.window != python.window {
                 mismatches.append(
                     "\(testCase.text): swift=(\(swift.value),\(swift.unit),\(swift.window)) "
-                    + "python=(\(python.value),\(python.unit),\(python.window))")
+                        + "python=(\(python.value),\(python.unit),\(python.window))")
             }
         }
         print("GLiNER number-candidate parity: \(fixture.cases.count) sentences, \(mismatches.count) mismatched")
@@ -145,7 +148,8 @@ struct GLiNERParitySuite {
             }
         }
         print("GLiNER score parity: \(fixture.calls.count) calls, worst Δ=\(worst) — \(worstDetail)")
-        let report = "\(overBudget.count) scores exceed 0.02:\n"
+        let report =
+            "\(overBudget.count) scores exceed 0.02:\n"
             + overBudget.prefix(5).joined(separator: "\n")
         #expect(overBudget.isEmpty, Comment(rawValue: report))
     }

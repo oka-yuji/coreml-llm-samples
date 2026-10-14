@@ -21,10 +21,10 @@ final class MapperViewModel {
 
     private var mapper: GLiNERMapper?
     #if os(iOS)
-    /// Voice dialog: one field at a time. Built once the model is loaded.
-    var dialog: MapperDialogController?
-    /// Off by default: the dialog answers by tapping unless this is switched on.
-    var useVoiceDialog = false
+        /// Voice dialog: one field at a time. Built once the model is loaded.
+        var dialog: MapperDialogController?
+        /// Off by default: the dialog answers by tapping unless this is switched on.
+        var useVoiceDialog = false
     #endif
 
     /// Experiment (see docs/results/2026-10-04-gliner25-mapper-demo.md): ask whether
@@ -67,7 +67,7 @@ final class MapperViewModel {
             mapper = built
             mapper?.useMentionGate = useMentionGate
             #if os(iOS)
-            dialog = MapperDialogController(speech: speech, classifier: built.classifier)
+                dialog = MapperDialogController(speech: speech, classifier: built.classifier)
             #endif
             metrics.modelLoadSeconds = seconds
             metrics.footprintAfterLoad = mapperMemoryFootprint()
@@ -96,8 +96,9 @@ final class MapperViewModel {
             lastRunSeconds = outcome.seconds
             lastModelCalls = outcome.modelCalls
             noteFootprint()
-            status = String(format: "完了 %.0f ms(モデル呼び出し %d 回)",
-                            outcome.seconds * 1000, outcome.modelCalls)
+            status = String(
+                format: "完了 %.0f ms(モデル呼び出し %d 回)",
+                outcome.seconds * 1000, outcome.modelCalls)
         } catch {
             errorText = "\(error)"
             status = "マッピング失敗"
@@ -130,8 +131,9 @@ final class MapperViewModel {
             metrics.repetitions = sorted.count
         }
         noteFootprint()
-        status = String(format: "計測完了 中央値 %.0f ms / p95 %.0f ms(%d 回)",
-                        metrics.perSentenceMedianMs ?? 0, metrics.perSentenceP95Ms ?? 0, sorted.count)
+        status = String(
+            format: "計測完了 中央値 %.0f ms / p95 %.0f ms(%d 回)",
+            metrics.perSentenceMedianMs ?? 0, metrics.perSentenceP95Ms ?? 0, sorted.count)
         isBusy = false
     }
 
@@ -142,8 +144,9 @@ final class MapperViewModel {
         status = "2 回目の読み込みを計測中…"
         let seconds = await Task.detached(priority: .userInitiated) { () -> Double? in
             let started = Date()
-            guard (try? GLiNERClassifier(
-                modelURL: try Self.modelURL(), tokenizerFolder: try Self.tokenizerURL())) != nil
+            guard
+                (try? GLiNERClassifier(
+                    modelURL: try Self.modelURL(), tokenizerFolder: try Self.tokenizerURL())) != nil
             else { return nil }
             return Date().timeIntervalSince(started)
         }.value
@@ -187,59 +190,61 @@ final class MapperViewModel {
     }
 
     #if os(iOS)
-    /// Photo → Vision OCR → text field. Deliberately does not map: the person
-    /// checks and edits the OCR first, then presses マッピング.
-    func loadImage(data: Data) async {
-        guard !isBusy else { return }
-        isBusy = true
-        status = "画像を読み取り中…"
-        do {
-            let text = try await Task.detached(priority: .userInitiated) {
-                try MapperOCR.recognize(imageData: data)
-            }.value
-            ocrText = text
-            inputText = text
-            let lines = text.split(separator: "\n").count
-            status = text.isEmpty
-                ? "画像から文字を読み取れませんでした"
-                : "画像から \(lines) 行を読み取りました。確認・編集してから「マッピング」"
-        } catch {
-            errorText = "\(error)"
-            status = "画像の読み取りに失敗"
+        /// Photo → Vision OCR → text field. Deliberately does not map: the person
+        /// checks and edits the OCR first, then presses マッピング.
+        func loadImage(data: Data) async {
+            guard !isBusy else { return }
+            isBusy = true
+            status = "画像を読み取り中…"
+            do {
+                let text = try await Task.detached(priority: .userInitiated) {
+                    try MapperOCR.recognize(imageData: data)
+                }.value
+                ocrText = text
+                inputText = text
+                let lines = text.split(separator: "\n").count
+                status =
+                    text.isEmpty
+                    ? "画像から文字を読み取れませんでした"
+                    : "画像から \(lines) 行を読み取りました。確認・編集してから「マッピング」"
+            } catch {
+                errorText = "\(error)"
+                status = "画像の読み取りに失敗"
+            }
+            isBusy = false
         }
-        isBusy = false
-    }
     #endif
 
     #if os(iOS)
-    /// The in-flight dialog, so a restart waits for the previous one to unwind
-    /// instead of racing it.
-    @ObservationIgnored private var dialogTask: Task<Void, Never>?
+        /// The in-flight dialog, so a restart waits for the previous one to unwind
+        /// instead of racing it.
+        @ObservationIgnored private var dialogTask: Task<Void, Never>?
 
-    /// Runs the voice dialog, then drops its six answers into the sheet.
-    func runDialog() async {
-        let wasReady = mapper != nil
-        if mapper == nil { await loadModel() }
-        guard let dialog else { return }
-        dialog.modelWasReady = wasReady
-        // A cancelled run needs a moment to return; starting on top of it would leave
-        // two state machines sharing one recogniser.
-        if let dialogTask { await dialogTask.value }
-        dialog.textOnlyMode = !useVoiceDialog
-        dialog.refreshDiagnostics()
-        let task = Task { await dialog.start() }
-        dialogTask = task
-        await task.value
-        dialogTask = nil
-        if !dialog.results.isEmpty {
-            fields = MapperForm.fields.map { field in
-                dialog.results.first { $0.key == field.key }
-                    ?? MapperFieldResult(key: field.key, name: field.name, value: "", unit: "",
-                                         score: 0, status: .absent, topTwo: [], note: "")
+        /// Runs the voice dialog, then drops its six answers into the sheet.
+        func runDialog() async {
+            let wasReady = mapper != nil
+            if mapper == nil { await loadModel() }
+            guard let dialog else { return }
+            dialog.modelWasReady = wasReady
+            // A cancelled run needs a moment to return; starting on top of it would leave
+            // two state machines sharing one recogniser.
+            if let dialogTask { await dialogTask.value }
+            dialog.textOnlyMode = !useVoiceDialog
+            dialog.refreshDiagnostics()
+            let task = Task { await dialog.start() }
+            dialogTask = task
+            await task.value
+            dialogTask = nil
+            if !dialog.results.isEmpty {
+                fields = MapperForm.fields.map { field in
+                    dialog.results.first { $0.key == field.key }
+                        ?? MapperFieldResult(
+                            key: field.key, name: field.name, value: "", unit: "",
+                            score: 0, status: .absent, topTwo: [], note: "")
+                }
+                status = "対話で入力しました。\(dialog.roundTripSummary)"
             }
-            status = "対話で入力しました。\(dialog.roundTripSummary)"
         }
-    }
     #endif
 
     func startDictation() {

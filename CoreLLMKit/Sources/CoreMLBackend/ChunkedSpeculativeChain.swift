@@ -23,7 +23,10 @@ final class ChunkedSpeculativeChain {
         let fallbackRounds: Int
         let draftedTokens: Int
         let acceptedTokens: Int
-        var hitRate: Double? { let t = pldRounds + fallbackRounds; return t > 0 ? Double(pldRounds) / Double(t) : nil }
+        var hitRate: Double? {
+            let t = pldRounds + fallbackRounds
+            return t > 0 ? Double(pldRounds) / Double(t) : nil
+        }
         var draftAcceptRate: Double? { draftedTokens > 0 ? Double(acceptedTokens) / Double(draftedTokens) : nil }
     }
 
@@ -103,10 +106,12 @@ final class ChunkedSpeculativeChain {
         let maskOffS, maskOffF: MLMultiArray
     }
 
-    init(bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
-         verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true,
-         prefillMode: String? = nil, specializationStrategy: String? = nil,
-         prefillEarlyExit: Bool? = nil) async throws {
+    init(
+        bundleURL: URL, computeUnits: MLComputeUnits, sidecarStage: String? = nil,
+        verifyHeadComputeUnits: MLComputeUnits? = nil, preloadVerifyAssets: Bool = true,
+        prefillMode: String? = nil, specializationStrategy: String? = nil,
+        prefillEarlyExit: Bool? = nil
+    ) async throws {
         let config = try ChunkedChainConfig.load(from: bundleURL.appending(path: "convert_config.json"))
         self.config = config
         self.prefillMode = Self.resolvePrefillMode(manifest: prefillMode)
@@ -145,14 +150,15 @@ final class ChunkedSpeculativeChain {
         chunkCompiledURLs = compiledURLs
         let headCompiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: config.lmheadPackage)
         let headStart = loadClock.now
-        head = try Self.loadFunction(compiledURL: headCompiled, functionName: nil, computeUnits: computeUnits,
-                                     specializationStrategy: resolvedSpecialization)
+        head = try Self.loadFunction(
+            compiledURL: headCompiled, functionName: nil, computeUnits: computeUnits,
+            specializationStrategy: resolvedSpecialization)
         let headSeconds = (loadClock.now - headStart) / .seconds(1)
         loadBreakdown = [
             "[load] specialization=\(Self.specializationName(resolvedSpecialization))",
             "[load] decode chunks "
                 + decode.seconds.enumerated()
-                    .map { String(format: "c%d=%.2fs", $0.offset, $0.element) }.joined(separator: " ")
+                .map { String(format: "c%d=%.2fs", $0.offset, $0.element) }.joined(separator: " ")
                 + String(format: " wall=%.2fs", decodeWall),
             String(format: "[load] lmhead=%.2fs", headSeconds),
             "[load] prefillMode=\(self.prefillMode.rawValue) earlyExit=\(self.prefillEarlyExit) "
@@ -161,13 +167,16 @@ final class ChunkedSpeculativeChain {
 
         let headCU = verifyHeadComputeUnits ?? Self.resolveVerifyHeadComputeUnits(engine: computeUnits)
         verifyHeadCU = headCU
-        bundleSupportsVerify = config.batchedHeadPackages[Self.verifyWidth] != nil
+        bundleSupportsVerify =
+            config.batchedHeadPackages[Self.verifyWidth] != nil
             && config.verifyFunctions[Self.verifyWidth] != nil
         if preloadVerifyAssets, bundleSupportsVerify,
-           let pkg = config.batchedHeadPackages[Self.verifyWidth] {
+            let pkg = config.batchedHeadPackages[Self.verifyWidth]
+        {
             let compiled = try await Self.compileIfNeeded(bundleURL: bundleURL, name: pkg)
-            batchedVerifyHead = try Self.loadFunction(compiledURL: compiled, functionName: nil, computeUnits: headCU,
-                                                      specializationStrategy: resolvedSpecialization)
+            batchedVerifyHead = try Self.loadFunction(
+                compiledURL: compiled, functionName: nil, computeUnits: headCU,
+                specializationStrategy: resolvedSpecialization)
         } else {
             batchedVerifyHead = nil
         }
@@ -185,8 +194,10 @@ final class ChunkedSpeculativeChain {
                 scale: bundleURL.appending(path: sc.ple.scaleFile ?? "ple_scale_f32.bin"),
                 rows: sc.ple.rows, cols: sc.ple.cols, runtimeScaleSqrt: sc.ple.runtimeScaleSqrt ?? Double(PLE))
         } else {
-            embedSidecar = try QuantizedSidecar(fp16: bundleURL.appending(path: sc.embed.file), rows: sc.embed.rows, cols: sc.embed.cols)
-            pleSidecar = try QuantizedSidecar(fp16: bundleURL.appending(path: sc.ple.file), rows: sc.ple.rows, cols: sc.ple.cols)
+            embedSidecar = try QuantizedSidecar(
+                fp16: bundleURL.appending(path: sc.embed.file), rows: sc.embed.rows, cols: sc.embed.cols)
+            pleSidecar = try QuantizedSidecar(
+                fp16: bundleURL.appending(path: sc.ple.file), rows: sc.ple.rows, cols: sc.ple.cols)
         }
 
         func alloc(_ dims: [Int]) throws -> MLMultiArray {
@@ -199,9 +210,12 @@ final class ChunkedSpeculativeChain {
         tokidBuffer = try alloc([numLayers, PLE])
         rowBuffer = try alloc([H])
         dOnehot = try alloc([CTX])
-        dCosS = try alloc([config.HD]); dSinS = try alloc([config.HD])
-        dCosF = try alloc([config.GHD]); dSinF = try alloc([config.GHD])
-        dMaskS = try alloc([CTX]); dMaskF = try alloc([CTX])
+        dCosS = try alloc([config.HD])
+        dSinS = try alloc([config.HD])
+        dCosF = try alloc([config.GHD])
+        dSinF = try alloc([config.GHD])
+        dMaskS = try alloc([CTX])
+        dMaskF = try alloc([CTX])
 
         try reset()
 
@@ -292,8 +306,10 @@ final class ChunkedSpeculativeChain {
         }
     }
 
-    static func loadFunction(compiledURL: URL, functionName: String?, computeUnits: MLComputeUnits,
-                             specializationStrategy: MLOptimizationHints.SpecializationStrategy?) throws -> MLModel {
+    static func loadFunction(
+        compiledURL: URL, functionName: String?, computeUnits: MLComputeUnits,
+        specializationStrategy: MLOptimizationHints.SpecializationStrategy?
+    ) throws -> MLModel {
         let cfg = MLModelConfiguration()
         cfg.computeUnits = computeUnits
         if let functionName { cfg.functionName = functionName }
@@ -316,9 +332,10 @@ final class ChunkedSpeculativeChain {
         var seconds: [Double] = []
         for url in compiledURLs {
             let t0 = clock.now
-            models.append(try loadFunction(
-                compiledURL: url, functionName: functionName, computeUnits: computeUnits,
-                specializationStrategy: specializationStrategy))
+            models.append(
+                try loadFunction(
+                    compiledURL: url, functionName: functionName, computeUnits: computeUnits,
+                    specializationStrategy: specializationStrategy))
             seconds.append((clock.now - t0) / .seconds(1))
         }
         return (models, seconds)
@@ -350,7 +367,8 @@ final class ChunkedSpeculativeChain {
 
     /// Every prefill function loaded since `init`, as `chunk#function xN`, for the self-test log.
     var prefillLoadSummary: String {
-        prefillLoads.isEmpty ? "none"
+        prefillLoads.isEmpty
+            ? "none"
             : prefillLoads.sorted { $0.key < $1.key }.map { "\($0.key) x\($0.value)" }.joined(separator: ", ")
     }
 
@@ -382,7 +400,8 @@ final class ChunkedSpeculativeChain {
         var copies: [String: MLFeatureValue] = [:]
         for name in provider.featureNames {
             guard let array = provider.featureValue(for: name)?.multiArrayValue,
-                  array.dataType == .float16 else { continue }
+                array.dataType == .float16
+            else { continue }
             let owned = try MLMultiArray(shape: array.shape, dataType: .float16)
             array.withF16 { src in
                 owned.withF16 { dst in dst.baseAddress!.update(from: src.baseAddress!, count: src.count) }
@@ -394,7 +413,10 @@ final class ChunkedSpeculativeChain {
 
     func reset() throws {
         position = 0
-        pldRounds = 0; pldFallbackRounds = 0; pldDraftedTokens = 0; pldAcceptedTokens = 0
+        pldRounds = 0
+        pldFallbackRounds = 0
+        pldDraftedTokens = 0
+        pldAcceptedTokens = 0
         kbuf = try (0..<firstShared).map { try zeroKV(layer: $0) }
         vbuf = try (0..<firstShared).map { try zeroKV(layer: $0) }
     }
@@ -431,7 +453,8 @@ final class ChunkedSpeculativeChain {
     /// last token at position `p`. `hidden` is that token's row out of the last KV-owning chunk;
     /// the chunks read the STORE layers' buffers and write nothing back, so `position` stays where
     /// the prefill left it (`p + 1`). Returns the first generated token.
-    private func runTailDecode(hidden: MLMultiArray, tokenID: Int, softRow: SoftRowRef?, position p: Int) throws -> Int {
+    private func runTailDecode(hidden: MLMultiArray, tokenID: Int, softRow: SoftRowRef?, position p: Int) throws -> Int
+    {
         fillDecodeHost(pos: p)
         fillDecodeToken(tokenID: tokenID, softRow: softRow)
         copyFlat(from: hidden, to: hiddenBuffer, count: H)
@@ -458,10 +481,15 @@ final class ChunkedSpeculativeChain {
             "mask_s": dMaskS, "mask_f": dMaskF,
         ]
         if a < firstShared {
-            for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
+            for i in a..<b {
+                features["k_\(i)_in"] = kbuf[i]
+                features["v_\(i)_in"] = vbuf[i]
+            }
         } else {
-            features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
-            features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+            features["sks"] = kbuf[storeS]
+            features["svs"] = vbuf[storeS]
+            features["skf"] = kbuf[storeF]
+            features["svf"] = vbuf[storeF]
         }
         let out = try decodeModels[ci].prediction(from: MLDictionaryFeatureProvider(dictionary: features))
         guard let hidden = out.featureValue(for: "hidden")?.multiArrayValue else {
@@ -471,10 +499,12 @@ final class ChunkedSpeculativeChain {
         if a < firstShared {
             for i in a..<b {
                 guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                      let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
+                    let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                else {
                     throw LLMEngineError.generationFailed(reason: "chunked decode chunk \(ci) layer \(i) KV missing")
                 }
-                kbuf[i] = k; vbuf[i] = v
+                kbuf[i] = k
+                vbuf[i] = v
             }
         }
     }
@@ -488,7 +518,9 @@ final class ChunkedSpeculativeChain {
         precondition(rowRefs.count == ids.count)
         if blockScheduledPrefill {
             throw LLMEngineError.generationFailed(
-                reason: "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded")
+                reason:
+                    "prefill invoked on a decode-only (restore) chain; restore replaces prefill so the wide prefill functions are never loaded"
+            )
         }
         if prefillMode == .sequential { return try feedChunkMajor(ids: ids, rowRefs: rowRefs) }
         let offsetNs = config.prefillNs.filter { $0 != config.plainN }.sorted(by: >)
@@ -497,8 +529,11 @@ final class ChunkedSpeculativeChain {
         // Early exit parks the prompt's latest row (out of the KV-owning chunks) in `rowBuffer`
         // and runs the KV-sharing chunks on it once, after the loop, instead of lm_head per block.
         func blockEnded(_ hidden: MLMultiArray, row: Int) throws {
-            if prefillEarlyExit { copyRow(from: hidden, row: row, to: rowBuffer) }
-            else { last = try lmheadRow(hidden, row: row) }
+            if prefillEarlyExit {
+                copyRow(from: hidden, row: row, to: rowBuffer)
+            } else {
+                last = try lmheadRow(hidden, row: row)
+            }
         }
         while idx < ids.count {
             try Task.checkCancellation()
@@ -555,8 +590,11 @@ final class ChunkedSpeculativeChain {
         var idx = 0
         while idx < ids.count {
             let remaining = ids.count - idx
-            guard let N = start + idx == 0 && remaining >= config.plainN ? config.plainN
-                : offsetNs.first(where: { remaining >= $0 && start + idx + $0 <= CTX }) else { break }
+            guard
+                let N = start + idx == 0 && remaining >= config.plainN
+                    ? config.plainN
+                    : offsetNs.first(where: { remaining >= $0 && start + idx + $0 <= CTX })
+            else { break }
             blocks.append((N, idx, N))
             idx += N
         }
@@ -587,10 +625,13 @@ final class ChunkedSpeculativeChain {
                         // ponytail: several 32 blocks are refilled once per chunk (~35 ms each in a
                         // Debug build on a Mac, far less in Release); keep per-block copies if that shows.
                         if filled[N] != bi {
-                            fillTokenInputs(bufs: bufs, ids: Array(ids[i0..<(i0 + L)]), N: N,
-                                            softRows: softSlice(rowRefs, i0, i0 + L))
-                            writeRoPE(cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { p + $0 })
-                            writeRoPE(cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { p + $0 })
+                            fillTokenInputs(
+                                bufs: bufs, ids: Array(ids[i0..<(i0 + L)]), N: N,
+                                softRows: softSlice(rowRefs, i0, i0 + L))
+                            writeRoPE(
+                                cos: bufs.cosS, sin: bufs.sinS, inv: config.invSlide, positions: (0..<N).map { p + $0 })
+                            writeRoPE(
+                                cos: bufs.cosF, sin: bufs.sinF, inv: config.invFull, positions: (0..<N).map { p + $0 })
                             if plain {
                                 fillPlainMask(bufs.maskPlainS, sliding: true, N: N, L: N)
                                 fillPlainMask(bufs.maskPlainF, sliding: false, N: N, L: N)
@@ -606,32 +647,44 @@ final class ChunkedSpeculativeChain {
                             "cos_s": bufs.cosS, "sin_s": bufs.sinS, "cos_f": bufs.cosF, "sin_f": bufs.sinF,
                         ]
                         if plain {
-                            features["mask_s"] = bufs.maskPlainS; features["mask_f"] = bufs.maskPlainF
+                            features["mask_s"] = bufs.maskPlainS
+                            features["mask_f"] = bufs.maskPlainF
                             if a >= firstShared {
-                                features["sks"] = store[storeS]!.0; features["svs"] = store[storeS]!.1
-                                features["skf"] = store[storeF]!.0; features["svf"] = store[storeF]!.1
+                                features["sks"] = store[storeS]!.0
+                                features["svs"] = store[storeS]!.1
+                                features["skf"] = store[storeF]!.0
+                                features["svf"] = store[storeF]!.1
                             }
                         } else {
-                            features["mask_s"] = bufs.maskOffS; features["mask_f"] = bufs.maskOffF
+                            features["mask_s"] = bufs.maskOffS
+                            features["mask_f"] = bufs.maskOffF
                             features["onehot"] = bufs.onehot
                             if a < firstShared {
-                                for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
+                                for i in a..<b {
+                                    features["k_\(i)_in"] = kbuf[i]
+                                    features["v_\(i)_in"] = vbuf[i]
+                                }
                             } else {
-                                features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
-                                features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+                                features["sks"] = kbuf[storeS]
+                                features["svs"] = vbuf[storeS]
+                                features["skf"] = kbuf[storeF]
+                                features["svf"] = vbuf[storeF]
                             }
                         }
                         let input = try MLDictionaryFeatureProvider(dictionary: features)
                         let out = try autoreleasepool { try Self.detachedCopy(of: model.prediction(from: input)) }
                         guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
-                            throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
+                            throw LLMEngineError.generationFailed(
+                                reason: "chunked prefill\(N) chunk \(ci) returned no hidden")
                         }
                         if ci == 0 { hidden.append(h) } else { hidden[bi] = h }
                         if a < firstShared {
                             for i in a..<b {
                                 guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                                      let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                                    throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
+                                    let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                                else {
+                                    throw LLMEngineError.generationFailed(
+                                        reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
                                 }
                                 if plain && (i == storeS || i == storeF) { store[i] = (k, v) }
                                 writebackKV(dst: kbuf[i], src: k, p: p, L: L, hd: config.headDim(ofLayer: i))
@@ -653,8 +706,11 @@ final class ChunkedSpeculativeChain {
             }
         }
         position = start + ids.count
-        if let row = tailHidden.last { copyFlat(from: row, to: rowBuffer, count: H) }
-        else { copyRow(from: hidden[blocks.count - 1], row: blocks[blocks.count - 1].L - 1, to: rowBuffer) }
+        if let row = tailHidden.last {
+            copyFlat(from: row, to: rowBuffer, count: H)
+        } else {
+            copyRow(from: hidden[blocks.count - 1], row: blocks[blocks.count - 1].L - 1, to: rowBuffer)
+        }
         guard prefillEarlyExit else { return try lmhead(rowBuffer) }
         return try runTailDecode(
             hidden: rowBuffer, tokenID: ids[ids.count - 1], softRow: rowRefs[ids.count - 1],
@@ -737,9 +793,9 @@ final class ChunkedSpeculativeChain {
     /// Headroom before jetsam. `.greatestFiniteMagnitude` off-device so the guard never fires there.
     static func availableMB() -> Double {
         #if os(iOS)
-        return Double(os_proc_available_memory()) / 1_048_576
+            return Double(os_proc_available_memory()) / 1_048_576
         #else
-        return .greatestFiniteMagnitude
+            return .greatestFiniteMagnitude
         #endif
     }
 
@@ -769,8 +825,10 @@ final class ChunkedSpeculativeChain {
                 "mask_s": bufs.maskPlainS, "mask_f": bufs.maskPlainF,
             ]
             if a >= firstShared {
-                features["sks"] = store[storeS]!.0; features["svs"] = store[storeS]!.1
-                features["skf"] = store[storeF]!.0; features["svf"] = store[storeF]!.1
+                features["sks"] = store[storeS]!.0
+                features["svs"] = store[storeS]!.1
+                features["skf"] = store[storeF]!.0
+                features["svf"] = store[storeF]!.1
             }
             let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
@@ -780,8 +838,10 @@ final class ChunkedSpeculativeChain {
             if a < firstShared {
                 for i in a..<b {
                     guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                          let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                        throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
+                        let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                    else {
+                        throw LLMEngineError.generationFailed(
+                            reason: "chunked prefill\(N) chunk \(ci) layer \(i) KV missing")
                     }
                     if i == storeS || i == storeF { store[i] = (k, v) }
                     writebackKV(dst: kbuf[i], src: k, p: 0, L: L, hd: config.headDim(ofLayer: i))
@@ -814,21 +874,29 @@ final class ChunkedSpeculativeChain {
                 "mask_s": bufs.maskOffS, "mask_f": bufs.maskOffF, "onehot": bufs.onehot,
             ]
             if a < firstShared {
-                for i in a..<b { features["k_\(i)_in"] = kbuf[i]; features["v_\(i)_in"] = vbuf[i] }
+                for i in a..<b {
+                    features["k_\(i)_in"] = kbuf[i]
+                    features["v_\(i)_in"] = vbuf[i]
+                }
             } else {
-                features["sks"] = kbuf[storeS]; features["svs"] = vbuf[storeS]
-                features["skf"] = kbuf[storeF]; features["svf"] = vbuf[storeF]
+                features["sks"] = kbuf[storeS]
+                features["svs"] = vbuf[storeS]
+                features["skf"] = kbuf[storeF]
+                features["svf"] = vbuf[storeF]
             }
             let out = try prefillChunk(N: N, chunk: ci, features: features)
             guard let h = out.featureValue(for: "hidden")?.multiArrayValue else {
-                throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) offset chunk \(ci) returned no hidden")
+                throw LLMEngineError.generationFailed(
+                    reason: "chunked prefill\(N) offset chunk \(ci) returned no hidden")
             }
             hidden = h
             if a < firstShared {
                 for i in a..<b {
                     guard let k = out.featureValue(for: "k_\(i)_out")?.multiArrayValue,
-                          let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue else {
-                        throw LLMEngineError.generationFailed(reason: "chunked prefill\(N) offset chunk \(ci) layer \(i) KV missing")
+                        let v = out.featureValue(for: "v_\(i)_out")?.multiArrayValue
+                    else {
+                        throw LLMEngineError.generationFailed(
+                            reason: "chunked prefill\(N) offset chunk \(ci) layer \(i) KV missing")
                     }
                     writebackKV(dst: kbuf[i], src: k, p: p, L: L, hd: config.headDim(ofLayer: i))
                     writebackKV(dst: vbuf[i], src: v, p: p, L: L, hd: config.headDim(ofLayer: i))
@@ -1020,7 +1088,8 @@ extension ChunkedSpeculativeChain: SpeculativeDecoding {
         }
         let maxDraft = Self.verifyWidth - 1
         let cap = min(maxDraft, CTX - 1 - base)
-        let pldCopied = cap >= 1
+        let pldCopied =
+            cap >= 1
             ? PromptLookup.draft(context: context, last: prediction, maxDraft: cap, maxN: 3, minN: Self.pldMinN)
             : []
         let S = 1 + pldCopied.count
@@ -1046,8 +1115,9 @@ extension ChunkedSpeculativeChain: SpeculativeDecoding {
 
 extension ChunkedSpeculativeChain {
     func pldStatsSnapshot() -> PLDStats {
-        PLDStats(pldRounds: pldRounds, fallbackRounds: pldFallbackRounds,
-                 draftedTokens: pldDraftedTokens, acceptedTokens: pldAcceptedTokens)
+        PLDStats(
+            pldRounds: pldRounds, fallbackRounds: pldFallbackRounds,
+            draftedTokens: pldDraftedTokens, acceptedTokens: pldAcceptedTokens)
     }
 
     func setBlockScheduledPrefill(_ b: Bool) { blockScheduledPrefill = b }
@@ -1099,8 +1169,9 @@ final class SoftTokenRows: Sendable {
     private let data: [Float16]
 
     init(rows: Int, hidden: Int, data: [Float16]) {
-        precondition(data.count == rows * hidden,
-                     "SoftTokenRows: data.count \(data.count) != rows*hidden \(rows * hidden)")
+        precondition(
+            data.count == rows * hidden,
+            "SoftTokenRows: data.count \(data.count) != rows*hidden \(rows * hidden)")
         self.rows = rows
         self.hidden = hidden
         self.data = data
@@ -1148,7 +1219,10 @@ extension ChunkedSpeculativeChain {
         for seg in segments {
             switch seg {
             case .tokens(let ts):
-                for t in ts { ids.append(t); rowRefs.append(nil) }
+                for t in ts {
+                    ids.append(t)
+                    rowRefs.append(nil)
+                }
             case .image(let soft):
                 appendSoft(soft, placeholder: Self.imagePlaceholderID, kind: "image")
             case .audio(let soft):
@@ -1257,9 +1331,10 @@ extension ChunkedSpeculativeChain {
             let vFile = "v_\(i).bin"
             try kData.write(to: url.appending(path: kFile), options: .atomic)
             try vData.write(to: url.appending(path: vFile), options: .atomic)
-            entries.append(ChunkedKVLayerEntry(
-                layer: i, type: config.layerTypes[i], headDim: hd, rows: rows,
-                kFile: kFile, vFile: vFile, kBytes: kData.count, vBytes: vData.count))
+            entries.append(
+                ChunkedKVLayerEntry(
+                    layer: i, type: config.layerTypes[i], headDim: hd, rows: rows,
+                    kFile: kFile, vFile: vFile, kBytes: kData.count, vBytes: vData.count))
         }
         let manifest = ChunkedKVManifest(
             schemaVersion: Self.kvSchemaVersion,
@@ -1287,8 +1362,9 @@ extension ChunkedSpeculativeChain {
             throw ChunkedKVError.badManifest("manifest.json unreadable: \(url.path(percentEncoded: false))")
         }
         let manifest: ChunkedKVManifest
-        do { manifest = try JSONDecoder().decode(ChunkedKVManifest.self, from: mData) }
-        catch { throw ChunkedKVError.badManifest("manifest.json decode failed: \(error)") }
+        do { manifest = try JSONDecoder().decode(ChunkedKVManifest.self, from: mData) } catch {
+            throw ChunkedKVError.badManifest("manifest.json decode failed: \(error)")
+        }
 
         guard manifest.schemaVersion == Self.kvSchemaVersion else {
             throw ChunkedKVError.schemaMismatch(expected: Self.kvSchemaVersion, found: manifest.schemaVersion)
@@ -1298,18 +1374,21 @@ extension ChunkedSpeculativeChain {
             throw ChunkedKVError.identityMismatch(expected: current, found: manifest.identity)
         }
         if let saved = manifest.bundleName, saved != bundleURL.lastPathComponent {
-            let warn = "chunked KV WARN: bundleName differs (manifest=\(saved) current=\(bundleURL.lastPathComponent)); "
+            let warn =
+                "chunked KV WARN: bundleName differs (manifest=\(saved) current=\(bundleURL.lastPathComponent)); "
                 + "record-only field, restore continues (identity matches)\n"
             FileHandle.standardError.write(Data(warn.utf8))
         }
         if let want = expectedContext {
             guard want.count == manifest.position,
-                  Self.tokenSeqSHA256(want) == manifest.tokenSeqSHA256 else {
+                Self.tokenSeqSHA256(want) == manifest.tokenSeqSHA256
+            else {
                 throw ChunkedKVError.tokenMismatch(expectedCount: want.count, manifestCount: manifest.position)
             }
         }
         guard manifest.layers.count == firstShared else {
-            throw ChunkedKVError.badManifest("own layer count mismatch: manifest=\(manifest.layers.count) chain=\(firstShared)")
+            throw ChunkedKVError.badManifest(
+                "own layer count mismatch: manifest=\(manifest.layers.count) chain=\(firstShared)")
         }
 
         try reset()
@@ -1323,10 +1402,12 @@ extension ChunkedSpeculativeChain {
                 throw ChunkedKVError.badManifest(
                     "layer \(i) shape mismatch (hd=\(e.headDim)/\(hd) rows=\(e.rows)/\(manifest.position))")
             }
-            try loadKVPrefix(into: kbuf[i], from: url.appending(path: e.kFile),
-                             rows: e.rows, hd: hd, expectBytes: e.kBytes, name: e.kFile)
-            try loadKVPrefix(into: vbuf[i], from: url.appending(path: e.vFile),
-                             rows: e.rows, hd: hd, expectBytes: e.vBytes, name: e.vFile)
+            try loadKVPrefix(
+                into: kbuf[i], from: url.appending(path: e.kFile),
+                rows: e.rows, hd: hd, expectBytes: e.kBytes, name: e.kFile)
+            try loadKVPrefix(
+                into: vbuf[i], from: url.appending(path: e.vFile),
+                rows: e.rows, hd: hd, expectBytes: e.vBytes, name: e.vFile)
         }
         position = manifest.position
         return manifest
@@ -1369,8 +1450,10 @@ extension ChunkedSpeculativeChain {
         return data
     }
 
-    private func loadKVPrefix(into arr: MLMultiArray, from fileURL: URL,
-                             rows: Int, hd: Int, expectBytes: Int, name: String) throws {
+    private func loadKVPrefix(
+        into arr: MLMultiArray, from fileURL: URL,
+        rows: Int, hd: Int, expectBytes: Int, name: String
+    ) throws {
         guard FileManager.default.fileExists(atPath: fileURL.path(percentEncoded: false)) else {
             throw ChunkedKVError.missingFile(name)
         }
@@ -1389,10 +1472,10 @@ extension ChunkedSpeculativeChain {
 
     private func excludeFromBackup(_ url: URL) {
         #if !os(macOS)
-        var u = url
-        var rv = URLResourceValues()
-        rv.isExcludedFromBackup = true
-        try? u.setResourceValues(rv)
+            var u = url
+            var rv = URLResourceValues()
+            rv.isExcludedFromBackup = true
+            try? u.setResourceValues(rv)
         #endif
     }
 }

@@ -1,0 +1,20 @@
+{
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'H' using lowerCamelCase": 1,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'PLE' using lowerCamelCase": 1,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'CTX' using lowerCamelCase": 1,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the function parameter 'N' using lowerCamelCase": 1,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the argument label 'N' using lowerCamelCase": 11,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'N' using lowerCamelCase": 5,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'L' using lowerCamelCase": 2,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the function parameter 'W' using lowerCamelCase": 1,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the argument label 'L' using lowerCamelCase": 4,
+  "CoreLLMKit/Sources/CoreMLBackend/ChunkedSpeculativeChain.swift\trename the constant 'S' using lowerCamelCase": 1,
+  "CoreLLMKit/Tests/CoreMLBackendTests/GLiNERParityTests.swift\trename the variable 'input_ids' using lowerCamelCase": 1,
+  "CoreLLMKit/Tests/CoreMLBackendTests/GLiNERParityTests.swift\trename the variable 'attention_mask' using lowerCamelCase": 1,
+  "CoreLLMKit/Tests/CoreMLBackendTests/GLiNERParityTests.swift\trename the variable 'marker_indices' using lowerCamelCase": 1,
+  "CoreLLMKit/Tests/CoreMLBackendTests/GLiNERParityTests.swift\trename the variable 'marker_mask' using lowerCamelCase": 1,
+  "CoreMLSamples/Demos/Mapper/MapperSelfTest.swift\trename the variable 'input_ids' using lowerCamelCase": 1,
+  "CoreMLSamples/Demos/Mapper/MapperSelfTest.swift\trename the variable 'attention_mask' using lowerCamelCase": 1,
+  "CoreMLSamples/Demos/Mapper/MapperSelfTest.swift\trename the variable 'marker_indices' using lowerCamelCase": 1,
+  "CoreMLSamples/Demos/Mapper/MapperSelfTest.swift\trename the variable 'marker_mask' using lowerCamelCase": 1
+}
