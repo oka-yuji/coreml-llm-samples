@@ -13,13 +13,26 @@ root = Path(__file__).resolve().parents[2]
 def git(*parts):
     return subprocess.check_output(["git", "-C", str(root), *parts]).decode().split("\0")
 base = subprocess.check_output(["git", "-C", str(root), "merge-base", "HEAD", args.base]).decode().strip()
+mixed = set(git("diff", "--cached", "--name-only", "-z")) & set(git("diff", "--name-only", "-z"))
+mixed = sorted(f for f in mixed if f.endswith(".swift"))
+if mixed:
+    print("Staged and unstaged Swift changes overlap: " + ", ".join(mixed))
+    sys.exit(2)
 files = set(git("diff", "--name-only", "-z", base)) | set(git("ls-files", "--others", "--exclude-standard", "-z"))
+links = sorted(f for f in files if f.endswith(".swift") and (root / f).is_symlink())
+if links:
+    print("Swift symlinks require explicit review: " + ", ".join(links))
+    sys.exit(2)
 files = sorted(f for f in files if f.endswith(".swift") and (root / f).is_file())
 if not files:
     print("No changed Swift files")
     sys.exit(0)
 allowed = json.loads(Path(__file__).with_name("legacy-identifiers.json").read_text())
 result = subprocess.run(["xcrun", "swift-format", "lint", "--strict", "--configuration", ".swift-format", *files], cwd=root, text=True, capture_output=True)
+if result.returncode not in (0, 1):
+    print(result.stdout + result.stderr)
+    print(f"swift-format terminated unexpectedly: {result.returncode}")
+    sys.exit(1)
 counts = collections.Counter()
 failures = []
 for line in (result.stdout + result.stderr).splitlines():
