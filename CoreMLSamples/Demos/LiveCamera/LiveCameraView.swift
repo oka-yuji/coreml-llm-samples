@@ -230,10 +230,6 @@ struct LiveCameraView: View {
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
-    private var availableModes: [LiveCaptionMode] {
-        LiveEngineProvision.availableModes(selectedBundle)
-    }
-
     private var startStopTitle: String {
         if live.isRunning { return "Stop" }
         return starting ? "Loading…" : "Start"

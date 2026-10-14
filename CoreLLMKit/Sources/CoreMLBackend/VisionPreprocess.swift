@@ -13,8 +13,6 @@ struct VisionGeometry: Sendable, Equatable {
     var patchDim: Int { Self.patch * Self.patch * 3 }
 
     static let maxSide = 4096
-    static let square768 = VisionGeometry(grid: 48)
-    static let square384 = VisionGeometry(grid: 24)
 
     static func forPatchCount(_ count: Int) -> VisionGeometry? {
         guard count > 0 else { return nil }
@@ -84,10 +82,6 @@ enum VisionPreprocess {
     static func patches(from image: CGImage, geometry: VisionGeometry) throws -> MLMultiArray {
         let pixels = try unitRGBPixelsHWC(from: image, geometry: geometry)
         return try patchify(pixelsHWC: pixels, geometry: geometry)
-    }
-
-    static func patches(fromImageAt url: URL, geometry: VisionGeometry) throws -> MLMultiArray {
-        try patches(from: try loadCGImage(from: url), geometry: geometry)
     }
 
     static func blankPatches(geometry: VisionGeometry) throws -> MLMultiArray {
