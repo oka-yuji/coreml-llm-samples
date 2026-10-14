@@ -508,16 +508,6 @@ enum AneProbe {
         return (wired.sorted()[n / 2], wired.min()!, footprint.sorted()[n / 2], available.sorted()[n / 2])
     }
 
-    private static func elementSize(_ type: MLMultiArrayDataType) -> Int {
-        switch type {
-        case .float16: 2
-        case .float32: 4
-        case .double: 8
-        case .int32: 4
-        @unknown default: 4
-        }
-    }
-
     private static func zeroInputs(_ model: MLModel) throws -> MLFeatureProvider {
         var values: [String: MLFeatureValue] = [:]
         for (name, description) in model.modelDescription.inputDescriptionsByName {
@@ -529,7 +519,9 @@ enum AneProbe {
                     ])
             }
             let array = try MLMultiArray(shape: constraint.shape, dataType: constraint.dataType)
-            memset(array.dataPointer, 0, array.count * elementSize(constraint.dataType))
+            array.withUnsafeMutableBytes { bytes, _ in
+                bytes.initializeMemory(as: UInt8.self, repeating: 0)
+            }
             values[name] = MLFeatureValue(multiArray: array)
         }
         return try MLDictionaryFeatureProvider(dictionary: values)
