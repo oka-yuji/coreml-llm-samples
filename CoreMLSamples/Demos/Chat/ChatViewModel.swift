@@ -209,7 +209,7 @@ final class ChatViewModel {
             .sorted { $0.lastPathComponent < $1.lastPathComponent }
     }
 
-    func loadModel(path: String) async {
+    func loadModel(path: String, computeUnitsOverride: ComputeUnitPreference? = nil) async {
         guard canLoad else { return }
         let url = URL(fileURLWithPath: path, isDirectory: true)
         let manifestURL = url.appending(path: "manifest.json")
@@ -225,13 +225,17 @@ final class ChatViewModel {
             let bundle = try ModelBundle(contentsOf: url)
             modelName = bundle.manifest.name
             loadedContextLength = bundle.manifest.contextLength
-            let preference = bundle.manifest.computeUnits
+            let preference = computeUnitsOverride
+                ?? bundle.manifest.computeUnits
                 .flatMap(ComputeUnitPreference.init(rawValue:)) ?? .cpuAndGPU
             loadingComputeUnits = preference.rawValue
             phase = .loading("Compiling / loading Core ML models (\(preference.rawValue))…")
             let newEngine = CoreMLEngine()
             try await newEngine.load(
-                bundle, options: LoadOptions(computeUnits: preference, preloadSpeculation: speculative))
+                bundle,
+                options: LoadOptions(
+                    computeUnits: preference, preloadSpeculation: speculative,
+                    allowUnsafeComputeUnits: computeUnitsOverride != nil))
             engine = newEngine
             supportsImageAttachment = await newEngine.supportsImageInput()
             supportsAudioAttachment = await newEngine.supportsAudioInput()

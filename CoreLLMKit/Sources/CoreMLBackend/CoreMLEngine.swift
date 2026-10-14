@@ -113,13 +113,15 @@ public actor CoreMLEngine: LLMEngine {
             speculative = r
         } else if model.manifest.format == "coreml-stateful-chain-v2" {
 
-            guard units == .cpuAndGPU || units == .all else {
+            guard units == .cpuAndGPU || units == .all || options.allowUnsafeComputeUnits else {
                 throw LLMEngineError.incompatibleBundle(
                     reason: "v2 stateful bundles require the GPU (computeUnits=\(options.computeUnits.rawValue)). "
                         + "CPU_ONLY / ANE crash with a native segfault when multiple MLState instances load together. "
                         + "Specify cpuAndGPU or all")
             }
-            let v2 = try await CoreMLChainV2(bundleURL: model.directoryURL, computeUnits: units)
+            let v2 = try await CoreMLChainV2(
+                bundleURL: model.directoryURL, computeUnits: units,
+                allowUnsafeComputeUnits: options.allowUnsafeComputeUnits)
             tokenizer = try await HFTokenizer(
                 modelFolder: model.directoryURL,
                 eosTokenIDs: Set(v2.config.eosIDs).union(model.manifest.eos ?? []))

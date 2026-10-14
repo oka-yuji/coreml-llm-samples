@@ -118,9 +118,15 @@ public struct LoadOptions: Sendable, Hashable {
 
     public var preloadSpeculation: Bool
 
-    public init(computeUnits: ComputeUnitPreference = .all, preloadSpeculation: Bool = true) {
+    public var allowUnsafeComputeUnits: Bool
+
+    public init(
+        computeUnits: ComputeUnitPreference = .all, preloadSpeculation: Bool = true,
+        allowUnsafeComputeUnits: Bool = false
+    ) {
         self.computeUnits = computeUnits
         self.preloadSpeculation = preloadSpeculation
+        self.allowUnsafeComputeUnits = allowUnsafeComputeUnits
     }
 }
 

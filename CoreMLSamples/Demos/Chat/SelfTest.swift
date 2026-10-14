@@ -37,6 +37,7 @@ enum SelfTest {
             if !rag.isEmpty { return rag }
             return prompts.isEmpty ? [prompt ?? ""] + (followUp.map { [$0] } ?? []) : prompts
         }
+        var computeUnits: String?
     }
 
     struct Sink {
@@ -68,7 +69,18 @@ enum SelfTest {
             fresh: args.contains("--fresh"),
             rag: value("--rag").map { $0.split(separator: "|").map(String.init) } ?? [],
             ragWeb: !["0", "no", "off", "false"].contains(value("--rag-web") ?? ""),
-            ragLocal: !["0", "no", "off", "false"].contains(value("--rag-local") ?? ""))
+            ragLocal: !["0", "no", "off", "false"].contains(value("--rag-local") ?? ""),
+            computeUnits: value("--cu"))
+    }
+
+    static func thermalName() -> String {
+        switch ProcessInfo.processInfo.thermalState {
+        case .nominal: return "nominal"
+        case .fair: return "fair"
+        case .serious: return "serious"
+        case .critical: return "critical"
+        @unknown default: return "unknown"
+        }
     }
 
     static func run() -> Never {
@@ -101,6 +113,18 @@ enum SelfTest {
             errln("selftest: --model plus --prompt / --prompts (or --audio) are required")
             return 2
         }
+        var override: ComputeUnitPreference?
+        if let requested = opts.computeUnits {
+            guard let parsed = ComputeUnitPreference(rawValue: requested) else {
+                errln("selftest: unknown --cu \(requested) (expected one of "
+                    + ComputeUnitPreference.allCases.map(\.rawValue).joined(separator: ", ") + ")")
+                return 2
+            }
+            override = parsed
+        }
+        let freeGB = Double(ModelStorage.availableDiskSpace()) / 1e9
+        errln(String(format: "[selftest] free %.2f GB  |  thermal %@  |  cu %@",
+                     freeGB, thermalName(), override?.rawValue ?? "(manifest)"))
         errln("[selftest] tag=\(opts.tag ?? "(none)")")
         for line in E5RTCache.startupLines { errln(line) }
         let vm = ChatViewModel()
@@ -112,7 +136,7 @@ enum SelfTest {
         }
         let clock = ContinuousClock()
         let loadStart = clock.now
-        await vm.loadModel(path: model)
+        await vm.loadModel(path: model, computeUnitsOverride: override)
         let loadSeconds = (clock.now - loadStart) / .seconds(1)
         guard vm.isModelLoaded, case .ready = vm.phase else {
             errln("selftest: load failed (\(vm.phaseDescription))")
